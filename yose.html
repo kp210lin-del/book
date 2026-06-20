@@ -38,10 +38,16 @@ table.board td{width:var(--cell);height:var(--cell);border:1px solid var(--grid)
   font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
 td.g span{display:inline-block;transform:rotate(180deg)}
 td.s{color:#1b1b1b} td.g{color:#1b1b1b}
-.coordsrow td{font-size:calc(var(--cell)*.34);color:#6b5320;font-family:sans-serif;
-  height:auto;border:none;background:transparent;font-weight:700}
-.coordcol{font-size:calc(var(--cell)*.34);color:#6b5320;font-family:sans-serif;
-  font-weight:700;padding:0 3px;border:none;background:transparent}
+/* 座標は盤の外（上=筋9..1 / 右=段一..九） */
+.brd{display:inline-block}
+.files{display:flex;padding-left:3px}
+.files i{width:var(--cell);text-align:center;font-style:normal;font-weight:700;
+  font-size:calc(var(--cell)*.30);color:var(--sub);font-family:sans-serif;padding-bottom:3px}
+.bmid{display:flex;align-items:flex-start}
+.ranks{display:flex;flex-direction:column;padding-top:3px}
+.ranks i{height:var(--cell);display:flex;align-items:center;justify-content:center;
+  width:calc(var(--cell)*.62);font-style:normal;font-weight:700;
+  font-size:calc(var(--cell)*.30);color:var(--sub);font-family:sans-serif}
 .hands{display:flex;flex-direction:column;gap:4px;width:100%;max-width:var(--bw)}
 .hand{display:flex;align-items:center;gap:6px;background:var(--panel);
   border:1px solid #000;border-radius:8px;padding:6px 10px;font-size:17px;min-height:34px}
@@ -60,7 +66,7 @@ button.big:active{filter:brightness(.9)}
 .answer.show{display:block}
 .ans-h{font-size:14px;color:var(--sub);margin-bottom:8px}
 .movebig{font-size:30px;font-weight:800;color:var(--accent);font-family:"Hiragino Mincho ProN",serif}
-.ansimg{max-width:100%;width:360px;border-radius:10px;border:1px solid #000;background:#fff;display:block;margin-top:6px}
+.ansimg{max-width:100%;width:560px;border-radius:10px;border:1px solid #000;background:#fff;display:block;margin-top:6px}
 .choice{border:1px solid #3a4150;border-radius:10px;padding:10px 12px;margin:8px 0}
 .choice.correct{border-color:var(--ok);background:rgba(70,180,107,.12)}
 .choice .mv{font-size:20px;font-weight:700}
@@ -139,17 +145,21 @@ function parseSfen(sfen){
 }
 function renderBoard(host,sfen){
   const {grid,turn,hands}=parseSfen(sfen);
-  let h='<table class="board"><tr class="coordsrow">';
-  for(let f=9;f>=1;f--)h+=`<td>${f}</td>`;h+='<td></td></tr>';
-  for(let r=0;r<9;r++){h+='<tr>';
+  let files='<div class="files">';
+  for(let f=9;f>=1;f--)files+=`<i>${f}</i>`;files+='</div>';
+  let tbl='<table class="board">';
+  for(let r=0;r<9;r++){tbl+='<tr>';
     for(let f=0;f<9;f++){const p=grid[r][f];
-      if(!p){h+='<td></td>';continue;}
+      if(!p){tbl+='<td></td>';continue;}
       const up=p.replace("+","").toUpperCase();
       const base=(p[0]==="+"?"+":"")+up;
       const isGote=p.replace("+","")===p.replace("+","").toLowerCase();
-      h+=`<td class="${isGote?'g':'s'}"><span>${PIECE_JP[base]||"?"}</span></td>`;}
-    h+=`<td class="coordcol">${KAN_NUM[r+1]}</td></tr>`;}
-  h+='</table>';host.innerHTML=h;
+      tbl+=`<td class="${isGote?'g':'s'}"><span>${PIECE_JP[base]||"?"}</span></td>`;}
+    tbl+='</tr>';}
+  tbl+='</table>';
+  let ranks='<div class="ranks">';
+  for(let r=0;r<9;r++)ranks+=`<i>${KAN_NUM[r+1]}</i>`;ranks+='</div>';
+  host.innerHTML='<div class="brd">'+files+'<div class="bmid">'+tbl+ranks+'</div></div>';
   document.getElementById("senteHandPc").textContent=handText(hands.s);
   document.getElementById("goteHandPc").textContent=handText(hands.g);
   document.getElementById("turnLbl").innerHTML="手番 <b>"+(turn==="b"?"▲先手":"△後手")+"</b>";
@@ -198,7 +208,7 @@ function render(){
 function buildAnswer(p,a){
   let body=_answerBody(p,a);
   if(a&&a.image_ans){
-    body+="<div class='ans-h' style='margin-top:14px'>本の解答図</div>"+
+    body+="<div class='ans-h' style='margin-top:14px'>本の解答・解説</div>"+
       "<img class='ansimg' src='"+a.image_ans+"' loading='lazy' alt='解答図'>";
   }
   return body;
@@ -242,9 +252,11 @@ document.addEventListener("touchend",e=>{const dx=e.changedTouches[0].clientX-tx
 function sizeBoard(){
   const w=window.innerWidth,h=window.innerHeight;
   const twoCol=w>820;
-  // 盤(9マス)を画面の約半分に。横持ち=幅の半分、縦持ち=幅いっぱい寄り
-  const avail=twoCol?Math.min(w*0.5,h*0.86):Math.min(w*0.94,h*0.62);
-  const cell=Math.max(30,Math.min(80,Math.floor(avail/9)));
+  // 縦: ヘッダ/持駒2段/座標/余白(~200px)を差し引いて9段が必ず収まるように
+  const byH=(h-200)/9.7;
+  // 横: 盤(座標含む10列ぶん)を画面の約半分に
+  const byW=(twoCol?w*0.5:w*0.94)/10;
+  const cell=Math.max(26,Math.min(72,Math.floor(Math.min(byH,byW))));
   document.documentElement.style.setProperty("--cell",cell+"px");
   document.documentElement.style.setProperty("--bw",(cell*10)+"px");}
 window.addEventListener("resize",sizeBoard);
