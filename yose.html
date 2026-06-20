@@ -45,12 +45,12 @@ td.s{color:#1b1b1b} td.g{color:#1b1b1b}
 .brd{display:inline-block}
 .files{display:flex;padding-left:3px}
 .files i{width:var(--cell);text-align:center;font-style:normal;font-weight:700;
-  font-size:calc(var(--cell)*.30);color:var(--sub);font-family:sans-serif;padding-bottom:3px}
+  font-size:calc(var(--cell)*.23);color:var(--sub);font-family:sans-serif;padding-bottom:3px}
 .bmid{display:flex;align-items:flex-start}
 .ranks{display:flex;flex-direction:column;padding-top:3px}
 .ranks i{height:var(--cell);display:flex;align-items:center;justify-content:center;
   width:calc(var(--cell)*.62);font-style:normal;font-weight:700;
-  font-size:calc(var(--cell)*.30);color:var(--sub);font-family:sans-serif}
+  font-size:calc(var(--cell)*.23);color:var(--sub);font-family:sans-serif}
 .hands{display:flex;flex-direction:column;gap:4px;width:100%;max-width:var(--bw)}
 .hand{display:flex;align-items:center;gap:6px;background:var(--panel);
   border:1px solid #000;border-radius:8px;padding:6px 10px;font-size:17px;min-height:34px}
@@ -218,10 +218,10 @@ function buildAnswer(p,a){
 }
 function _answerBody(p,a){
   if(!a)return "<div class='ans-h'>解答データなし</div>";
-  if(a.type==="final_move"){let s="<div class='ans-h'>解答手順の最終手</div>";
+  if(a.type==="final_move"){let s="<div class='ans-h'>解答（最終手）</div>";
     s+="<div class='movebig'>"+a.move_jp+" まで</div>";
-    s+="<div class='note'>※ これは正解手順の<b>最終手</b>です（初手・全手順はこの書籍では未収録）。</div>";
-    if(a.incomplete)s+="<div class='note'>※ 原典キャプションの表記欠損で着地マスが特定できません。</div>";return s;}
+    if(a.incomplete)s+="<div class='note'>※ 原典の表記が一部欠けています。</div>";
+    return s;}
   if(a.type==="single"){const jp=renderSeq(p.sfen,[a.usi])[0];
     return "<div class='ans-h'>正解（次の一手）</div><div class='movebig'>"+jp+"</div>";}
   if(a.type==="choice"){let s="<div class='ans-h'>選択肢</div>";
