@@ -138,8 +138,8 @@ function parseSfen(sfen){
 }
 function renderBoard(host,sfen){
   const {grid,turn,hands}=parseSfen(sfen);
-  let h='<table class="board"><tr class="coordsrow"><td></td>';
-  for(let f=9;f>=1;f--)h+=`<td>${f}</td>`;h+='</tr>';
+  let h='<table class="board"><tr class="coordsrow">';
+  for(let f=9;f>=1;f--)h+=`<td>${f}</td>`;h+='<td></td></tr>';
   for(let r=0;r<9;r++){h+='<tr>';
     for(let f=0;f<9;f++){const p=grid[r][f];
       if(!p){h+='<td></td>';continue;}
@@ -230,9 +230,12 @@ let tx=0,ty=0;
 document.addEventListener("touchstart",e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
 document.addEventListener("touchend",e=>{const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;
   if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.6){if(dx<0)go(curIdx+1);else go(curIdx-1);}},{passive:true});
-function sizeBoard(){const right=document.querySelector(".right");
-  const avail=Math.min(right.clientWidth-20,window.innerHeight*0.62,560);
-  const cell=Math.max(28,Math.floor(avail/10));
+function sizeBoard(){
+  const w=window.innerWidth,h=window.innerHeight;
+  const twoCol=w>820;
+  // 盤(9マス)を画面の約半分に。横持ち=幅の半分、縦持ち=幅いっぱい寄り
+  const avail=twoCol?Math.min(w*0.5,h*0.86):Math.min(w*0.94,h*0.62);
+  const cell=Math.max(30,Math.min(80,Math.floor(avail/9)));
   document.documentElement.style.setProperty("--cell",cell+"px");
   document.documentElement.style.setProperty("--bw",(cell*10)+"px");}
 window.addEventListener("resize",sizeBoard);
