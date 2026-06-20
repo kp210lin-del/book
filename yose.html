@@ -66,7 +66,7 @@ button.big:active{filter:brightness(.9)}
 .answer.show{display:block}
 .ans-h{font-size:14px;color:var(--sub);margin-bottom:8px}
 .movebig{font-size:30px;font-weight:800;color:var(--accent);font-family:"Hiragino Mincho ProN",serif}
-.ansimg{max-width:100%;width:560px;border-radius:10px;border:1px solid #000;background:#fff;display:block;margin-top:6px}
+.ansimg{max-width:100%;width:440px;border-radius:10px;border:1px solid #000;background:#fff;display:block;margin-top:6px}
 .choice{border:1px solid #3a4150;border-radius:10px;padding:10px 12px;margin:8px 0}
 .choice.correct{border-color:var(--ok);background:rgba(70,180,107,.12)}
 .choice .mv{font-size:20px;font-weight:700}
@@ -208,7 +208,7 @@ function render(){
 function buildAnswer(p,a){
   let body=_answerBody(p,a);
   if(a&&a.image_ans){
-    body+="<div class='ans-h' style='margin-top:14px'>本の解答・解説</div>"+
+    body+="<div class='ans-h' style='margin-top:14px'>本の解説</div>"+
       "<img class='ansimg' src='"+a.image_ans+"' loading='lazy' alt='解答図'>";
   }
   return body;
