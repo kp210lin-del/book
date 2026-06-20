@@ -18,12 +18,15 @@ body{background:var(--bg);color:var(--ink);
   -webkit-text-size-adjust:100%;overscroll-behavior:none}
 a{color:inherit;text-decoration:none}
 
-header{display:flex;gap:10px;align-items:center;padding:8px 12px;
-  background:#171b24;border-bottom:1px solid #000;position:sticky;top:0;z-index:5}
-header .back{font-size:16px;padding:8px 12px;border-radius:10px;background:#2a3140}
-header .title{font-size:18px;font-weight:700}
-.counter{margin-left:auto;font-size:15px;color:var(--sub);white-space:nowrap}
-.counter b{color:var(--ink);font-size:18px}
+/* 左カラム上部のメタ情報（盤とは分離して左に寄せる） */
+.meta{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-bottom:12px;
+  padding-bottom:10px;border-bottom:1px solid #333}
+.meta .back{font-size:15px;padding:8px 12px;border-radius:10px;background:#2a3140}
+.meta .bktitle{font-size:19px;font-weight:700}
+.meta .counter{font-size:15px;color:var(--sub);white-space:nowrap}
+.meta .counter b{color:var(--ink);font-size:20px}
+.meta .turn{font-size:15px;color:var(--sub)}
+.meta .turn b{color:var(--accent)}
 .wrap{display:flex;gap:14px;padding:14px;align-items:flex-start;max-width:1100px;margin:0 auto}
 .left{flex:1 1 0;min-width:0}
 .right{flex:0 0 auto}
@@ -89,13 +92,14 @@ button.big:active{filter:brightness(.9)}
   .right{order:1;width:100%;display:flex;justify-content:center}
 }
 </style></head><body>
-<header>
-  <a class="back" href="index.html">☰ 一覧</a>
-  <span class="title">将棋の本筋</span>
-  <div class="counter">第 <b id="curNo">1</b> 問 / <span id="total">0</span></div>
-</header>
 <div class="wrap">
   <div class="left">
+    <div class="meta">
+      <a class="back" href="index.html">☰ 一覧</a>
+      <div class="bktitle">将棋の本筋</div>
+      <div class="counter">第 <b id="curNo">1</b> 問 / <span id="total">0</span></div>
+      <div class="turn" id="turnLbl"></div>
+    </div>
     <div class="qmeta" id="qmeta"></div>
     <div class="situation" id="situation"></div>
     <div class="btnrow"><button class="big" id="showBtn">解答を見る</button></div>
@@ -108,7 +112,6 @@ button.big:active{filter:brightness(.9)}
       <button class="nav" style="padding:8px 14px;border-radius:8px;border:none;color:#fff" id="jumpBtn">移動</button></div>
   </div>
   <div class="right"><div class="boardbox">
-    <div class="turn" id="turnLbl"></div>
     <div class="hands"><div class="hand"><span class="lab">後手 持駒</span><span class="pc" id="goteHandPc">なし</span></div></div>
     <div id="boardHost"></div>
     <div class="hands"><div class="hand"><span class="lab">先手 持駒</span><span class="pc" id="senteHandPc">なし</span></div></div>
@@ -196,7 +199,7 @@ function loadPos(){try{const v=+localStorage.getItem(POSKEY);if(v>=0&&v<DATA.len
 function render(){
   const p=DATA[curIdx];
   document.getElementById("curNo").textContent=p.problem_no;
-  document.getElementById("qmeta").textContent=p.book+(p.label?(" / "+p.label):(p.chapter?(" / "+p.chapter):""));
+  document.getElementById("qmeta").textContent=p.label||p.chapter||"";
   const sit=document.getElementById("situation");
   if(p.situation){sit.style.display="block";sit.textContent=p.situation;}else sit.style.display="none";
   renderBoard(document.getElementById("boardHost"),p.sfen);
@@ -252,11 +255,11 @@ document.addEventListener("touchend",e=>{const dx=e.changedTouches[0].clientX-tx
 function sizeBoard(){
   const w=window.innerWidth,h=window.innerHeight;
   const twoCol=w>820;
-  // 縦: ヘッダ/持駒2段/座標/余白(~200px)を差し引いて9段が必ず収まるように
-  const byH=(h-200)/9.7;
-  // 横: 盤(座標含む10列ぶん)を画面の約半分に
-  const byW=(twoCol?w*0.5:w*0.94)/10;
-  const cell=Math.max(26,Math.min(72,Math.floor(Math.min(byH,byW))));
+  // 縦: 上ヘッダ廃止で盤側の余白は持駒2段+座標(~120px)のみ→盤を高く取れる
+  const byH=(h-120)/9.3;
+  // 横: 盤(座標含む10列ぶん)を画面の約半分強に
+  const byW=(twoCol?w*0.54:w*0.94)/10;
+  const cell=Math.max(26,Math.min(78,Math.floor(Math.min(byH,byW))));
   document.documentElement.style.setProperty("--cell",cell+"px");
   document.documentElement.style.setProperty("--bw",(cell*10)+"px");}
 window.addEventListener("resize",sizeBoard);
