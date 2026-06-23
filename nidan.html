@@ -34,6 +34,13 @@ body{overflow:hidden}
 .left{flex:1 1 0;min-width:0;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-right:4px}
 .right{flex:0 0 auto;display:flex;align-items:center;justify-content:center}
 .boardbox{display:flex;flex-direction:column;align-items:center;gap:5px}
+.boardrow{display:flex;align-items:center;justify-content:center;gap:10px;width:100%}
+.boardtools{display:flex;flex-direction:column;gap:8px;width:108px}
+.toolbtn{width:100%;padding:10px 8px;border-radius:10px;border:1px solid #000;
+  background:#39414f;color:var(--ink);font-size:15px;font-weight:700;min-height:44px}
+.toolbtn.active{background:var(--accent);color:#1b1b1b}
+.toolstatus{background:var(--panel);border:1px solid #000;border-radius:10px;
+  padding:8px 10px;font-size:12px;line-height:1.5;color:var(--sub);min-height:92px}
 .turn{font-size:16px;color:var(--sub)}
 .turn b{color:var(--accent)}
 table.board{border-collapse:collapse;background:var(--board);
@@ -42,6 +49,9 @@ table.board td{width:var(--cell);height:var(--cell);border:1px solid var(--grid)
   text-align:center;vertical-align:middle;padding:0;
   font-size:calc(var(--cell)*.72);line-height:1;font-weight:600;
   font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
+table.board.editable td{cursor:pointer}
+table.board td.sel{background:rgba(224,133,58,.28)}
+table.board td.dst{box-shadow:inset 0 0 0 3px rgba(70,180,107,.8)}
 td.g span{display:inline-block;transform:rotate(180deg)}
 td.s{color:#16407a} td.g{color:#a32a2a}  /* 自陣(先手)=青 / 敵(後手)=赤 で視認性UP */
 /* 座標は盤の外（上=筋9..1 / 右=段一..九） */
@@ -97,6 +107,8 @@ button.big:active{filter:brightness(.9)}
   .wrap{flex-direction:column;align-items:stretch;gap:6px}
   .right{order:1;width:100%;flex:0 0 auto}
   .left{order:2;width:100%;flex:1 1 auto;min-height:0;height:auto;overflow-y:auto}
+  .boardtools{width:96px}
+  .toolbtn{font-size:14px;min-height:40px;padding:8px 6px}
 }
 </style></head><body>
 <div class="wrap">
@@ -120,7 +132,14 @@ button.big:active{filter:brightness(.9)}
   </div>
   <div class="right"><div class="boardbox">
     <div class="hands"><div class="hand"><span class="lab">後手 持駒</span><span class="pc" id="goteHandPc">なし</span></div></div>
-    <div id="boardHost"></div>
+    <div class="boardrow">
+      <div id="boardHost"></div>
+      <div class="boardtools">
+        <button class="toolbtn" id="editBtn">駒を動かす</button>
+        <button class="toolbtn" id="resetBtn">初期配置</button>
+        <div class="toolstatus" id="toolStatus">盤の横ボタンで移動モードにします。</div>
+      </div>
+    </div>
     <div class="hands"><div class="hand"><span class="lab">先手 持駒</span><span class="pc" id="senteHandPc">なし</span></div></div>
   </div></div>
 </div>
@@ -153,18 +172,22 @@ function parseSfen(sfen){
     const side=ch===up?"s":"g";hands[side][up]=(hands[side][up]||0)+cnt;}}
   return {grid,turn,hands};
 }
-function renderBoard(host,sfen){
-  const {grid,turn,hands}=parseSfen(sfen);
+function cloneBoardState(s){return {grid:s.grid.map(r=>r.slice()),hands:{s:{...s.hands.s},g:{...s.hands.g}},turn:s.turn};}
+function renderBoard(host,state){
+  const {grid,turn,hands}=state;
   let files='<div class="files">';
   for(let f=9;f>=1;f--)files+=`<i>${f}</i>`;files+='</div>';
-  let tbl='<table class="board">';
+  let tbl='<table class="board'+(editMode?' editable':'')+'">';
   for(let r=0;r<9;r++){tbl+='<tr>';
     for(let f=0;f<9;f++){const p=grid[r][f];
-      if(!p){tbl+='<td></td>';continue;}
+      const sel=selected&&selected.r===r&&selected.c===f?' sel':'';
+      const dst=selected&&moveTarget&&moveTarget.r===r&&moveTarget.c===f?' dst':'';
+      const cls=(sel||dst)?` class="${(p?(p.replace("+","")===p.replace("+","").toLowerCase()?'g':'s'):'')+sel+dst}"`:"";
+      if(!p){tbl+=`<td data-r="${r}" data-c="${f}"${cls}></td>`;continue;}
       const up=p.replace("+","").toUpperCase();
       const base=(p[0]==="+"?"+":"")+up;
       const isGote=p.replace("+","")===p.replace("+","").toLowerCase();
-      tbl+=`<td class="${isGote?'g':'s'}"><span>${PIECE_JP[base]||"?"}</span></td>`;}
+      tbl+=`<td data-r="${r}" data-c="${f}" class="${isGote?'g':'s'}${sel}${dst}"><span>${PIECE_JP[base]||"?"}</span></td>`;}
     tbl+='</tr>';}
   tbl+='</table>';
   let ranks='<div class="ranks">';
@@ -173,6 +196,7 @@ function renderBoard(host,sfen){
   document.getElementById("senteHandPc").textContent=handText(hands.s);
   document.getElementById("goteHandPc").textContent=handText(hands.g);
   document.getElementById("turnLbl").innerHTML="手番 <b>"+(turn==="b"?"▲先手":"△後手")+"</b>";
+  host.querySelectorAll("td[data-r]").forEach(td=>td.addEventListener("click",onBoardCellClick));
 }
 function handText(h){const a=[];for(const p of HAND_ORDER)if(h[p])a.push(PIECE_JP[p]+(h[p]>1?h[p]:""));return a.length?a.join(" "):"なし";}
 function cloneState(sfen){const s=parseSfen(sfen);
@@ -200,16 +224,75 @@ function renderSeq(sfen,moves){const st=cloneState(sfen);let prev=null;const out
   for(const m of moves){const r=usiToJp(st,m,prev);out.push(r.jp);prev=r.dest;}return out;}
 
 let curIdx=0;
+let initialState=null,currentState=null,editMode=false,selected=null,moveTarget=null;
 const POSKEY="shogibook_pos_"+BOOK_SLUG;
 function savePos(){try{localStorage.setItem(POSKEY,curIdx);}catch(e){}}
 function loadPos(){try{const v=+localStorage.getItem(POSKEY);if(v>=0&&v<DATA.length)curIdx=v;}catch(e){}}
+function rcToLabel(r,c){return ZEN_NUM[9-c]+KAN_NUM[r+1];}
+function clearSelection(){selected=null;moveTarget=null;}
+function resetBoardState(){currentState=cloneBoardState(initialState);clearSelection();renderBoard(document.getElementById("boardHost"),currentState);syncBoardTools();}
+function syncBoardTools(msg){
+  const btn=document.getElementById("editBtn");
+  const stat=document.getElementById("toolStatus");
+  btn.classList.toggle("active",editMode);
+  btn.textContent=editMode?"移動中":"駒を動かす";
+  if(msg){stat.innerHTML=msg;return;}
+  if(!editMode){stat.innerHTML="盤の横ボタンで移動モードにします。";return;}
+  if(selected){
+    const p=currentState.grid[selected.r][selected.c]||"";
+    const piece=PIECE_JP[(p[0]==="+"?"+":"")+p.replace("+","").toUpperCase()]||"駒";
+    stat.innerHTML=piece+" を選択中<br>"+rcToLabel(selected.r,selected.c)+" → 行き先をタップ";
+    return;
+  }
+  stat.innerHTML="動かしたい駒をタップしてください。";
+}
+function movePiece(from,to){
+  const mover=currentState.grid[from.r][from.c];
+  if(!mover)return;
+  const target=currentState.grid[to.r][to.c];
+  if(target&&((target===target.toLowerCase())===(mover===mover.toLowerCase()))){
+    selected={r:to.r,c:to.c};moveTarget=null;renderBoard(document.getElementById("boardHost"),currentState);syncBoardTools();return;
+  }
+  if(target){
+    const up=target.replace("+","").toUpperCase();
+    const side=mover===mover.toLowerCase()?"g":"s";
+    currentState.hands[side][up]=(currentState.hands[side][up]||0)+1;
+  }
+  currentState.grid[to.r][to.c]=mover;
+  currentState.grid[from.r][from.c]=null;
+  currentState.turn=(mover===mover.toLowerCase())?"b":"w";
+  clearSelection();
+  renderBoard(document.getElementById("boardHost"),currentState);
+  syncBoardTools("移動しました<br>もう一度駒を選べます。");
+}
+function onBoardCellClick(e){
+  if(!editMode)return;
+  const td=e.currentTarget;
+  const r=+td.dataset.r,c=+td.dataset.c;
+  const p=currentState.grid[r][c];
+  if(!selected){
+    if(!p){syncBoardTools("空きマスです<br>先に駒を選んでください。");return;}
+    selected={r,c};moveTarget=null;
+    renderBoard(document.getElementById("boardHost"),currentState);syncBoardTools();return;
+  }
+  if(selected.r===r&&selected.c===c){clearSelection();renderBoard(document.getElementById("boardHost"),currentState);syncBoardTools();return;}
+  moveTarget={r,c};
+  if(p&&((p===p.toLowerCase())===(currentState.grid[selected.r][selected.c]===currentState.grid[selected.r][selected.c].toLowerCase()))){
+    selected={r,c};moveTarget=null;renderBoard(document.getElementById("boardHost"),currentState);syncBoardTools();return;
+  }
+  movePiece(selected,{r,c});
+}
 function render(){
   const p=DATA[curIdx];
   document.getElementById("curNo").textContent=p.problem_no;
   document.getElementById("qmeta").textContent=p.label||p.chapter||"";
   const sit=document.getElementById("situation");
   if(p.situation){sit.style.display="block";sit.textContent=p.situation;}else sit.style.display="none";
-  renderBoard(document.getElementById("boardHost"),p.sfen);
+  initialState=parseSfen(p.sfen);
+  currentState=cloneBoardState(initialState);
+  clearSelection();
+  renderBoard(document.getElementById("boardHost"),currentState);
+  syncBoardTools();
   const ans=document.getElementById("answer");ans.classList.remove("show");
   document.getElementById("showBtn").textContent="解答を見る";
   ans.innerHTML=buildAnswer(p,p.answer);
@@ -271,6 +354,8 @@ document.getElementById("prevBtn").onclick=()=>go(curIdx-1);
 document.getElementById("nextBtn").onclick=()=>go(curIdx+1);
 document.getElementById("showBtn").onclick=()=>{const a=document.getElementById("answer");
   a.classList.toggle("show");document.getElementById("showBtn").textContent=a.classList.contains("show")?"解答を隠す":"解答を見る";};
+document.getElementById("editBtn").onclick=()=>{editMode=!editMode;clearSelection();renderBoard(document.getElementById("boardHost"),currentState);syncBoardTools();};
+document.getElementById("resetBtn").onclick=()=>resetBoardState();
 document.getElementById("jumpBtn").onclick=()=>{const v=+document.getElementById("jumpInp").value;
   const i=DATA.findIndex(p=>p.problem_no===v);if(i>=0)go(i);};
 document.getElementById("jumpInp").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("jumpBtn").click();});
@@ -287,7 +372,7 @@ function sizeBoard(){
   // 横持ち=画面の全高、縦持ち=上60%を盤に割き残りを操作領域に。
   const availH=(twoCol?h:h*0.60)-120;
   const byH=availH/9.23;                    // 段座標(~0.23)+9段
-  const availW=(twoCol?w*0.50:w*0.96);
+  const availW=(twoCol?w*0.50:w*0.96)-120;
   const byW=availW/9.7;                      // 9セル+段座標列(~0.62)+余白
   const cell=Math.max(22,Math.min(80,Math.floor(Math.min(byH,byW))));
   document.documentElement.style.setProperty("--cell",cell+"px");
