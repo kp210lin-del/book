@@ -143,6 +143,7 @@ button.big:active{filter:brightness(.9)}
       <div class="boardtools">
         <button class="toolbtn" id="editBtn">駒を動かす</button>
         <button class="toolbtn" id="resetBtn">初期配置</button>
+        <button class="toolbtn" id="copySfenBtn">SFENコピー</button>
         <div class="toolstatus" id="toolStatus">盤の横ボタンで移動モードにします。</div>
       </div>
     </div>
@@ -179,6 +180,28 @@ function parseSfen(sfen){
   return {grid,turn,hands};
 }
 function cloneBoardState(s){return {grid:s.grid.map(r=>r.slice()),hands:{s:{...s.hands.s},g:{...s.hands.g}},turn:s.turn};}
+function boardToSfen(grid){
+  return grid.map(row=>{
+    let out="",empty=0;
+    for(const cell of row){
+      if(!cell){empty++;continue;}
+      if(empty){out+=String(empty);empty=0;}
+      out+=cell;
+    }
+    if(empty)out+=String(empty);
+    return out;
+  }).join("/");
+}
+function handsToSfen(hands){
+  let out="";
+  for(const p of HAND_ORDER){
+    const s=hands.s[p]||0,g=hands.g[p]||0;
+    if(s)out+=(s>1?String(s):"")+p;
+    if(g)out+=(g>1?String(g):"")+p.toLowerCase();
+  }
+  return out||"-";
+}
+function stateToSfen(state){return boardToSfen(state.grid)+" "+state.turn+" "+handsToSfen(state.hands)+" 1";}
 function renderHand(side,h){
   let html="";
   for(const p of HAND_ORDER){
@@ -266,12 +289,29 @@ function syncBoardTools(msg){
   }
   stat.innerHTML="盤上の駒か持ち駒をタップしてください。";
 }
+async function copyCurrentSfen(){
+  const sfen=stateToSfen(currentState);
+  try{
+    await navigator.clipboard.writeText(sfen);
+    syncBoardTools("SFENをコピーしました<br>そのまま貼り付けできます。");
+  }catch(e){
+    const ta=document.createElement("textarea");
+    ta.value=sfen;document.body.appendChild(ta);ta.select();
+    try{
+      document.execCommand("copy");
+      syncBoardTools("SFENをコピーしました<br>そのまま貼り付けできます。");
+    }catch(_e){
+      syncBoardTools("コピーに失敗しました<br>ブラウザ権限を確認してください。");
+    }
+    ta.remove();
+  }
+}
 function movePiece(from,to){
   const mover=currentState.grid[from.r][from.c];
   if(!mover)return;
   const target=currentState.grid[to.r][to.c];
   if(target&&((target===target.toLowerCase())===(mover===mover.toLowerCase()))){
-    selected={r:to.r,c:to.c};moveTarget=null;renderBoard(document.getElementById("boardHost"),currentState);syncBoardTools();return;
+    selected={kind:"board",r:to.r,c:to.c};moveTarget=null;renderBoard(document.getElementById("boardHost"),currentState);syncBoardTools();return;
   }
   if(target){
     const up=target.replace("+","").toUpperCase();
@@ -415,6 +455,7 @@ document.getElementById("showBtn").onclick=()=>{const a=document.getElementById(
   a.classList.toggle("show");document.getElementById("showBtn").textContent=a.classList.contains("show")?"解答を隠す":"解答を見る";};
 document.getElementById("editBtn").onclick=()=>{editMode=!editMode;clearSelection();renderBoard(document.getElementById("boardHost"),currentState);syncBoardTools();};
 document.getElementById("resetBtn").onclick=()=>resetBoardState();
+document.getElementById("copySfenBtn").onclick=()=>copyCurrentSfen();
 document.getElementById("jumpBtn").onclick=()=>{const v=+document.getElementById("jumpInp").value;
   const i=DATA.findIndex(p=>p.problem_no===v);if(i>=0)go(i);};
 document.getElementById("jumpInp").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("jumpBtn").click();});
