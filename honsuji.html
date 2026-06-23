@@ -240,6 +240,16 @@ function _answerBody(p,a){
     return s;}
   if(a.type==="single"){const jp=renderSeq(p.sfen,[a.usi])[0];
     return "<div class='ans-h'>正解（次の一手）</div><div class='movebig'>"+jp+"</div>";}
+  if(a.type==="next_move"){
+    const jp=a.usi ? renderSeq(p.sfen,[a.usi])[0] : (a.move_jp||"");
+    let s="<div class='ans-h'>正解（次の一手）</div>";
+    s+="<div class='movebig'>"+esc(jp||a.move_jp||"")+"</div>";
+    if(a.percent!=null)s+="<div class='note'>正解率: "+esc(String(a.percent))+"%</div>";
+    if(a.title)s+="<div class='captured'>"+esc(a.title)+"</div>";
+    if(a.explanation)s+="<div class='expl'>"+esc(a.explanation)+"</div>";
+    if(a.incomplete)s+="<div class='note'>※ 一部の解答情報は補完中です。</div>";
+    return s;
+  }
   if(a.type==="choice"){let s="<div class='ans-h'>選択肢</div>";
     for(const c of a.choices){const ok=c.label===a.correct;
       s+="<div class='choice"+(ok?" correct":"")+"'><span class='tag'>"+c.label+(ok?" ◎正解":"")+"</span>";
