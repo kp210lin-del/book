@@ -39,6 +39,10 @@ body{overflow:hidden}
 .toolbtn{width:100%;padding:10px 8px;border-radius:10px;border:1px solid #000;
   background:#39414f;color:var(--ink);font-size:15px;font-weight:700;min-height:44px}
 .toolbtn.active{background:var(--accent);color:#1b1b1b}
+.promobox{display:none;flex-direction:column;gap:8px}
+.promobox.show{display:flex}
+.promobtn{width:100%;padding:10px 8px;border-radius:10px;border:1px solid #000;
+  background:#5d6a82;color:var(--ink);font-size:15px;font-weight:700;min-height:44px}
 .toolstatus{background:var(--panel);border:1px solid #000;border-radius:10px;
   padding:8px 10px;font-size:12px;line-height:1.5;color:var(--sub);min-height:92px}
 .turn{font-size:16px;color:var(--sub)}
@@ -144,6 +148,10 @@ button.big:active{filter:brightness(.9)}
         <button class="toolbtn" id="editBtn">駒を動かす</button>
         <button class="toolbtn" id="resetBtn">初期配置</button>
         <button class="toolbtn" id="copySfenBtn">SFENコピー</button>
+        <div class="promobox" id="promoBox">
+          <button class="promobtn" id="promoteBtn">成る</button>
+          <button class="promobtn" id="stayBtn">成らず</button>
+        </div>
         <div class="toolstatus" id="toolStatus">盤の横ボタンで移動モードにします。</div>
       </div>
     </div>
@@ -160,6 +168,7 @@ const RANK_L="abcdefghi";
 const PIECE_JP={P:"歩",L:"香",N:"桂",S:"銀",G:"金",B:"角",R:"飛",K:"玉",
  "+P":"と","+L":"成香","+N":"成桂","+S":"成銀","+B":"馬","+R":"龍"};
 const HAND_ORDER=["R","B","G","S","N","L","P"];
+const PROMOTABLE={P:true,L:true,N:true,S:true,B:true,R:true};
 function parseSfen(sfen){
   const [board,turn,hand]=sfen.split(" ");
   const grid=[];
@@ -263,20 +272,51 @@ function renderSeq(sfen,moves){const st=cloneState(sfen);let prev=null;const out
   for(const m of moves){const r=usiToJp(st,m,prev);out.push(r.jp);prev=r.dest;}return out;}
 
 let curIdx=0;
-let initialState=null,currentState=null,editMode=false,selected=null,moveTarget=null;
+let initialState=null,currentState=null,editMode=false,selected=null,moveTarget=null,pendingPromotion=null;
 const POSKEY="shogibook_pos_"+BOOK_SLUG;
 function savePos(){try{localStorage.setItem(POSKEY,curIdx);}catch(e){}}
 function loadPos(){try{const v=+localStorage.getItem(POSKEY);if(v>=0&&v<DATA.length)curIdx=v;}catch(e){}}
 function rcToLabel(r,c){return ZEN_NUM[9-c]+KAN_NUM[r+1];}
-function clearSelection(){selected=null;moveTarget=null;}
+function clearSelection(){selected=null;moveTarget=null;pendingPromotion=null;}
+function setPromotionBox(show){
+  const box=document.getElementById("promoBox");
+  if(box)box.classList.toggle("show",show);
+}
 function resetBoardState(){currentState=cloneBoardState(initialState);clearSelection();renderBoard(document.getElementById("boardHost"),currentState);syncBoardTools();}
+function basePieceOf(cell){return cell.replace("+","").toUpperCase();}
+function isPromoted(cell){return cell && cell[0]==="+";}
+function sideOf(cell){return cell===cell.toLowerCase()?"g":"s";}
+function inPromotionZone(side,row){return side==="s"?row<=2:row>=6;}
+function canPromoteMove(mover,from,to){
+  if(!mover||isPromoted(mover))return false;
+  const base=basePieceOf(mover);
+  if(!PROMOTABLE[base])return false;
+  const side=sideOf(mover);
+  return inPromotionZone(side,from.r)||inPromotionZone(side,to.r);
+}
+function mustPromoteMove(mover,to){
+  const base=basePieceOf(mover),side=sideOf(mover);
+  if(side==="s"){
+    if((base==="P"||base==="L")&&to.r===0)return true;
+    if(base==="N"&&to.r<=1)return true;
+  }else{
+    if((base==="P"||base==="L")&&to.r===8)return true;
+    if(base==="N"&&to.r>=7)return true;
+  }
+  return false;
+}
 function syncBoardTools(msg){
   const btn=document.getElementById("editBtn");
   const stat=document.getElementById("toolStatus");
   btn.classList.toggle("active",editMode);
   btn.textContent=editMode?"移動中":"駒を動かす";
+  setPromotionBox(!!pendingPromotion);
   if(msg){stat.innerHTML=msg;return;}
   if(!editMode){stat.innerHTML="盤の横ボタンで移動モードにします。";return;}
+  if(pendingPromotion){
+    stat.innerHTML="成りを選んでください。";
+    return;
+  }
   if(selected){
     if(selected.kind==="hand"){
       stat.innerHTML=(selected.side==="s"?"先手":"後手")+"の持駒 "+PIECE_JP[selected.piece]+" を選択中<br>打ち先のマスをタップ";
@@ -306,7 +346,7 @@ async function copyCurrentSfen(){
     ta.remove();
   }
 }
-function movePiece(from,to){
+function applyBoardMove(from,to,promote){
   const mover=currentState.grid[from.r][from.c];
   if(!mover)return;
   const target=currentState.grid[to.r][to.c];
@@ -318,12 +358,28 @@ function movePiece(from,to){
     const side=mover===mover.toLowerCase()?"g":"s";
     currentState.hands[side][up]=(currentState.hands[side][up]||0)+1;
   }
-  currentState.grid[to.r][to.c]=mover;
+  const placed=(promote&&!isPromoted(mover))?("+"+mover):mover;
+  currentState.grid[to.r][to.c]=placed;
   currentState.grid[from.r][from.c]=null;
   currentState.turn=(mover===mover.toLowerCase())?"b":"w";
   clearSelection();
   renderBoard(document.getElementById("boardHost"),currentState);
-  syncBoardTools("移動しました<br>もう一度駒を選べます。");
+  syncBoardTools(promote?"成りました<br>もう一度駒を選べます。":"移動しました<br>もう一度駒を選べます。");
+}
+function movePiece(from,to){
+  const mover=currentState.grid[from.r][from.c];
+  if(!mover)return;
+  if(canPromoteMove(mover,from,to)){
+    if(mustPromoteMove(mover,to)){
+      applyBoardMove(from,to,true);
+      return;
+    }
+    pendingPromotion={from:{...from},to:{...to}};
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools("成りを選べます。");
+    return;
+  }
+  applyBoardMove(from,to,false);
 }
 function dropHandPiece(sel,to){
   if(currentState.grid[to.r][to.c]){
@@ -348,6 +404,7 @@ function dropHandPiece(sel,to){
 }
 function onHandClick(e){
   if(!editMode)return;
+  if(pendingPromotion){syncBoardTools("先に 成る / 成らず を選んでください。");return;}
   const btn=e.currentTarget;
   const side=btn.dataset.handSide,piece=btn.dataset.handPiece;
   if(selected&&selected.kind==="hand"&&selected.side===side&&selected.piece===piece){
@@ -361,6 +418,7 @@ function onHandClick(e){
 }
 function onBoardCellClick(e){
   if(!editMode)return;
+  if(pendingPromotion){syncBoardTools("先に 成る / 成らず を選んでください。");return;}
   const td=e.currentTarget;
   const r=+td.dataset.r,c=+td.dataset.c;
   const p=currentState.grid[r][c];
@@ -456,6 +514,8 @@ document.getElementById("showBtn").onclick=()=>{const a=document.getElementById(
 document.getElementById("editBtn").onclick=()=>{editMode=!editMode;clearSelection();renderBoard(document.getElementById("boardHost"),currentState);syncBoardTools();};
 document.getElementById("resetBtn").onclick=()=>resetBoardState();
 document.getElementById("copySfenBtn").onclick=()=>copyCurrentSfen();
+document.getElementById("promoteBtn").onclick=()=>{if(!pendingPromotion)return; const mv=pendingPromotion; applyBoardMove(mv.from,mv.to,true);};
+document.getElementById("stayBtn").onclick=()=>{if(!pendingPromotion)return; const mv=pendingPromotion; applyBoardMove(mv.from,mv.to,false);};
 document.getElementById("jumpBtn").onclick=()=>{const v=+document.getElementById("jumpInp").value;
   const i=DATA.findIndex(p=>p.problem_no===v);if(i>=0)go(i);};
 document.getElementById("jumpInp").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("jumpBtn").click();});
