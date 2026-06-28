@@ -31,14 +31,16 @@ body{overflow:hidden}
 .meta .turn b{color:var(--accent)}
 .wrap{display:flex;gap:14px;padding:10px;align-items:stretch;max-width:1180px;margin:0 auto;
   height:100dvh;max-height:100dvh;overflow:hidden}
-.left{flex:1 1 0;min-width:0;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-right:4px}
+.left{flex:1 1 calc(var(--bw) + 48px);min-width:0;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-right:4px}
 .right{flex:0 0 auto;display:flex;align-items:center;justify-content:center}
 .boardbox{display:flex;flex-direction:column;align-items:center;gap:5px}
 .boardrow{display:flex;align-items:center;justify-content:center;gap:10px;width:100%}
 .boardtools{display:flex;flex-direction:column;gap:8px;width:108px}
+.modegroup{display:flex;flex-direction:column;gap:8px}
 .toolbtn{width:100%;padding:10px 8px;border-radius:10px;border:1px solid #000;
   background:#39414f;color:var(--ink);font-size:15px;font-weight:700;min-height:44px}
 .toolbtn.active{background:var(--accent);color:#1b1b1b}
+.toolbtn:disabled{opacity:.45;cursor:default}
 .promobox{display:none;flex-direction:column;gap:8px}
 .promobox.show{display:flex}
 .promobtn{width:100%;padding:10px 8px;border-radius:10px;border:1px solid #000;
@@ -88,14 +90,14 @@ button.big{flex:1 1 auto;font-size:18px;font-weight:700;padding:12px;border-radi
 button.nav{background:#39414f;color:var(--ink)}
 button.big:active{filter:brightness(.9)}
 .answer{display:none;background:var(--panel);border:1px solid #000;border-radius:12px;
-  padding:14px;font-size:17px;line-height:1.6}
+  padding:14px;font-size:17px;line-height:1.6;max-width:calc(var(--bw) + 28px);margin:0 auto}
 .answer.show{display:block}
 .ans-h{font-size:14px;color:var(--sub);margin-bottom:8px}
 .movebig{font-size:30px;font-weight:800;color:var(--accent);font-family:"Hiragino Mincho ProN",serif}
 .expl{font-size:17px;line-height:1.85;margin-top:10px;white-space:pre-wrap;
   font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
 .captured{margin-top:10px;font-size:14px;color:var(--sub)}
-.ansimg{max-width:100%;width:100%;max-width:760px;border-radius:10px;border:1px solid #000;background:#fff;display:block;margin-top:6px}
+.ansimg{width:min(100%,var(--bw));max-width:min(100%,var(--bw));border-radius:10px;border:1px solid #000;background:#fff;display:block;margin-top:6px}
 .pending{margin-top:8px;font-size:13px;color:var(--sub)}
 .choice{border:1px solid #3a4150;border-radius:10px;padding:10px 12px;margin:8px 0}
 .choice.correct{border-color:var(--ok);background:rgba(70,180,107,.12)}
@@ -145,7 +147,7 @@ button.big:active{filter:brightness(.9)}
     <div class="boardrow">
       <div id="boardHost"></div>
       <div class="boardtools">
-        <button class="toolbtn" id="editBtn">駒を動かす</button>
+        
         <button class="toolbtn" id="resetBtn">初期配置</button>
         <button class="toolbtn" id="copySfenBtn">SFENコピー</button>
         <div class="promobox" id="promoBox">
@@ -166,9 +168,10 @@ const KAN_NUM=["","一","二","三","四","五","六","七","八","九"];
 const ZEN_NUM=["","１","２","３","４","５","６","７","８","９"];
 const RANK_L="abcdefghi";
 const PIECE_JP={P:"歩",L:"香",N:"桂",S:"銀",G:"金",B:"角",R:"飛",K:"玉",
- "+P":"と","+L":"杏","+N":"圭","+S":"全","+B":"馬","+R":"龍"};
+ "+P":"と","+L":"成香","+N":"成桂","+S":"成銀","+B":"馬","+R":"龍"};
 const HAND_ORDER=["R","B","G","S","N","L","P"];
 const PROMOTABLE={P:true,L:true,N:true,S:true,B:true,R:true};
+
 function parseSfen(sfen){
   const [board,turn,hand]=sfen.split(" ");
   const grid=[];
@@ -182,13 +185,20 @@ function parseSfen(sfen){
     grid.push(cells);
   }
   const hands={s:{},g:{}};
-  if(hand&&hand!=="-"){let n="";for(const ch of hand){
-    if(/[0-9]/.test(ch)){n+=ch;continue;}
-    const cnt=n?+n:1;n="";const up=ch.toUpperCase();
-    const side=ch===up?"s":"g";hands[side][up]=(hands[side][up]||0)+cnt;}}
+  if(hand&&hand!=="-"){
+    let n="";
+    for(const ch of hand){
+      if(/[0-9]/.test(ch)){n+=ch;continue;}
+      const cnt=n?+n:1;n="";
+      const up=ch.toUpperCase();
+      const side=ch===up?"s":"g";
+      hands[side][up]=(hands[side][up]||0)+cnt;
+    }
+  }
   return {grid,turn,hands};
 }
 function cloneBoardState(s){return {grid:s.grid.map(r=>r.slice()),hands:{s:{...s.hands.s},g:{...s.hands.g}},turn:s.turn};}
+function cloneState(sfen){const s=parseSfen(sfen);return cloneBoardState(s);}
 function boardToSfen(grid){
   return grid.map(row=>{
     let out="",empty=0;
@@ -211,6 +221,14 @@ function handsToSfen(hands){
   return out||"-";
 }
 function stateToSfen(state){return boardToSfen(state.grid)+" "+state.turn+" "+handsToSfen(state.hands)+" 1";}
+function sqToRC(sq){const file=+sq[0],rank=RANK_L.indexOf(sq[1]);return {r:rank,c:9-file,file};}
+function rcToSq(r,c){return String(9-c)+RANK_L[r];}
+function rcToLabel(r,c){return ZEN_NUM[9-c]+KAN_NUM[r+1];}
+function sideOf(cell){return cell===cell.toLowerCase()?"g":"s";}
+function sideToMove(state){return state.turn==="b"?"s":"g";}
+function basePieceOf(cell){return cell.replace("+","").toUpperCase();}
+function isPromoted(cell){return cell&&cell[0]==="+";}
+
 function renderHand(side,h){
   let html="";
   for(const p of HAND_ORDER){
@@ -221,71 +239,122 @@ function renderHand(side,h){
   }
   return html||'<div class="handempty">なし</div>';
 }
+
 function renderBoard(host,state){
   const {grid,turn,hands}=state;
   let files='<div class="files">';
-  for(let f=9;f>=1;f--)files+=`<i>${f}</i>`;files+='</div>';
-  let tbl='<table class="board'+(editMode?' editable':'')+'">';
-  for(let r=0;r<9;r++){tbl+='<tr>';
-    for(let f=0;f<9;f++){const p=grid[r][f];
+  for(let f=9;f>=1;f--)files+=`<i>${f}</i>`;
+  files+='</div>';
+  let tbl='<table class="board editable">';
+  for(let r=0;r<9;r++){
+    tbl+='<tr>';
+    for(let f=0;f<9;f++){
+      const p=grid[r][f];
       const sel=selected&&selected.kind==="board"&&selected.r===r&&selected.c===f?' sel':'';
       const dst=selected&&moveTarget&&moveTarget.r===r&&moveTarget.c===f?' dst':'';
-      const cls=(sel||dst)?` class="${(p?(p.replace("+","")===p.replace("+","").toLowerCase()?'g':'s'):'')+sel+dst}"`:"";
-      if(!p){tbl+=`<td data-r="${r}" data-c="${f}"${cls}></td>`;continue;}
+      if(!p){tbl+=`<td data-r="${r}" data-c="${f}" class="${sel}${dst}"></td>`;continue;}
       const up=p.replace("+","").toUpperCase();
       const base=(p[0]==="+"?"+":"")+up;
       const isGote=p.replace("+","")===p.replace("+","").toLowerCase();
-      tbl+=`<td data-r="${r}" data-c="${f}" class="${isGote?'g':'s'}${sel}${dst}"><span>${PIECE_JP[base]||"?"}</span></td>`;}
-    tbl+='</tr>';}
+      tbl+=`<td data-r="${r}" data-c="${f}" class="${isGote?'g':'s'}${sel}${dst}"><span>${PIECE_JP[base]||"?"}</span></td>`;
+    }
+    tbl+='</tr>';
+  }
   tbl+='</table>';
   let ranks='<div class="ranks">';
-  for(let r=0;r<9;r++)ranks+=`<i>${KAN_NUM[r+1]}</i>`;ranks+='</div>';
+  for(let r=0;r<9;r++)ranks+=`<i>${KAN_NUM[r+1]}</i>`;
+  ranks+='</div>';
   host.innerHTML='<div class="brd">'+files+'<div class="bmid">'+tbl+ranks+'</div></div>';
   document.getElementById("senteHandPc").innerHTML=renderHand("s",hands.s);
   document.getElementById("goteHandPc").innerHTML=renderHand("g",hands.g);
-  document.getElementById("turnLbl").innerHTML="手番 <b>"+(turn==="b"?"▲先手":"△後手")+"</b>";
+  document.getElementById("turnLbl").innerHTML="手番 <b>"+(turn==="b"?"先手":"後手")+"</b>";
   host.querySelectorAll("td[data-r]").forEach(td=>td.addEventListener("click",onBoardCellClick));
   document.querySelectorAll("[data-hand-side]").forEach(btn=>btn.addEventListener("click",onHandClick));
 }
-function cloneState(sfen){const s=parseSfen(sfen);
-  return {grid:s.grid.map(r=>r.slice()),hands:{s:{...s.hands.s},g:{...s.hands.g}},turn:s.turn};}
-function sqToRC(sq){const file=+sq[0],rank=RANK_L.indexOf(sq[1]);return {r:rank,c:9-file,file};}
+
 function usiToJp(state,usi,prevDest){
   const black=state.turn==="b",mark=black?"▲":"△";
   let dest,jp,isDrop=usi.includes("*"),promote=usi.endsWith("+");
-  if(isDrop){const piece=usi[0];dest=usi.slice(2,4).replace("+","");const d=sqToRC(dest);
+  if(isDrop){
+    const piece=usi[0];
+    dest=usi.slice(2,4).replace("+","");
+    const d=sqToRC(dest);
     jp=mark+ZEN_NUM[d.file]+KAN_NUM[d.r+1]+PIECE_JP[piece]+"打";
-    state.grid[d.r][d.c]=black?piece:piece.toLowerCase();state.hands[black?"s":"g"][piece]--;
-  }else{const from=usi.slice(0,2),to=usi.slice(2,4);const f=sqToRC(from),t=sqToRC(to);
-    let mover=state.grid[f.r][f.c]||"P";const baseUp=mover.replace("+","").toUpperCase();
+    state.grid[d.r][d.c]=black?piece:piece.toLowerCase();
+    state.hands[black?"s":"g"][piece]--;
+  }else{
+    const from=usi.slice(0,2),to=usi.slice(2,4);
+    const f=sqToRC(from),t=sqToRC(to);
+    let mover=state.grid[f.r][f.c]||"P";
+    const baseUp=mover.replace("+","").toUpperCase();
     const isSame=prevDest&&prevDest===to;
     const pieceName=(mover[0]==="+")?PIECE_JP["+"+baseUp]:PIECE_JP[baseUp];
     const sq=isSame?"同":ZEN_NUM[t.file]+KAN_NUM[t.r+1];
     jp=mark+sq+pieceName+(promote?"成":"");
     const cap=state.grid[t.r][t.c];
-    if(cap){const cu=cap.replace("+","").toUpperCase();state.hands[black?"s":"g"][cu]=(state.hands[black?"s":"g"][cu]||0)+1;}
-    let np=mover;if(promote)np=(mover[0]==="+"?mover:"+"+mover);
-    state.grid[t.r][t.c]=np;state.grid[f.r][f.c]=null;}
-  state.turn=black?"w":"b";return {jp,dest:usi.slice(2,4).replace("+","")};
+    if(cap){
+      const cu=cap.replace("+","").toUpperCase();
+      state.hands[black?"s":"g"][cu]=(state.hands[black?"s":"g"][cu]||0)+1;
+    }
+    let np=mover;
+    if(promote)np=(mover[0]==="+"?mover:"+"+mover);
+    state.grid[t.r][t.c]=np;
+    state.grid[f.r][f.c]=null;
+  }
+  state.turn=black?"w":"b";
+  return {jp,dest:usi.slice(2,4).replace("+","")};
 }
-function renderSeq(sfen,moves){const st=cloneState(sfen);let prev=null;const out=[];
-  for(const m of moves){const r=usiToJp(st,m,prev);out.push(r.jp);prev=r.dest;}return out;}
+function renderSeq(sfen,moves){
+  const st=cloneState(sfen);let prev=null;const out=[];
+  for(const m of moves){const r=usiToJp(st,m,prev);out.push(r.jp);prev=r.dest;}
+  return out;
+}
 
 let curIdx=0;
-let initialState=null,currentState=null,editMode=true,selected=null,moveTarget=null,pendingPromotion=null;
+let initialState=null,currentState=null,selected=null,moveTarget=null,pendingPromotion=null;
+let playMode="answer",answerSolved=false;
 const POSKEY="shogibook_pos_"+BOOK_SLUG;
+
+function currentProblem(){return DATA[curIdx];}
+function currentAnswer(){return currentProblem().answer||null;}
+function currentAnswerUsi(){return (currentAnswer()&&currentAnswer().usi)||"";}
+function hasModeToggle(){return !!document.getElementById("modeGroup");}
+function supportsAutoJudge(p=currentProblem()){
+  return !!(hasModeToggle()&&p&&p.answer&&p.answer.type==="next_move"&&p.answer.usi);
+}
+function effectiveMode(p=currentProblem()){
+  if(!hasModeToggle())return "review";
+  if(playMode==="review")return "review";
+  return supportsAutoJudge(p)?"answer":"review";
+}
 function savePos(){try{localStorage.setItem(POSKEY,curIdx);}catch(e){}}
 function loadPos(){try{const v=+localStorage.getItem(POSKEY);if(v>=0&&v<DATA.length)curIdx=v;}catch(e){}}
-function rcToLabel(r,c){return ZEN_NUM[9-c]+KAN_NUM[r+1];}
 function clearSelection(){selected=null;moveTarget=null;pendingPromotion=null;}
 function setPromotionBox(show){
   const box=document.getElementById("promoBox");
   if(box)box.classList.toggle("show",show);
 }
-function resetBoardState(){currentState=cloneBoardState(initialState);clearSelection();renderBoard(document.getElementById("boardHost"),currentState);syncBoardTools();}
-function basePieceOf(cell){return cell.replace("+","").toUpperCase();}
-function isPromoted(cell){return cell && cell[0]==="+";}
-function sideOf(cell){return cell===cell.toLowerCase()?"g":"s";}
+function showAnswer(force){
+  const ans=document.getElementById("answer");
+  ans.classList.toggle("show",!!force);
+  document.getElementById("showBtn").textContent=ans.classList.contains("show")?"解答を隠す":"解答を見る";
+}
+function syncModeButtons(){
+  const ansBtn=document.getElementById("answerModeBtn");
+  const reviewBtn=document.getElementById("reviewModeBtn");
+  if(!ansBtn||!reviewBtn)return;
+  const judgeable=supportsAutoJudge();
+  ansBtn.disabled=!judgeable;
+  ansBtn.classList.toggle("active",judgeable&&playMode==="answer");
+  reviewBtn.classList.toggle("active",effectiveMode()==="review");
+}
+function resetBoardState(msg){
+  currentState=cloneBoardState(initialState);
+  answerSolved=false;
+  clearSelection();
+  renderBoard(document.getElementById("boardHost"),currentState);
+  syncBoardTools(msg);
+}
 function inPromotionZone(side,row){return side==="s"?row<=2:row>=6;}
 function canPromoteMove(mover,from,to){
   if(!mover||isPromoted(mover))return false;
@@ -305,53 +374,108 @@ function mustPromoteMove(mover,to){
   }
   return false;
 }
+function buildMoveUsi(from,to,promote){return rcToSq(from.r,from.c)+rcToSq(to.r,to.c)+(promote?"+":"");}
+function buildDropUsi(sel,to){return sel.piece+"*"+rcToSq(to.r,to.c);}
+function playCorrectChime(){
+  try{
+    const Ctx=window.AudioContext||window.webkitAudioContext;
+    if(!Ctx)return;
+    const ctx=new Ctx();
+    const now=ctx.currentTime;
+    [784,1046].forEach((freq,i)=>{
+      const osc=ctx.createOscillator();
+      const gain=ctx.createGain();
+      osc.type="triangle";
+      osc.frequency.value=freq;
+      gain.gain.setValueAtTime(0.0001,now+i*0.16);
+      gain.gain.exponentialRampToValueAtTime(0.12,now+i*0.16+0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001,now+i*0.16+0.15);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now+i*0.16);
+      osc.stop(now+i*0.16+0.16);
+    });
+  }catch(e){}
+}
 function syncBoardTools(msg){
-  const btn=document.getElementById("editBtn");
   const stat=document.getElementById("toolStatus");
-  btn.classList.toggle("active",editMode);
-  btn.textContent=editMode?"移動中":"駒を動かす";
+  const mode=effectiveMode();
+  syncModeButtons();
   setPromotionBox(!!pendingPromotion);
   if(msg){stat.innerHTML=msg;return;}
-  if(!editMode){stat.innerHTML="盤の横ボタンで移動モードにします。";return;}
+  if(hasModeToggle()&&playMode==="answer"&&!supportsAutoJudge()){
+    stat.innerHTML="この問題は正解判定が未整備です。<br>検討モードで盤面を動かせます。";
+    return;
+  }
+  if(mode==="answer"&&answerSolved){
+    stat.innerHTML="正解です。<br>解答を表示しました。";
+    return;
+  }
   if(pendingPromotion){
-    stat.innerHTML="成りを選んでください。";
+    stat.innerHTML=mode==="answer"?"成る/成らないを選ぶと判定します。":"成る/成らないを選んでください。";
     return;
   }
   if(selected){
     if(selected.kind==="hand"){
-      stat.innerHTML=(selected.side==="s"?"先手":"後手")+"の持駒 "+PIECE_JP[selected.piece]+" を選択中<br>打ち先のマスをタップ";
+      stat.innerHTML=mode==="answer"
+        ?"打つマスを選んでください。<br>正解なら自動で解答を開きます。"
+        :`${selected.side==="s"?"先手":"後手"}の持ち駒 ${PIECE_JP[selected.piece]} を選択中<br>置きたいマスをタップしてください。`;
       return;
     }
     const p=currentState.grid[selected.r][selected.c]||"";
     const piece=PIECE_JP[(p[0]==="+"?"+":"")+p.replace("+","").toUpperCase()]||"駒";
-    stat.innerHTML=piece+" を選択中<br>"+rcToLabel(selected.r,selected.c)+" → 行き先をタップ";
+    stat.innerHTML=mode==="answer"
+      ?`${piece} を選択中<br>行き先をタップすると正解判定します。`
+      :`${piece} を選択中<br>${rcToLabel(selected.r,selected.c)} から動かす先をタップしてください。`;
     return;
   }
-  stat.innerHTML="盤上の駒か持ち駒をタップしてください。";
+  stat.innerHTML=mode==="answer"
+    ?"解答モードです。<br>正解手を指すと音を鳴らして解答を表示します。"
+    :"検討モードです。<br>駒を自由に動かして盤面を検討できます。";
 }
 async function copyCurrentSfen(){
   const sfen=stateToSfen(currentState);
   try{
     await navigator.clipboard.writeText(sfen);
-    syncBoardTools("SFENをコピーしました<br>そのまま貼り付けできます。");
+    syncBoardTools("SFEN をコピーしました。<br>そのまま貼り付けできます。");
   }catch(e){
     const ta=document.createElement("textarea");
     ta.value=sfen;document.body.appendChild(ta);ta.select();
     try{
       document.execCommand("copy");
-      syncBoardTools("SFENをコピーしました<br>そのまま貼り付けできます。");
+      syncBoardTools("SFEN をコピーしました。<br>そのまま貼り付けできます。");
     }catch(_e){
-      syncBoardTools("コピーに失敗しました<br>ブラウザ権限を確認してください。");
+      syncBoardTools("コピーに失敗しました。<br>ブラウザの権限を確認してください。");
     }
     ta.remove();
   }
 }
-function applyBoardMove(from,to,promote){
+function commitCorrect(commit){
+  answerSolved=true;
+  commit();
+  playCorrectChime();
+  showAnswer(true);
+}
+function judgeAttempt(usi,commit){
+  if(effectiveMode()!=="answer")return false;
+  if(usi===currentAnswerUsi()){
+    commitCorrect(commit);
+  }else{
+    clearSelection();
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools("違います。<br>もう一度どうぞ。");
+  }
+  return true;
+}
+function applyBoardMove(from,to,promote,msg){
   const mover=currentState.grid[from.r][from.c];
   if(!mover)return;
   const target=currentState.grid[to.r][to.c];
   if(target&&((target===target.toLowerCase())===(mover===mover.toLowerCase()))){
-    selected={kind:"board",r:to.r,c:to.c};moveTarget=null;renderBoard(document.getElementById("boardHost"),currentState);syncBoardTools();return;
+    selected={kind:"board",r:to.r,c:to.c};
+    moveTarget=null;
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools();
+    return;
   }
   if(target){
     const up=target.replace("+","").toUpperCase();
@@ -364,27 +488,12 @@ function applyBoardMove(from,to,promote){
   currentState.turn=(mover===mover.toLowerCase())?"b":"w";
   clearSelection();
   renderBoard(document.getElementById("boardHost"),currentState);
-  syncBoardTools(promote?"成りました<br>もう一度駒を選べます。":"移動しました<br>もう一度駒を選べます。");
+  syncBoardTools(msg||(promote?"成りました。<br>続けて盤面を動かせます。":"動かしました。<br>続けて盤面を動かせます。"));
 }
-function movePiece(from,to){
-  const mover=currentState.grid[from.r][from.c];
-  if(!mover)return;
-  if(canPromoteMove(mover,from,to)){
-    if(mustPromoteMove(mover,to)){
-      applyBoardMove(from,to,true);
-      return;
-    }
-    pendingPromotion={from:{...from},to:{...to}};
-    renderBoard(document.getElementById("boardHost"),currentState);
-    syncBoardTools("成りを選べます。");
-    return;
-  }
-  applyBoardMove(from,to,false);
-}
-function dropHandPiece(sel,to){
+function dropHandPiece(sel,to,msg){
   if(currentState.grid[to.r][to.c]){
     renderBoard(document.getElementById("boardHost"),currentState);
-    syncBoardTools("そのマスには駒があります<br>空きマスを選んでください。");
+    syncBoardTools("そのマスには駒があります。<br>空きマスを選んでください。");
     return;
   }
   const count=currentState.hands[sel.side][sel.piece]||0;
@@ -400,13 +509,41 @@ function dropHandPiece(sel,to){
   currentState.turn=sel.side==="s"?"w":"b";
   clearSelection();
   renderBoard(document.getElementById("boardHost"),currentState);
-  syncBoardTools("持ち駒を打ちました<br>続けて編集できます。");
+  syncBoardTools(msg||"持ち駒を置きました。<br>続けて盤面を動かせます。");
+}
+function movePiece(from,to){
+  const mover=currentState.grid[from.r][from.c];
+  if(!mover)return;
+  if(canPromoteMove(mover,from,to)){
+    if(mustPromoteMove(mover,to)){
+      if(judgeAttempt(buildMoveUsi(from,to,true),()=>applyBoardMove(from,to,true,"正解です。<br>解答を表示しました。")))return;
+      applyBoardMove(from,to,true);
+      return;
+    }
+    pendingPromotion={from:{...from},to:{...to}};
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools();
+    return;
+  }
+  if(judgeAttempt(buildMoveUsi(from,to,false),()=>applyBoardMove(from,to,false,"正解です。<br>解答を表示しました。")))return;
+  applyBoardMove(from,to,false);
+}
+function resolvePromotion(promote){
+  if(!pendingPromotion)return;
+  const mv=pendingPromotion;
+  const usi=buildMoveUsi(mv.from,mv.to,promote);
+  if(judgeAttempt(usi,()=>applyBoardMove(mv.from,mv.to,promote,"正解です。<br>解答を表示しました。")))return;
+  applyBoardMove(mv.from,mv.to,promote);
 }
 function onHandClick(e){
-  if(!editMode)return;
-  if(pendingPromotion){syncBoardTools("先に 成る / 成らず を選んでください。");return;}
+  if(pendingPromotion){syncBoardTools("先に 成る / 成らない を選んでください。");return;}
+  if(effectiveMode()==="answer"&&answerSolved){syncBoardTools("正解済みです。<br>次の問題へ進むか初期配置に戻してください。");return;}
   const btn=e.currentTarget;
   const side=btn.dataset.handSide,piece=btn.dataset.handPiece;
+  if(effectiveMode()==="answer"&&side!==sideToMove(currentState)){
+    syncBoardTools("手番側の持ち駒を選んでください。");
+    return;
+  }
   if(selected&&selected.kind==="hand"&&selected.side===side&&selected.piece===piece){
     clearSelection();
   }else{
@@ -417,43 +554,44 @@ function onHandClick(e){
   syncBoardTools();
 }
 function onBoardCellClick(e){
-  if(!editMode)return;
-  if(pendingPromotion){syncBoardTools("先に 成る / 成らず を選んでください。");return;}
+  if(pendingPromotion){syncBoardTools("先に 成る / 成らない を選んでください。");return;}
+  if(effectiveMode()==="answer"&&answerSolved){syncBoardTools("正解済みです。<br>次の問題へ進むか初期配置に戻してください。");return;}
   const td=e.currentTarget;
   const r=+td.dataset.r,c=+td.dataset.c;
   const p=currentState.grid[r][c];
   if(selected&&selected.kind==="hand"){
     moveTarget={r,c};
+    if(judgeAttempt(buildDropUsi(selected,{r,c}),()=>dropHandPiece(selected,{r,c},"正解です。<br>解答を表示しました。")))return;
     dropHandPiece(selected,{r,c});
     return;
   }
   if(!selected){
-    if(!p){syncBoardTools("空きマスです<br>先に駒を選んでください。");return;}
-    selected={kind:"board",r,c};moveTarget=null;
-    renderBoard(document.getElementById("boardHost"),currentState);syncBoardTools();return;
+    if(!p){syncBoardTools("空きマスです。<br>動かしたい駒を選んでください。");return;}
+    if(effectiveMode()==="answer"&&sideOf(p)!==sideToMove(currentState)){
+      syncBoardTools("手番側の駒を選んでください。");
+      return;
+    }
+    selected={kind:"board",r,c};
+    moveTarget=null;
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools();
+    return;
   }
-  if(selected.kind==="board"&&selected.r===r&&selected.c===c){clearSelection();renderBoard(document.getElementById("boardHost"),currentState);syncBoardTools();return;}
+  if(selected.kind==="board"&&selected.r===r&&selected.c===c){
+    clearSelection();
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools();
+    return;
+  }
   moveTarget={r,c};
   if(selected.kind==="board"&&p&&((p===p.toLowerCase())===(currentState.grid[selected.r][selected.c]===currentState.grid[selected.r][selected.c].toLowerCase()))){
-    selected={kind:"board",r,c};moveTarget=null;renderBoard(document.getElementById("boardHost"),currentState);syncBoardTools();return;
+    selected={kind:"board",r,c};
+    moveTarget=null;
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools();
+    return;
   }
   if(selected.kind==="board")movePiece(selected,{r,c});
-}
-function render(){
-  const p=DATA[curIdx];
-  document.getElementById("curNo").textContent=p.problem_no;
-  document.getElementById("qmeta").textContent=p.label||p.chapter||"";
-  const sit=document.getElementById("situation");
-  if(p.situation){sit.style.display="block";sit.textContent=p.situation;}else sit.style.display="none";
-  initialState=parseSfen(p.sfen);
-  currentState=cloneBoardState(initialState);
-  clearSelection();
-  renderBoard(document.getElementById("boardHost"),currentState);
-  syncBoardTools();
-  const ans=document.getElementById("answer");ans.classList.remove("show");
-  document.getElementById("showBtn").textContent="解答を見る";
-  ans.innerHTML=buildAnswer(p,p.answer);
-  document.getElementById("jumpInp").value=p.problem_no;savePos();
 }
 function buildAnswer(p,a){
   if(a&&a.image_ans){
@@ -461,12 +599,11 @@ function buildAnswer(p,a){
     if(a.type==="next_move"){
       const jp=a.usi ? renderSeq(p.sfen,[a.usi])[0] : (a.move_jp||"");
       if(jp)s+="<div class='movebig'>"+esc(jp)+"</div>";
-      if(a.percent!=null)s+="<div class='note'>正解率: "+esc(String(a.percent))+"%</div>";
+      if(a.percent!=null)s+="<div class='note'>正解率 "+esc(String(a.percent))+"%</div>";
       if(a.title)s+="<div class='captured'>"+esc(a.title)+"</div>";
     }
-    s+=
-      "<img class='ansimg' src='"+a.image_ans+"' loading='lazy' alt='解答図'>"+
-      (a.incomplete?"<div class='pending'>※ 局面照合が未完了のため、一部の正解手情報は補完中です。</div>":"");
+    s+="<img class='ansimg' src='"+a.image_ans+"' loading='lazy' alt='解答画像'>";
+    if(a.incomplete)s+="<div class='pending'>一部の解答情報は補完中です。</div>";
     return s;
   }
   return _answerBody(p,a);
@@ -475,74 +612,134 @@ function esc(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replac
 function _answerBody(p,a){
   if(!a)return "<div class='ans-h'>解答データなし</div>";
   if(a.type==="final_move"){
-    if(a.explanation){let s="<div class='ans-h'>解答</div>";
+    if(a.explanation){
+      let s="<div class='ans-h'>解答</div>";
       if(a.title)s+="<div class='movebig'>"+esc(a.title)+"</div>";
       s+="<div class='expl'>"+esc(a.explanation)+"</div>";
-      if(a.captured)s+="<div class='captured'>持駒　"+esc(a.captured)+"</div>";
-      return s;}
-    let s="<div class='ans-h'>解答（最終手）</div>";
+      if(a.captured)s+="<div class='captured'>持ち駒　"+esc(a.captured)+"</div>";
+      return s;
+    }
+    let s="<div class='ans-h'>解答</div>";
     s+="<div class='movebig'>"+esc(a.move_jp)+" まで</div>";
-    if(a.incomplete)s+="<div class='note'>※ 原典の表記が一部欠けています。</div>";
-    return s;}
-  if(a.type==="single"){const jp=renderSeq(p.sfen,[a.usi])[0];
-    return "<div class='ans-h'>正解（次の一手）</div><div class='movebig'>"+jp+"</div>";}
-  if(a.type==="next_move"){
-    const jp=a.usi ? renderSeq(p.sfen,[a.usi])[0] : (a.move_jp||"");
-    let s="<div class='ans-h'>正解（次の一手）</div>";
-    s+="<div class='movebig'>"+esc(jp||a.move_jp||"")+"</div>";
-    if(a.percent!=null)s+="<div class='note'>正解率: "+esc(String(a.percent))+"%</div>";
-    if(a.title)s+="<div class='captured'>"+esc(a.title)+"</div>";
-    if(a.explanation)s+="<div class='expl'>"+esc(a.explanation)+"</div>";
-    if(a.incomplete)s+="<div class='note'>※ 一部の解答情報は補完中です。</div>";
+    if(a.incomplete)s+="<div class='note'>表記は一部省略しています。</div>";
     return s;
   }
-  if(a.type==="choice"){let s="<div class='ans-h'>選択肢</div>";
-    for(const c of a.choices){const ok=c.label===a.correct;
-      s+="<div class='choice"+(ok?" correct":"")+"'><span class='tag'>"+c.label+(ok?" ◎正解":"")+"</span>";
-      s+="<div class='mv'>"+c.move_jp+"</div>";if(c.explanation)s+="<div class='ex'>"+c.explanation+"</div>";s+="</div>";}
-    return s;}
-  if(a.type==="sequence"){let s="";if(a.kind)s+="<span class='kind'>"+a.kind+"</span>";
+  if(a.type==="single"){
+    const jp=renderSeq(p.sfen,[a.usi])[0];
+    return "<div class='ans-h'>正解</div><div class='movebig'>"+jp+"</div>";
+  }
+  if(a.type==="next_move"){
+    const jp=a.usi ? renderSeq(p.sfen,[a.usi])[0] : (a.move_jp||"");
+    let s="<div class='ans-h'>正解</div>";
+    s+="<div class='movebig'>"+esc(jp||a.move_jp||"")+"</div>";
+    if(a.percent!=null)s+="<div class='note'>正解率 "+esc(String(a.percent))+"%</div>";
+    if(a.title)s+="<div class='captured'>"+esc(a.title)+"</div>";
+    if(a.explanation)s+="<div class='expl'>"+esc(a.explanation)+"</div>";
+    if(a.incomplete)s+="<div class='note'>一部の解答情報は補完中です。</div>";
+    return s;
+  }
+  if(a.type==="choice"){
+    let s="<div class='ans-h'>選択肢</div>";
+    for(const c of a.choices){
+      const ok=c.label===a.correct;
+      s+="<div class='choice"+(ok?" correct":"")+"'><span class='tag'>"+c.label+(ok?" 正解":"")+"</span>";
+      s+="<div class='mv'>"+c.move_jp+"</div>";
+      if(c.explanation)s+="<div class='ex'>"+c.explanation+"</div>";
+      s+="</div>";
+    }
+    return s;
+  }
+  if(a.type==="sequence"){
+    let s="";
+    if(a.kind)s+="<span class='kind'>"+a.kind+"</span>";
     s+="<div class='ans-h'>正解手順</div>";
-    (a.sequences||[]).forEach((seq,si)=>{const jps=renderSeq(p.sfen,seq);const hi=(a.hisshi_index||[])[si];
-      s+="<div class='seq'>";jps.forEach((mv,k)=>{const isH=(hi!==undefined&&k===hi);
-        s+="<span class='ply"+(isH?" hisshi":"")+"'>"+(k+1)+". "+mv+"</span>";});s+="</div>";});
-    if(a.wrong_sequences&&a.wrong_sequences.length){s+="<div class='wrongseq'><div class='ans-h'>紛れ（不正解）</div>";
-      a.wrong_sequences.forEach(seq=>{const jps=renderSeq(p.sfen,seq);
-        s+="<div class='seq' style='opacity:.75'>"+jps.map((m,i)=>"<span class='ply'>"+(i+1)+". "+m+"</span>").join("")+"</div>";});s+="</div>";}
-    return s;}
-  return "<div class='ans-h'>（解答未収録）</div>";
+    (a.sequences||[]).forEach((seq,si)=>{
+      const jps=renderSeq(p.sfen,seq);
+      const hi=(a.hisshi_index||[])[si];
+      s+="<div class='seq'>";
+      jps.forEach((mv,k)=>{
+        const isH=(hi!==undefined&&k===hi);
+        s+="<span class='ply"+(isH?" hisshi":"")+"'>"+(k+1)+". "+mv+"</span>";
+      });
+      s+="</div>";
+    });
+    if(a.wrong_sequences&&a.wrong_sequences.length){
+      s+="<div class='wrongseq'><div class='ans-h'>誤答例</div>";
+      a.wrong_sequences.forEach(seq=>{
+        const jps=renderSeq(p.sfen,seq);
+        s+="<div class='seq' style='opacity:.75'>"+jps.map((m,i)=>"<span class='ply'>"+(i+1)+". "+m+"</span>").join("")+"</div>";
+      });
+      s+="</div>";
+    }
+    return s;
+  }
+  return "<div class='ans-h'>未対応の解答形式です</div>";
+}
+function render(){
+  const p=currentProblem();
+  document.getElementById("curNo").textContent=p.problem_no;
+  document.getElementById("qmeta").textContent=p.label||p.chapter||"";
+  const sit=document.getElementById("situation");
+  if(p.situation){sit.style.display="block";sit.textContent=p.situation;}else sit.style.display="none";
+  initialState=parseSfen(p.sfen);
+  currentState=cloneBoardState(initialState);
+  answerSolved=false;
+  clearSelection();
+  renderBoard(document.getElementById("boardHost"),currentState);
+  document.getElementById("answer").innerHTML=buildAnswer(p,p.answer);
+  showAnswer(false);
+  syncBoardTools();
+  document.getElementById("jumpInp").value=p.problem_no;
+  savePos();
 }
 function go(n){curIdx=Math.max(0,Math.min(n,DATA.length-1));render();}
+
 document.getElementById("prevBtn").onclick=()=>go(curIdx-1);
 document.getElementById("nextBtn").onclick=()=>go(curIdx+1);
-document.getElementById("showBtn").onclick=()=>{const a=document.getElementById("answer");
-  a.classList.toggle("show");document.getElementById("showBtn").textContent=a.classList.contains("show")?"解答を隠す":"解答を見る";};
-document.getElementById("editBtn").onclick=()=>{editMode=!editMode;clearSelection();renderBoard(document.getElementById("boardHost"),currentState);syncBoardTools();};
+document.getElementById("showBtn").onclick=()=>{
+  const ans=document.getElementById("answer");
+  showAnswer(!ans.classList.contains("show"));
+};
+if(document.getElementById("answerModeBtn"))document.getElementById("answerModeBtn").onclick=()=>{
+  if(!supportsAutoJudge())return;
+  playMode="answer";
+  resetBoardState();
+  showAnswer(false);
+};
+if(document.getElementById("reviewModeBtn"))document.getElementById("reviewModeBtn").onclick=()=>{
+  playMode="review";
+  resetBoardState();
+  showAnswer(false);
+};
 document.getElementById("resetBtn").onclick=()=>resetBoardState();
 document.getElementById("copySfenBtn").onclick=()=>copyCurrentSfen();
-document.getElementById("promoteBtn").onclick=()=>{if(!pendingPromotion)return; const mv=pendingPromotion; applyBoardMove(mv.from,mv.to,true);};
-document.getElementById("stayBtn").onclick=()=>{if(!pendingPromotion)return; const mv=pendingPromotion; applyBoardMove(mv.from,mv.to,false);};
-document.getElementById("jumpBtn").onclick=()=>{const v=+document.getElementById("jumpInp").value;
-  const i=DATA.findIndex(p=>p.problem_no===v);if(i>=0)go(i);};
+document.getElementById("promoteBtn").onclick=()=>resolvePromotion(true);
+document.getElementById("stayBtn").onclick=()=>resolvePromotion(false);
+document.getElementById("jumpBtn").onclick=()=>{
+  const v=+document.getElementById("jumpInp").value;
+  const i=DATA.findIndex(p=>p.problem_no===v);
+  if(i>=0)go(i);
+};
 document.getElementById("jumpInp").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("jumpBtn").click();});
 let tx=0,ty=0;
 document.addEventListener("touchstart",e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
-document.addEventListener("touchend",e=>{const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;
-  if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.6){if(dx<0)go(curIdx+1);else go(curIdx-1);}},{passive:true});
+document.addEventListener("touchend",e=>{
+  const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;
+  if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.6){if(dx<0)go(curIdx+1);else go(curIdx-1);}
+},{passive:true});
 function sizeBoard(){
   const vv=window.visualViewport;
   const w=(vv&&vv.width)||window.innerWidth;
   const h=(vv&&vv.height)||window.innerHeight;
   const twoCol=w>820;
-  // 盤の縦に必要な固定分: 持駒2段 + 段間ギャップ + wrap余白 (≈120px)。
-  // 横持ち=画面の全高、縦持ち=上60%を盤に割き残りを操作領域に。
   const availH=(twoCol?h:h*0.60)-120;
-  const byH=availH/9.23;                    // 段座標(~0.23)+9段
+  const byH=availH/9.23;
   const availW=(twoCol?w*0.50:w*0.96)-120;
-  const byW=availW/9.7;                      // 9セル+段座標列(~0.62)+余白
+  const byW=availW/9.7;
   const cell=Math.max(22,Math.min(80,Math.floor(Math.min(byH,byW))));
   document.documentElement.style.setProperty("--cell",cell+"px");
-  document.documentElement.style.setProperty("--bw",(cell*10)+"px");}
+  document.documentElement.style.setProperty("--bw",(cell*10)+"px");
+}
 window.addEventListener("resize",sizeBoard);
 window.addEventListener("orientationchange",()=>setTimeout(sizeBoard,80));
 if(window.visualViewport)window.visualViewport.addEventListener("resize",sizeBoard);
