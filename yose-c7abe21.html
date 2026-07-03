@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="ja"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="robots" content="noindex,nofollow">
+<title>寄せの手筋200</title>
+<style>
+:root{
+  --bg:#1f2430; --panel:#2a3140; --line:#3a4150; --ink:#eef2f7;
+  --sub:#9aa7bd; --accent:#e0853a; --ok:#46b46b; --bad:#d9534f;
+  --board:#e8c479; --grid:#7a5a22;
+  --left-col:clamp(360px, 31vw, 500px);
+  --tool-col:112px;
+  --hand-label:92px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);
+  font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+  -webkit-text-size-adjust:100%;overscroll-behavior:none}
+a{color:inherit;text-decoration:none}
+
+/* ビューアは1画面固定（全体スクロールさせない。長い解答は左カラム内でスクロール） */
+body{overflow:hidden}
+/* 左カラム上部のメタ情報（盤とは分離して左に寄せる） */
+.meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-bottom:8px;
+  padding-bottom:8px;border-bottom:1px solid #333}
+.meta .back{font-size:15px;padding:8px 12px;border-radius:10px;background:#2a3140}
+.meta .bktitle{font-size:19px;font-weight:700}
+.meta .counter{font-size:15px;color:var(--sub);white-space:nowrap}
+.meta .counter b{color:var(--ink);font-size:20px}
+.meta .turn{font-size:15px;color:var(--sub)}
+.meta .turn b{color:var(--accent)}
+.wrap{display:flex;gap:16px;padding:10px 12px;align-items:stretch;max-width:1480px;margin:0 auto;
+  height:100dvh;max-height:100dvh;overflow:hidden}
+.left{flex:0 0 var(--left-col);min-width:0;height:100%;padding-right:2px;display:flex;flex-direction:column;min-height:0}
+.left-main .answer{width:100%;max-width:none}
+.left-main{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:8px}
+.right{flex:1 1 auto;min-width:0;display:flex;align-items:stretch;justify-content:center}
+.boardbox{display:grid;grid-template-rows:auto minmax(0,1fr) auto;align-content:center;gap:10px;
+  width:100%;max-width:820px;margin:0 auto}
+.boardrow{display:grid;grid-template-columns:minmax(0,1fr) var(--tool-col);align-items:start;column-gap:10px;width:100%}
+#boardHost{min-width:0;justify-self:center}
+.boardtools{display:flex;flex-direction:column;gap:10px;width:100%}
+.modegroup{display:flex;flex-direction:column;gap:8px}
+.toolbtn{width:100%;padding:10px 8px;border-radius:10px;border:1px solid #000;
+  background:#39414f;color:var(--ink);font-size:15px;font-weight:700;min-height:44px}
+.toolbtn.active{background:var(--accent);color:#1b1b1b}
+.toolbtn:disabled{opacity:.45;cursor:default}
+.promobox{display:none;flex-direction:column;gap:8px}
+.promobox.show{display:flex}
+.promobtn{width:100%;padding:10px 8px;border-radius:10px;border:1px solid #000;
+  background:#5d6a82;color:var(--ink);font-size:15px;font-weight:700;min-height:44px}
+.toolstatus{width:100%;background:var(--panel);border:1px solid #000;border-radius:10px;
+  padding:10px;font-size:12px;line-height:1.6;color:var(--sub);min-height:112px}
+.turn{font-size:16px;color:var(--sub)}
+.turn b{color:var(--accent)}
+table.board{border-collapse:collapse;background:var(--board);
+  box-shadow:0 6px 20px rgba(0,0,0,.45);border:3px solid var(--grid)}
+table.board td{width:var(--cell);height:var(--cell);border:1px solid var(--grid);
+  text-align:center;vertical-align:middle;padding:0;
+  font-size:calc(var(--cell)*.72);line-height:1;font-weight:600;
+  font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
+table.board.editable td{cursor:pointer}
+table.board td.sel{background:rgba(224,133,58,.28)}
+table.board td.dst{box-shadow:inset 0 0 0 3px rgba(70,180,107,.8)}
+td.g span{display:inline-block;transform:rotate(180deg)}
+td.s{color:#16407a} td.g{color:#a32a2a}  /* 自陣(先手)=青 / 敵(後手)=赤 で視認性UP */
+/* 座標は盤の外（上=筋9..1 / 右=段一..九） */
+.brd{display:inline-block}
+.files{display:flex;padding-left:3px}
+.files i{width:var(--cell);text-align:center;font-style:normal;font-weight:700;
+  font-size:calc(var(--cell)*.23);color:var(--sub);font-family:sans-serif;padding-bottom:3px}
+.bmid{display:flex;align-items:flex-start}
+.ranks{display:flex;flex-direction:column;padding-top:3px}
+.ranks i{height:var(--cell);display:flex;align-items:center;justify-content:center;
+  width:calc(var(--cell)*.62);font-style:normal;font-weight:700;
+  font-size:calc(var(--cell)*.23);color:var(--sub);font-family:sans-serif}
+.hands{display:flex;flex-direction:column;gap:4px;width:100%;max-width:none}
+.hand{display:grid;grid-template-columns:var(--hand-label) minmax(0,1fr);align-items:start;column-gap:10px;
+  background:var(--panel);border:1px solid #000;border-radius:10px;padding:10px 12px;font-size:17px;min-height:68px}
+.hand .lab{color:var(--sub);font-size:13px;line-height:1.4;padding-top:4px;white-space:nowrap}
+.hand .pc{display:grid;grid-template-columns:repeat(auto-fit, minmax(64px, 68px));gap:8px;
+  align-content:start;justify-content:start;font-family:"Hiragino Mincho ProN",serif;min-width:0}
+.handbtn{width:100%;min-width:0;min-height:48px;padding:6px 8px;border-radius:10px;border:1px solid #000;
+  background:#485164;color:var(--ink);font-size:24px;line-height:1;font-family:"Hiragino Mincho ProN",serif;
+  display:flex;align-items:center;justify-content:center;gap:4px}
+.handbtn small{font-size:14px;line-height:1}
+.handbtn.g span{display:inline-block;transform:rotate(180deg)}
+.handbtn.sel{background:var(--accent);color:#1b1b1b}
+.handempty{grid-column:1/-1;font-size:15px;color:var(--sub);padding-top:10px}
+.qmeta{font-size:13px;color:var(--sub);margin-bottom:4px}
+.situation{background:var(--panel);border:1px solid #000;border-radius:12px;
+  padding:10px 12px;font-size:16px;line-height:1.5;margin-bottom:8px}
+.btnrow{display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+button.big{flex:1 1 auto;font-size:18px;font-weight:700;padding:12px;border-radius:12px;
+  border:none;background:var(--accent);color:#1b1b1b;min-height:48px}
+button.nav{background:#39414f;color:var(--ink)}
+button.big:active{filter:brightness(.9)}
+.answer{display:none;background:var(--panel);border:1px solid #000;border-radius:12px;
+  padding:14px;font-size:17px;line-height:1.6;max-width:calc(var(--bw) + 28px);margin:0 auto}
+.answer.show{display:block}
+.ans-h{font-size:14px;color:var(--sub);margin-bottom:8px}
+.movebig{font-size:30px;font-weight:800;color:var(--accent);font-family:"Hiragino Mincho ProN",serif}
+.expl{font-size:17px;line-height:1.85;margin-top:10px;white-space:pre-wrap;
+  font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
+.captured{margin-top:10px;font-size:14px;color:var(--sub)}
+.ansimg{width:100%;max-width:none;border-radius:10px;border:1px solid #000;background:#fff;display:block;margin:0 auto;box-shadow:0 8px 18px rgba(0,0,0,.28)}
+.pending{margin-top:8px;font-size:13px;color:var(--sub)}
+.choice{border:1px solid #3a4150;border-radius:10px;padding:10px 12px;margin:8px 0}
+.choice.correct{border-color:var(--ok);background:rgba(70,180,107,.12)}
+.choice .mv{font-size:20px;font-weight:700}
+.choice .tag{float:right;font-size:13px;padding:2px 8px;border-radius:20px;background:#39414f}
+.choice.correct .tag{background:var(--ok);color:#08240f}
+.choice .ex{margin-top:6px;font-size:15px;color:#d4dbe8}
+.seq{font-size:19px;line-height:1.9;font-family:"Hiragino Mincho ProN",serif}
+.seq .ply{display:inline-block;padding:2px 8px;margin:2px;border-radius:8px;background:#39414f}
+.seq .hisshi{background:var(--bad);color:#fff;font-weight:700}
+.wrongseq{margin-top:10px;font-size:16px;color:var(--sub)}
+.note{margin-top:10px;font-size:13px;color:var(--sub)}
+.kind{display:inline-block;font-size:13px;padding:3px 10px;border-radius:20px;
+  background:var(--accent);color:#1b1b1b;font-weight:700;margin-bottom:8px}
+.jump{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:15px;color:var(--sub)}
+#jumpLegacy{display:none}
+.jump-label{font-size:13px;font-weight:600;color:var(--sub)}
+.jump input{width:80px;font-size:18px;padding:10px 8px;border-radius:10px;border:1px solid #000;
+  background:#2a3140;color:var(--ink);text-align:center}
+.jumpbtn{padding:10px 8px;border-radius:10px;border:1px solid #000;background:#39414f;color:var(--ink);
+  font-size:15px;font-weight:700;min-height:44px}
+.jump.tooljump{display:grid;grid-auto-flow:row;gap:8px;align-items:stretch;margin-top:0;font-size:13px}
+.jump.tooljump input,.jump.tooljump button{width:100%}
+.navrow-fixed{position:sticky;bottom:0;z-index:8;margin-top:auto;margin-bottom:0;padding:10px 0 calc(env(safe-area-inset-bottom) + 10px);
+  background:linear-gradient(to top, rgba(31,36,48,.98), rgba(31,36,48,.9) 70%, rgba(31,36,48,0))}
+.navrow-fixed .big{min-height:52px;box-shadow:0 6px 18px rgba(0,0,0,.28)}
+@media (max-width:820px){
+  .wrap{flex-direction:column;align-items:stretch;gap:6px}
+  .right{order:1;width:100%;flex:0 0 auto}
+  .left{order:2;width:100%;flex:1 1 auto;min-height:0;height:auto;overflow-y:auto}
+  .boardbox{width:100%}
+  .boardrow{grid-template-columns:minmax(0,1fr) 96px;column-gap:8px}
+  .toolbtn{font-size:14px;min-height:40px;padding:8px 6px}
+  .toolstatus{min-height:96px;padding:8px}
+  .hand{grid-template-columns:78px minmax(0,1fr);padding:8px 10px;min-height:60px}
+  .hand .pc{grid-template-columns:repeat(auto-fit, minmax(54px, 60px));gap:6px}
+  .handbtn{min-height:42px;font-size:22px}
+  .answer{max-width:100%}
+  .ansimg{width:min(100%, 96vw);max-width:min(100%, 96vw)}
+}
+@media (min-width:821px){
+  .wrap{gap:18px;padding-inline:14px}
+  .boardtools{align-self:center}
+}
+@media (min-width:821px) and (max-width:1180px) and (orientation:landscape){
+  :root{
+    --left-col:clamp(340px, 30vw, 450px);
+    --tool-col:108px;
+    --hand-label:84px;
+  }
+  .wrap{gap:14px;padding-inline:10px}
+  .boardbox{gap:8px}
+  .hand{padding:9px 10px;min-height:64px}
+  .hand .pc{grid-template-columns:repeat(auto-fit, minmax(60px, 64px))}
+}
+</style></head><body>
+<div class="wrap">
+  <div class="left">
+    <div class="left-main">
+    <div class="meta">
+      <a class="back" href="index.html">☰ 一覧</a>
+      <div class="bktitle">寄せの手筋200</div>
+      <div class="counter">第 <b id="curNo">1</b> 問 / <span id="total">0</span></div>
+      <div class="turn" id="turnLbl"></div>
+    </div>
+    <div class="qmeta" id="qmeta"></div>
+    <div class="situation" id="situation"></div>
+    <div class="btnrow"><button class="big" id="showBtn">解答を見る</button></div>
+    <div class="answer" id="answer"></div>
+    </div>
+    <div class="btnrow navrow-fixed" style="margin-top:8px">
+      <button class="big nav" id="prevBtn">◀ 前の問題</button>
+      <button class="big nav" id="nextBtn">次の問題 ▶</button>
+    </div>
+    <div class="jump">問題番号へ <input type="number" id="jumpInp" min="1">
+      <button class="nav" style="padding:8px 14px;border-radius:8px;border:none;color:#fff" id="jumpBtn">移動</button></div>
+  </div>
+  <div class="right"><div class="boardbox">
+    <div class="hands"><div class="hand"><span class="lab">後手 持駒</span><span class="pc" id="goteHandPc">なし</span></div></div>
+    <div class="boardrow">
+      <div id="boardHost"></div>
+      <div class="boardtools">
+        
+        <button class="toolbtn" id="resetBtn">初期配置</button>
+        <button class="toolbtn" id="copySfenBtn">SFENコピー</button>
+        <div class="promobox" id="promoBox">
+          <button class="promobtn" id="promoteBtn">成る</button>
+          <button class="promobtn" id="stayBtn">成らず</button>
+        </div>
+        <div class="toolstatus" id="toolStatus">盤の横ボタンで移動モードにします。</div>
+      </div>
+    </div>
+    <div class="hands"><div class="hand"><span class="lab">先手 持駒</span><span class="pc" id="senteHandPc">なし</span></div></div>
+  </div></div>
+</div>
+<script>
+const BOOK_SLUG="寄せの手筋200";
+const DATA=[{"book": "寄せの手筋200", "problem_no": 1, "chapter": null, "sfen": "7k1/9/9/9/9/9/9/9/9 b GSN2r2b3g3s3n4l18p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*2c", "G*3b", "N*3c", "2a3a", "G*4a"]], "wrong_sequences": [["G*2c", "2a3a"]], "hisshi_index": [0], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 2, "chapter": null, "sfen": "4k4/9/9/3Bp4/9/9/9/9/9 b G2N2rb3g4s2n4l17p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["6d5c+", "S*4c", "N*6c", "5a4a", "G*4b"]], "wrong_sequences": [], "hisshi_index": [0], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 3, "chapter": null, "sfen": "4k4/9/3S5/9/9/9/9/9/9 b 2S2r2b4g3s4n4l18p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*4c"]], "wrong_sequences": [["S*5c", "5a4a", "S*3c", "R*1b"], ["S*5b", "5a4b", "S*4c", "4b3c"]], "hisshi_index": [0], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 4, "chapter": null, "sfen": "6k2/9/5p2p/9/9/9/9/9/9 b GSP2b2s 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*3c", "S*2c", "P*3b", "2c3b", "G*4b", "3a2a", "4b3b", "2a1b", "3b2b"]], "wrong_sequences": [], "hisshi_index": [0], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 5, "chapter": null, "sfen": "4k4/9/3ppp3/9/9/9/9/9/9 b GSNP 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*5d", "5c5d", "S*5c", "N*5b", "P*4b"]], "wrong_sequences": [], "hisshi_index": [4], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 6, "chapter": null, "sfen": "5ksnl/9/4Sp1p1/6p1p/9/9/9/9/9 b 2SN2r2b4g2n3l13p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*4d", "4c4d", "S*4c"]], "wrong_sequences": [], "hisshi_index": [2], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 7, "chapter": null, "sfen": "7nl/6k2/4pp3/6pRp/5P3/9/9/9/9 b GSr2b3g3s3n3l13p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["2d2a+", "3b2a", "S*2c"]], "wrong_sequences": [], "hisshi_index": [2], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 8, "chapter": null, "sfen": "l8/2k6/2n1p4/pppp5/9/9/9/9/9 b BGS 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*8a", "7b8a", "S*8c", "B*7a", "G*7b"], ["B*8a", "7b6a", "8a6c+"]], "wrong_sequences": [["B*6a", "7b6c"], ["S*5b"], ["G*5b"]], "hisshi_index": [2, 2], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 9, "chapter": null, "sfen": "8l/5gk2/4Bp1p1/6P1p/9/9/9/9/9 b S2P 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*3c", "4b3c", "5c3a+", "3b3a", "3d3c+"], ["S*3c", "3b2a", "5c4b+"]], "wrong_sequences": [["S*3c", "4b3c", "3d3c+", "3b3c"]], "hisshi_index": [4, 2], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 10, "chapter": null, "sfen": "5+R1nl/6gk1/9/5ppPp/9/9/9/9/9 b Gr2b2g4s3n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*2c", "3b2c", "4a2a", "2b2a", "2d2c+"]], "wrong_sequences": [["G*4c", "2b1c"], ["G*2c", "3b2c", "2d2c+", "2b2c"]], "hisshi_index": [4], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 11, "chapter": null, "sfen": "7nl/7g1/5B1kP/8p/7p1/9/9/9/9 b GS2rb2g3s3n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*3d", "2c1c", "S*2d", "1c1b", "3d2c", "2b2c", "4c2a+", "1b2a", "2d2c+"]], "wrong_sequences": [["G*3d", "2c1c", "S*2d", "1c1b", "2d2c+", "2b2c", "4c2a+", "1b1c"]], "hisshi_index": [8], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 12, "chapter": null, "sfen": "ln1g+R4/1sk6/pppp5/4pp3/9/9/9/9/9 b S2Nr2b3g2sn3l12p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*6d", "6c6d", "5a6a", "7b6a", "S*6c"]], "wrong_sequences": [], "hisshi_index": [4], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 13, "chapter": null, "sfen": "3R3nl/4g1ks1/4pp1p1/6p1p/4B4/5P2P/6PP1/9/9 b GNrb2g3s2n3l9p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*2d", "2c2d", "5e2b+", "3b2b", "6a2a+", "2b2a", "S*2c"]], "wrong_sequences": [], "hisshi_index": [6], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 14, "chapter": null, "sfen": "1ns6/3k5/lpppPB3/4p4/3s5/9/9/9/9 b 2GN2P2rb2g2s2n3l11p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["4c5b+", "6b7b", "5b6a", "7b6a", "N*6d", "6c6d", "G*6c"], ["4c5b+", "6b7b", "5b6a", "7b8b", "N*8d", "8c8d", "G*8c", "8b9a", "G*9b"]], "wrong_sequences": [["4c6a+", "6b5c"]], "hisshi_index": [6, 4], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 15, "chapter": null, "sfen": "9/6k2/6g2/6+B2/6s2/9/9/9/9 b RNrb3g3s3n4l18p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["R*3a", "3b3a", "3d3c"], ["R*3a", "3b4b", "3a3c+", "4b5a", "G*5b"]], "wrong_sequences": [], "hisshi_index": [2, null], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 16, "chapter": null, "sfen": "5RSnl/4g4/4sp1k1/6ppp/9/5P3/9/9/9 b GSr2b2gs3n3l13p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["3a2b+", "2c2b", "4a2a+", "2b2a", "S*2c"]], "wrong_sequences": [], "hisshi_index": [4], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 17, "chapter": null, "sfen": "4k4/6+P2/3ppp3/9/9/9/9/9/9 b 2G2r2b2g4s4n4l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*7b"]], "wrong_sequences": [], "hisshi_index": [0], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 18, "chapter": null, "sfen": "lnk6/4+P4/1ppp5/p8/9/9/9/9/9 b 2GSP2r2b2g3s3n3l12p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*9b", "9a9b", "S*9a"]], "wrong_sequences": [["G*6b", "7a8b", "G*7b", "8b9c"]], "hisshi_index": [2], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 19, "chapter": null, "sfen": "ln1g2+R2/2ks1+P3/ppppp4/9/9/9/9/9/9 b Gr2b2g3s3n3l12p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["3a6a", "7b6a", "G*8b"]], "wrong_sequences": [["G*5b", "G*7a"]], "hisshi_index": [2], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 20, "chapter": null, "sfen": "ln7/2k2+P3/1pppp4/p8/9/9/9/9/9 b B2GN2rb2g4s2n3l12p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*8d", "8c8d", "B*6a", "7b6a", "G*8b"]], "wrong_sequences": [["B*6a"]], "hisshi_index": [4], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 21, "chapter": null, "sfen": "3g1k3/4g4/3+P1SP2/9/9/9/9/9/9 b 2r2b2g3s4n4l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["3c3b+", "4a5a", "4c5b+", "6a5b", "6c7b"]], "wrong_sequences": [], "hisshi_index": [4], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 22, "chapter": null, "sfen": "6k2/5g2+P/4pp1p1/5Np2/9/9/9/9/9 b GN2r2b2g4s2n4l13p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*3c", "4b3c", "4d5b+"]], "wrong_sequences": [], "hisshi_index": [2], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 23, "chapter": null, "sfen": "ln7/2k2+P3/1pspp4/2N6/9/9/9/9/9 b BGS2rb3g2s2n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*6a", "7b6a", "S*6b", "7c6b", "7d8b+"]], "wrong_sequences": [["B*6a", "7b6a", "S*6b", "7c6b", "G*8b"]], "hisshi_index": [4], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 24, "chapter": null, "sfen": "ln3+R3/2ks1+P3/1ppp5/p8/2gPs4/9/9/9/9 b 2GSr2bgs3n3l12p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*9c", "9a9c", "4a6a", "7b6a", "G*8b"]], "wrong_sequences": [["4a6a", "7b8b"]], "hisshi_index": [4], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 25, "chapter": null, "sfen": "l1k6/2g6/1pn+BpP3/p1p6/2s6/9/9/9/9 b 3G2rb3s3n3l13p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*6b", "7b6b", "G*8a", "7a6a", "4c4b+", "6b6c", "8a8b"], ["G*6b", "7a8b", "6b7b", "8b9c", "6c7c", "9d9e", "G*8e"]], "wrong_sequences": [], "hisshi_index": [6, 6], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 26, "chapter": null, "sfen": "9/4+P2kp/5p1p1/6g1L/7+b1/9/6+r2/9/9 b R2GSbg3s4n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*3b", "2b3b", "R*3a", "3b3a", "S*3c", "3d3c", "1d1b+"]], "wrong_sequences": [["S*4b", "2e1d"], ["R*3a", "2e1d"]], "hisshi_index": [6], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 27, "chapter": null, "sfen": "9/9/7p1/6pkp/9/7G1/9/9/9 b 2S2r2b3g2s4n4l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*2b"]], "wrong_sequences": [], "hisshi_index": [0], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 28, "chapter": null, "sfen": "9/6B1k/6+rp1/9/8S/9/9/9/9 b GSPrb3g2s4n4l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*1c", "1b1c", "3b2a+"]], "wrong_sequences": [["S*2a", "1b2b", "G*1b", "2b3a"], ["3b4a+", "1b2a"]], "hisshi_index": [2], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 29, "chapter": null, "sfen": "9/9/7pk/6p1p/9/6P1P/9/9/9 b GSN2r2b3g3s3n4l13p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*2e", "1c2d", "G*2f"]], "wrong_sequences": [["S*3c", "R*2g"]], "hisshi_index": [2], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 30, "chapter": null, "sfen": "8l/7S1/7p1/6pkp/9/8P/9/9/9 b GS2r2b3g2s4n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*2f", "N*3c", "2b3c"]], "wrong_sequences": [], "hisshi_index": [2], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 31, "chapter": null, "sfen": "7n1/3+P2k2/5g3/5pN1p/5s3/7P1/9/9/9 b BGS2P2rb2g2s2n4l12p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*4a", "3b4a", "S*4b", "4c4b", "3d2b+"]], "wrong_sequences": [["B*4a", "3b4a", "3d2b+", "4a4b"]], "hisshi_index": [4], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 32, "chapter": null, "sfen": "6Snl/5R3/5p1kp/5gpp1/9/6+b2/7+p1/9/9 b GSrb2g2s3n3l13p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["3a2b+", "2c1d", "G*1f", "N*2c", "4b4c+", "4d4c", "P*1e"]], "wrong_sequences": [["4b2b+"]], "hisshi_index": [4], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 33, "chapter": null, "sfen": "ln+B6/k8/1pp6/p8/9/9/9/9/9 b G2rb3g4s3n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*7b"]], "wrong_sequences": [["G*8b", "9b9c"]], "hisshi_index": [0], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 34, "chapter": null, "sfen": "ln7/k1G6/1pp6/p8/9/9/9/9/9 b BS2rb3g3s3n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*7a", "S*9c", "S*8b"]], "wrong_sequences": [["S*8b", "8c8d"]], "hisshi_index": [2], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 35, "chapter": null, "sfen": "ln7/k1G6/1pp6/p8/1P7/9/9/9/9 b BGs 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*9c", "9b9c", "B*7a"]], "wrong_sequences": [["B*7a"]], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 36, "chapter": null, "sfen": "lnB6/k8/1p7/p1p6/9/9/9/9/9 b GN2rb3g4s2n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*8d", "8c8d", "G*8b", "9b9c", "8b7b", "9c8c", "7a8b+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 37, "chapter": null, "sfen": "ln7/k1+P6/1pp6/p8/9/9/9/9/9 b 2B2r4g4s3n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*7a", "S*9c", "B*8b", "S*8d", "8b9c+", "8d9c", "S*8b"]], "wrong_sequences": [], "hisshi_index": [6], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 38, "chapter": null, "sfen": "lnB6/k1s6/1pp6/p8/1+b7/9/9/9/9 b G2N2r3g3sn3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*7d"]], "wrong_sequences": [["N*8d", "8c8d", "G*8b", "9b9c"]], "hisshi_index": [0], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 39, "chapter": null, "sfen": "ln7/1k7/1ppS5/p8/9/9/9/9/9 b BG2rb3g3s3n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*7a", "8b9b", "6c7b+"]], "wrong_sequences": [], "hisshi_index": [2], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 40, "chapter": null, "sfen": "ln7/1k7/1p1G5/p1p6/9/9/9/9/9 b BG2rb2g4s3n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*7a", "8b9b", "6c7c"]], "wrong_sequences": [["B*7a", "8b9b", "6c7b", "B*3g"]], "hisshi_index": [2], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 41, "chapter": null, "sfen": "ln7/2k6/1ppp+B4/p2s5/9/9/9/9/9 b GS2rb3g2s3n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*6a", "7b8b", "5c7a", "8b9b", "6a7b+"]], "wrong_sequences": [], "hisshi_index": [4], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 42, "chapter": null, "sfen": "ln1n5/2k6/1ppp+B4/p8/9/9/9/9/9 b GS2rb3g3s2n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*7a", "6a5c", "G*6b"], ["S*7a", "8c8d", "G*8b"]], "wrong_sequences": [], "hisshi_index": [0, 0], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 43, "chapter": null, "sfen": "ln7/2k6/1ppp+B4/p1b6/9/9/9/9/9 b 2G2r2g4s2n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*6a", "8c8d", "5c7a", "7b8c", "G*8b", "8c9c", "8b7b", "9c8c", "7a8b"]], "wrong_sequences": [["G*7a", "7b8b"], ["G*6b", "7b8b"]], "hisshi_index": [0], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 44, "chapter": null, "sfen": "1n7/2k6/1p2+B4/2p6/r8/9/9/9/9 b 2Grb2g4s3n4l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*6c", "7b8b", "5c7a", "8b9b", "G*9a", "9b9a", "6c7b"]], "wrong_sequences": [["G*6c", "7b8b", "5c7a", "8b9b", "6c7c", "8a7c"], ["G*6c", "7b8b", "5c7a", "8b9b", "6c7b", "G*9a"]], "hisshi_index": [6], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 45, "chapter": null, "sfen": "ln1g5/2k6/1ppp+B4/p8/2P6/9/9/9/9 b 2GSN2rbg3s2n3l13p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*7a", "6a7a", "N*6d", "6c6d", "G*6c", "7b8b", "5c7a", "8b9b", "6c7b"]], "wrong_sequences": [["N*6d", "7b8b"]], "hisshi_index": [8], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 46, "chapter": null, "sfen": "ln1g5/2k6/1ppp+B4/p8/9/P8/9/9/9 b GSN2rb2g3s2n3l13p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*7a", "7b8b", "7a6a", "8c8d", "N*7e", "S*7d", "5c7a", "8b9b", "G*8b", "9b9c", "8b7b"], ["G*7a", "6a7a", "N*6d", "6c6d", "S*6c", "7b8b", "5c7a", "8b9b", "6c7b+"], ["G*7a", "7b8b", "7a6a", "R*7b", "S*7a", "8b9b", "G*8b", "9b9c", "5c7e"], ["G*7a", "7b8b", "7a6a", "R*7b", "S*7a", "8b9c", "N*8e", "9c8d", "G*7e"], ["G*7a", "7b8b", "7a6a", "R*7b", "S*7a", "8b9b", "G*8b", "7b8b", "7a8b", "9b8b", "5c7a", "8b9b", "R*7b"], ["G*7a", "7b8b", "7a6a", "R*7b", "S*7a", "8b9b", "G*8b", "7b8b", "7a8b"]], "wrong_sequences": [["S*7a", "7c7d"], ["S*7a", "7c7d"]], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 47, "chapter": null, "sfen": "ln1g5/2k6/pppp+B4/9/1g7/9/9/9/9 b GSN2rbg3s2n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*6d", "6c6d", "S*7a"]], "wrong_sequences": [["S*7a", "7c7d"], ["G*7a", "7b8b"]], "hisshi_index": [2], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 48, "chapter": null, "sfen": "ln7/2kg5/pppp+B4/9/9/9/9/9/9 b GSN2rb2g3s2n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*6d", "6c6d", "S*6c", "6b6c", "G*7a", "7b8b", "5c6c", "9c9d", "7a8a", "8b9c", "6c7c"]], "wrong_sequences": [], "hisshi_index": [10], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 49, "chapter": null, "sfen": "7nl/5B2k/5S1p1/5gp1p/9/9/9/9/9 b 2G2rbg3s3n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*2b", "1b2b", "4b3a+", "2b3c", "3a4b", "3c2b", "4c3b+", "2b1b", "4b3a"]], "wrong_sequences": [], "hisshi_index": [8], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 50, "chapter": null, "sfen": "7gl/6k2/4+BNnp1/4gg1s1/9/9/9/9/9 b GSP2rb2s2n3l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*3a", "2a3a", "G*2b", "3b2b", "5c3a", "2b1b", "G*3b", "L*2a", "P*1c"]], "wrong_sequences": [["5c3a", "3b4c"], ["4c3a+", "3b2b"]], "hisshi_index": [6], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 51, "chapter": null, "sfen": "7nl/7k1/7p1/6L1p/9/9/9/9/9 b BG2rb3g4s3n2l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*3a", "2b1b", "3d3c+"]], "wrong_sequences": [["B*3a", "2b1b", "3d3b+", "B*7g"]], "hisshi_index": [2], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 52, "chapter": null, "sfen": "ln7/2k1s4/1pppB4/p1s6/9/9/9/9/9 b G2S2rb3g3n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*6a", "5b6a", "S*7a"]], "wrong_sequences": [["S*7a", "5b5c"]], "hisshi_index": [2], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 53, "chapter": null, "sfen": "ln7/1kg+R5/pppp5/9/9/9/9/9/9 b Sr2b3g3s3n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*7a"]], "wrong_sequences": [], "hisshi_index": [0], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 54, "chapter": null, "sfen": "ln7/2kg+R4/pppp5/9/9/9/9/9/9 b SNr2b3g3s2n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*6d", "6c6d", "S*6c"]], "wrong_sequences": [["S*6a", "7b7a"]], "hisshi_index": [2], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 55, "chapter": null, "sfen": "l8/2kg1+R3/pppp5/9/9/9/9/9/9 b GNr2b2g4s3n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*8b", "7b8b", "4b6b", "G*7b", "N*7d", "7c7d", "G*7c"]], "wrong_sequences": [], "hisshi_index": [6], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 56, "chapter": null, "sfen": "ln7/1kg1+R4/pppp5/9/9/2P6/PPN6/9/L8 b GN 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*6d", "6c6d", "G*6c"]], "wrong_sequences": [], "hisshi_index": [2], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 57, "chapter": null, "sfen": "ln7/2ksR4/pppp5/9/9/9/9/9/9 b 2Gr2b2g3s3n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*8b", "7b6a", "G*5a", "6b5a", "5b7b+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 58, "chapter": null, "sfen": "ln7/1kg+R5/1ppp5/p8/9/P1P6/1P7/9/L8 b 2GN 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*9c", "8b9c", "6b7b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 59, "chapter": null, "sfen": "7nl/6+Rsk/7pp/6p2/7N1/9/9/9/9 b Sr2b4g2s2n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["2e3c+"]], "wrong_sequences": [["S*3a", "B*7g"], ["S*3c", "G*3a"]], "hisshi_index": [0], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 60, "chapter": null, "sfen": "7nl/6+Rgk/8p/9/9/9/9/9/9 b Rs 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["R*3a"]], "wrong_sequences": [["R*2c", "2b3b"]], "hisshi_index": [0], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 61, "chapter": null, "sfen": "7nl/6+Rsk/7pp/9/9/9/9/9/9 b NLr2b4g3s2n2l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*2d", "2c2d", "L*2c"]], "wrong_sequences": [["N*3d", "G*3a"], ["L*2i", "G*3c"]], "hisshi_index": [2], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 62, "chapter": null, "sfen": "7nl/6+Rsk/7pp/6p2/6s2/9/9/9/9 b 2Gr2b2g2s3n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*3c", "2a3c", "G*2a"]], "wrong_sequences": [["G*3a", "B*8g"]], "hisshi_index": [2], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 63, "chapter": null, "sfen": "7nl/5+Rs1k/6ppp/8s/9/9/9/9/9 b GNr2b3g2s2n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*2b", "1b2b", "N*4d"]], "wrong_sequences": [["4b3b", "G*2b"]], "hisshi_index": [2], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 64, "chapter": null, "sfen": "7nl/6+Rsk/5+B2p/9/7s1/8+b/9/9/9 b r4g2s3n3l17p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["4c4d", "P*3c", "4d3c", "2a3c", "P*2c"]], "wrong_sequences": [["3b2a", "1b2c"], ["4c2e", "S*2c"]], "hisshi_index": [4], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 65, "chapter": null, "sfen": "7nl/6+Rsk/7pp/8s/9/9/9/9/9 b BSrb4gs3n3l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*3a", "B*7g", "B*4c"]], "wrong_sequences": [["B*4c", "G*3a"], ["S*3c", "G*3a"]], "hisshi_index": [2], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 66, "chapter": null, "sfen": "9/6+Rgk/7pp/9/9/9/9/9/9 b 2Gr2bg4s4n4l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*2a"]], "wrong_sequences": [], "hisshi_index": [0], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 67, "chapter": null, "sfen": "8l/6+Rsk/7p1/6p1p/9/9/9/9/9 b SNr2b4g2s3n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*2e", "N*2a", "S*1c", "2a1c", "2e3c+"]], "wrong_sequences": [["N*2d", "1b1c"], ["S*3c", "G*3a"]], "hisshi_index": [4], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 68, "chapter": null, "sfen": "7nl/7sk/5+R3/7p1/9/9/9/9/9 b GSr2b3g2s3n3l17p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*1c", "2a1c", "4c3b"]], "wrong_sequences": [], "hisshi_index": [2], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 69, "chapter": null, "sfen": "6nnl/6+Rsk/8p/5s3/6P2/8P/9/9/9 b GSr2b3gs2n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*2c", "3a2c", "G*3a", "1c1d", "3a2a", "1b1c", "N*2e", "1c2d", "3b3d"], ["S*2c", "3a2c", "G*3a", "1c1d", "3a2a", "S*3c", "2a2b", "3c2b", "S*2a", "1b1c", "N*2e", "1c2d", "3b3d"]], "wrong_sequences": [], "hisshi_index": [4, 4], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 70, "chapter": null, "sfen": "7n1/5+Rgk1/7pl/9/9/9/9/9/9 b 3Gr2b4s3n3l17p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*3c", "2a3c", "G*1b", "2b1b", "4b3b", "G*2b", "G*2a"]], "wrong_sequences": [], "hisshi_index": [6], "kind": "必至"}}, {"book": "寄せの手筋200", "problem_no": 71, "chapter": null, "sfen": "7nl/5+RG2/7pk/6p1p/5P3/6P2/7PP/9/8L b Sr2b3g3s3n2l11p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["3b3c", "2a3c", "4b3c", "R*2e", "S*2b", "1c1b", "3c3b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 72, "chapter": null, "sfen": "7n1/8l/7p1/7kp/7s1/6R1P/9/9/9 b 3Sr6p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*3c", "2a3c", "S*1c", "2d1c", "3f3c+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 73, "chapter": null, "sfen": "l8/1k7/1ppR5/9/9/9/9/9/9 b BGrb3g4s4n3l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*7a", "8b7a", "6c7c+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 74, "chapter": null, "sfen": "6S1k/8g/5R3/9/9/9/9/9/9 b Gr2b2g3s4n4l18p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["4c1c+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 75, "chapter": null, "sfen": "9/5k3/9/9/9/9/9/9/9 b 2RG2b3g4s4n4l18p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["R*4d", "P*4c", "R*4a", "4b4a", "4d4c+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 76, "chapter": null, "sfen": "3R3nl/6gk1/6spp/4psp2/5p3/6P1P/9/7R1/8L b BG 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*4c", "3b4c", "6a2a+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 77, "chapter": null, "sfen": "l+R7/1g7/1k1s5/pppp5/9/P1P6/2N6/9/9 b GSr2b2g2s3n3l12p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["7g8e", "8d8e", "G*8d", "8c8d", "8a8b", "G*8c", "S*7c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 78, "chapter": null, "sfen": "6R2/5g3/5+bnk1/6ppp/9/9/9/9/9 b 3Grb4s3n4l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*1c", "2c1c", "3a1a+", "G*1b", "G*2b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 79, "chapter": null, "sfen": "6R1l/6ggk/8n/5spRp/9/9/9/9/9 b 2G2b3s3n3l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*2c", "3b2c", "G*2a", "2b2a", "3a2a+", "1b2a", "2d2c+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 80, "chapter": null, "sfen": "g1R6/1k7/2gP5/p8/9/9/9/9/9 b R2b2g4s4n4l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["R*9c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 81, "chapter": null, "sfen": "8l/5+R1sk/6npp/9/6g2/9/9/9/9 b BNrb3g3s2n3l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*2d", "2c2d", "4b3b", "1c1d", "B*3a"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 82, "chapter": null, "sfen": "8l/8k/7ps/8p/6R2/9/9/9/9 b SNr2b4g2s3n3l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["3e3b+", "1c2b", "N*2e", "N*2a", "S*1c", "2a1c", "2e3c+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 83, "chapter": null, "sfen": "ln7/1k1+P5/1p7/p1p6/9/9/9/9/9 b GSN 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*8e"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 84, "chapter": null, "sfen": "lnR6/1k1+P5/1ppp5/p8/2g6/9/9/9/9 b 2Sr2b3g2s3n3l13p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*8d", "8c8d", "7a7b+", "8b9c", "S*8b", "9c9b", "8b7c+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 85, "chapter": null, "sfen": "ln2R4/2kg1s3/1ppp5/p8/9/P1P6/1P7/9/9 b BGrb2g3s3n3l11p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*9c", "G*8b", "G*7a"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 86, "chapter": null, "sfen": "5kgnl/9/4Sp1p1/6p1p/9/9/9/9/9 b RGr2b2g3s3n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["R*2b", "3a2b", "G*4b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 87, "chapter": null, "sfen": "knS6/lgs+P5/1pp6/p8/9/9/9/9/9 b 2S2r2b3g3n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*9c", "9b9c", "7a8b+", "9a8b", "S*7a"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 88, "chapter": null, "sfen": "3g5/2s1g4/kpp6/9/9/1S7/9/9/9 b BGLP2rbg2s4n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["P*9d", "9c9b", "B*7a"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 89, "chapter": null, "sfen": "5k1nl/3+P2g2/4+Ppsp1/6p1p/7P1/9/9/9/9 b GS2r2b2g2s3n3l11p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*2b", "3b3a", "5c4c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 90, "chapter": null, "sfen": "lnsgk4/6+P2/1ppppS3/p8/9/9/9/9/9 b 2GS2r2bgs3n3l12p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*7b", "7a7b", "S*7a", "6a6b", "3b4b", "5a6a", "7a8b+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 91, "chapter": null, "sfen": "6knl/3R+P1g2/5p2p/6sp1/9/7s1/9/9/9 b G2Sr2b2g3n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*2c", "3d2c", "S*3c", "2a3c", "6b6a+"]], "wrong_sequences": [["S*3c", "2a3c", "S*2c", "3a2a"]], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 92, "chapter": null, "sfen": "7nl/5S3/7p1/6pkp/4+b4/6PPP/6N2/9/8L b 2GS2rb2g2s2n2l12p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*1b", "1a1b", "S*2b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 93, "chapter": null, "sfen": "lns6/2k1G4/1pppS4/p8/9/1+r7/9/9/9 b RGS2b2gs3n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["R*6b", "7a6b", "S*9c", "9a9c", "5b6b", "7b8b"], ["R*6b", "7a6b", "S*9c", "8a9c", "5b6b", "7b8b", "G*7b", "8b9b", "S*8a"], ["R*6b", "7a6b", "S*9c", "6b5c", "G*8b"], ["R*6b", "7a6b", "S*9c", "7c7d", "5b6b", "7b7c", "G*7b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 94, "chapter": null, "sfen": "6k1l/3R+P1g2/3S1gn1p/6s2/7r1/9/9/9/9 b GS2bgs3n3l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*2c", "3a2a", "G*3a", "3b3a", "5b4a"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 95, "chapter": null, "sfen": "6gn1/6k2/4Sp1R1/6s2/6b2/9/9/9/9 b BGr2g2s3n4l17p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*4a", "3b4a", "2c2b+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 96, "chapter": null, "sfen": "l2k5/3g1+P3/p1npR4/1rs6/9/9/9/9/9 b GS2b2g2s3n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*8c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 97, "chapter": null, "sfen": "7kl/7g1/6+P1p/9/9/9/9/9/9 b G2P2r2b2g4s4n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["P*2c", "G*3a", "2c2b+", "3a2b", "P*2c", "G*3a", "2c2b+", "3a2b", "G*2c", "S*3a", "3c2b", "3a2b", "G*3b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 98, "chapter": null, "sfen": "6knl/6g2/5+Rsp1/6p1p/7P1/9/9/9/9 b GSsnlp 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*4a", "3a2b", "4a3b+", "2b1c", "4c3c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 99, "chapter": null, "sfen": "7kl/7g1/6+Pp1/8p/9/9/9/9/9 b GNgs 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*3d", "G*3b", "3c2b", "3b2b", "G*3c"]], "wrong_sequences": [["N*3d", "G*3b", "3d2b+", "3b2b"]], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 100, "chapter": null, "sfen": "4k4/4g4/5S3/9/9/9/9/9/9 b GS2g2n 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*6c", "G*6a", "4c5b+", "6a5b", "G*4c", "G*6a", "6c5b+", "6a5b", "G*6c", "S*6a", "G*4a", "5a4a", "6c5b", "6a5b", "G*4b"], ["S*6c", "G*6a", "6c5b+", "6a5b", "G*6c", "G*6a", "4c5b+", "6a5b", "G*4c", "S*6a", "G*4a", "5a4a", "6c5b", "6a5b", "G*4b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 101, "chapter": null, "sfen": "5k1nl/6g2/4Gp1p1/4p1p1p/9/6P1P/5P3/7R1/7NL b GPp 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["2h2c+", "4a3a", "5c4c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 102, "chapter": null, "sfen": "5k1nl/6g2/4+P3b/6ppp/9/9/9/9/9 b BG 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*2c", "4a3a", "5c4c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 103, "chapter": null, "sfen": "6knl/6g2/4pp1+R1/6p1p/9/9/9/9/9 b GSP 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["P*3c", "2a3c", "S*2a"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 104, "chapter": null, "sfen": "6kn1/3+P2g2/5ps+R1/6p2/9/9/9/9/9 b GSr2b2g2s3n4l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*4a"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 105, "chapter": null, "sfen": "6knl/6g2/5+P1pp/5pp2/9/8P/9/9/9 b GSN2g 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*2d", "2c2d", "S*2c", "G*4b", "4c3b", "4b3b", "G*4c", "G*4b", "2c3b+", "4b3b", "G*2c"], ["N*2d", "2c2d", "S*2c", "G*4a", "2c3b+", "4a3b", "G*2c", "G*4b", "4c3b", "4b3b", "G*4c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 106, "chapter": null, "sfen": "4k4/2P1g1P2/5+P3/4ps3/9/9/9/9/9 b 2G2r2bg3s4n4l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*6c", "G*6b", "4c5b", "6b5b", "G*4c", "R*4b", "4c5b", "4b5b", "G*4c", "G*4a", "G*6a", "5a6a", "4c5b", "4a5b", "R*7a"], ["G*6c", "G*6a", "4c5b", "6a5b", "G*4c", "R*4b", "6c5b", "4b5b", "G*6c", "G*4a", "G*6a", "5a6a", "4c5b", "4a5b", "R*7a"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 107, "chapter": null, "sfen": "7k1/5pg1l/6+Rs1/9/9/9/9/9/9 b G2Sr2b2gs4n3l17p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*2b", "3b2b", "S*3a"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 108, "chapter": null, "sfen": "7nl/5Pgk1/5+R2s/6p1p/9/9/9/9/9 b GSNr2b2g2s2n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*3a", "2b3a", "N*4d", "G*3c", "4d3b+", "3c3b", "G*2c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 109, "chapter": null, "sfen": "8l/6+P2/7pk/6p1p/9/6PPP/6S2/9/8L b GP2r2b3g3s4n2l10p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["1f1e", "1d1e", "P*1d", "1c1d", "G*2e", "1d1c", "1i1e"], ["1f1e", "N*2b", "1e1d", "2b1d", "P*1e", "N*2b", "1e1d", "2b1d", "N*2e", "1c2d", "G*1e"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 110, "chapter": null, "sfen": "ln1+P5/1k7/1pps5/p8/9/P1P6/1P7/9/L8 b GSNl 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*7a", "8b9b", "9f9e", "L*8b", "9e9d"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 111, "chapter": null, "sfen": "7nl/6+P1k/4b2p1/5pp1p/9/6P1P/9/9/8L b 2Gg 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["1f1e", "G*3a", "1e1d", "3a3b", "G*1c", "2a1c", "1d1c+", "1b2a", "N*3c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 112, "chapter": null, "sfen": "ln7/2+P6/kpp6/p8/9/P1P6/9/9/L8 b 2Gs 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["9f9e", "9d9e", "G*8e", "S*9d", "9i9e"], ["9f9e", "8c8d", "G*8b", "S*8c", "9e9d", "8c9d", "G*8c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 113, "chapter": null, "sfen": "8l/6G2/6npk/6p1p/7P1/8P/9/9/8L b S2r2b3g3s3n2l13p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*2b", "1c1b", "1f1e"], ["S*2b", "1c1b", "1f1e", "3c2e", "1e1d"]], "wrong_sequences": [["1f1e", "3c2e", "1e1d", "1c2d"]], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 114, "chapter": null, "sfen": "l3p4/k1+Ps5/1pp1P4/p8/1P7/P8/9/9/L8 b GN2r2b3g3s3n2l10p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["9f9e", "9d9e", "9i9e"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 115, "chapter": null, "sfen": "l3p4/kg+Ps5/1pp1P4/p8/PP7/9/9/9/L8 b GN2r2b2g3s3n2l10p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*9c", "8b9c", "9e9d", "9c9d", "9i9d", "P*9c", "G*8b"], ["G*9c", "9b9c", "9e9d", "9c9b", "9d9c+", "8b9c", "P*9d"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 116, "chapter": null, "sfen": "l3p4/ks+Ps5/1pp1P4/p8/PP7/9/9/9/L8 b GN2r2b3g2s3n2l10p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*8a", "S*7a", "8a8b", "7a8b", "S*8a", "9b9c", "9e9d"], ["G*8a", "G*7a", "8a8b", "7a8b", "S*9c", "8b9c", "9e9d"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 117, "chapter": null, "sfen": "l1b1p4/k1+Ps5/1pp1P4/p8/PP7/9/9/9/L8 b GN2rb3g3s3n2l10p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["9e9d", "N*8a", "7b7a", "6b7a", "G*9c", "8a9c", "9d9c+", "9b8a", "9c8c", "G*8b", "N*9c", "9a9c", "9i9c+", "8b8c", "9c8c", "G*8b", "N*9c", "8b9c", "B*6c", "L*7b", "6c7b+", "7a7b", "G*8b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 118, "chapter": null, "sfen": "7nl/7k1/5+P1p1/6p1p/7P1/6P1P/9/7R1/6bNL b GL 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*3b", "2b1c", "1f1e", "1d1e", "1i1e", "P*1d", "1e1d", "1c1d", "P*1e", "1d1e", "P*1f", "1e1d", "L*1e"], ["G*3b", "2b1b", "4c3c", "2a3c", "1f1e", "3i2h+", "L*1c", "1b1c", "1e1d"], ["G*3b", "2b1b", "4c3c", "2a3c", "1f1e", "2c2d", "2e2d", "3i2h+", "1e1d"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 119, "chapter": null, "sfen": "ln7/ks+R6/1pp6/p8/3+b5/PPP6/9/9/L8 b 2Srb4gs3n2l12p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*7a", "S*9c", "9f9e", "6e7f", "9e9d", "7f9d", "9i9d"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 120, "chapter": null, "sfen": "6+Bnl/7sk/6+bp1/8p/7PP/9/9/9/8L b RSr4g2s3n2l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["R*1c", "2b1c", "1e1d", "G*2b", "1d1c+", "2a1c", "S*2a"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 121, "chapter": null, "sfen": "ln1+R5/1k7/2pp5/pp7/9/9/9/9/9 b GSr2b3g3s3n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*7b", "S*9b", "G*8c", "9b8c", "6a8a"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 122, "chapter": null, "sfen": "ln1+B5/1k7/1pp6/p8/9/9/9/9/9 b S2rb4g3s3n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*7b", "R*8i", "6a7a"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 123, "chapter": null, "sfen": "ln1+B5/k8/1pp6/p8/9/9/9/9/9 b GS2rb3g3s3n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*8b", "9b8b", "S*7b"]], "wrong_sequences": [["S*7b", "G*8b"]], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 124, "chapter": null, "sfen": "ln1+B5/4R4/kpp6/p8/1s7/P2s5/9/9/9 b BSr4gs3n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*7e", "6f7e", "5b8b+", "9c8b", "S*7b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 125, "chapter": null, "sfen": "5+B1nl/6Rsk/6p2/7g1/8r/9/9/9/9 b GPb2g3s3n3l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["3b2b+", "1b2b", "G*2c", "2d2c", "S*3b", "2b1c", "3b2c+", "1c1d", "G*2d"], ["3b2b+", "1b2b", "G*2c", "2d2c", "S*3b", "2c2d", "4a3a", "2b1b", "P*1c", "1e1c", "3a2a"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 126, "chapter": null, "sfen": "lnk6/1R7/1ppp1+B3/p8/9/9/9/9/9 b Srb4g3s3n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*7b", "7a8b", "4c6a"]], "wrong_sequences": [["4c6a", "7a6a", "S*5c", "G*7b", "8b8a+", "G*7a"], ["4c6a", "7a6a", "S*5b", "6a7a"], ["4c6a", "7a6a", "S*6b", "6a5b"]], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 127, "chapter": null, "sfen": "5k1nl/7R1/6sp1/6p1p/6+b2/9/9/9/9 b BSr4g2s3n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*6c", "4a3a", "S*3b", "3a2b", "6c4a+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 128, "chapter": null, "sfen": "ln7/k1G6/1pp6/p8/9/9/9/9/9 b GS2r2b2g3s3n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*8b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 129, "chapter": null, "sfen": "ln7/kSG6/2p6/pp7/9/9/9/9/9 b G2r2b2g3s3n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["7b7c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 130, "chapter": null, "sfen": "ln6r/kSG6/1pp6/p8/9/9/9/9/9 b Gr2b2g3s3n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["7b8a", "B*5g", "G*9c", "5g9c+", "8b9a+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 131, "chapter": null, "sfen": "lng6/kSG6/1pp6/p8/9/9/9/9/9 b G2r2bg3s3n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*9c", "8a9c", "8b7a", "9c8e", "7a8b", "B*5g", "G*9c", "5g9c+", "8b8a"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 132, "chapter": null, "sfen": "4+R2nl/7k1/5gspp/5pp2/9/9/9/9/9 b GSr2b2g2s3n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*3b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 133, "chapter": null, "sfen": "l8/k2+P5/1pp6/p8/9/9/9/9/9 b BGS2rb3g3s4n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*8b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 134, "chapter": null, "sfen": "6knl/6g2/4+Pp1pp/5g3/7P1/9/9/9/9 b RS 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*4a", "3a4a", "R*6a", "S*5a", "6a5a+"], ["S*4a", "3a2b", "4a3b+", "2b3b", "G*4b", "3b3c", "R*3b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 135, "chapter": null, "sfen": "ln7/1k2s4/1ppp5/p4B3/1gN6/9/9/9/9 b G2S2rb2gs2n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*7b", "8b7b", "S*7a", "S*5c", "G*6b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 136, "chapter": null, "sfen": "lnR6/k2+P5/1p1p5/p1p6/9/9/9/9/9 b SNr2b4g3s2n3l13p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*8b", "9b8b", "N*8e", "G*7c", "7a8a+", "8b8a", "8e7c+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 137, "chapter": null, "sfen": "5+B1nl/8k/6pps/8p/9/9/9/9/9 b GSN2rb3g2s2n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*2d", "1c2d", "G*2b", "1b2b", "S*3b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 138, "chapter": null, "sfen": "6knl/4+P4/7gp/5ppp1/9/9/9/9/9 b RSr2b3g3s3n3l13p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["R*4a", "3a2b", "S*3b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 139, "chapter": null, "sfen": "7pl/5r2k/6GPp/9/9/9/9/9/9 b Brb3g4s4n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*3d"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 140, "chapter": null, "sfen": "8l/8k/7P1/6+B1p/6g2/9/9/9/9 b L2rb3g4s4n2l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["L*2d", "1b1c", "2c2b+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 141, "chapter": null, "sfen": "7nl/6+r1k/7P1/6B1p/9/9/9/9/9 b BGr3g4s3n3l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*3a", "3b3a", "2c2b+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 142, "chapter": null, "sfen": "7nl/6g1k/6sPp/6B2/9/9/9/9/9 b BG2r2g3s3n3l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*4a", "3c3d", "4a3b+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 143, "chapter": null, "sfen": "7n1/8k/6sPl/5bB2/6g2/9/9/9/9 b GL2r2g3s3n2l17p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*2b", "3c2b", "L*2d"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 144, "chapter": null, "sfen": "6snl/8k/7L1/6B1p/9/9/6+r2/9/9 b RLb3g3s3n2l17p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["2c2b+", "1b2b", "R*2c", "2b1b", "L*2d", "3g3d", "2c2a+", "1b1c", "N*2e"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 145, "chapter": null, "sfen": "7n1/6RSk/7p1/6p2/8+r/9/9/9/9 b Bb4g3s3n4l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*3a"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 146, "chapter": null, "sfen": "7n1/6RSk/7p1/6p2/8+r/9/9/9/9 b P2b4g3s3n4l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["P*1d"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 147, "chapter": null, "sfen": "7nl/7g1/6p2/8k/6B1p/9/9/9/9 b RSrb3g3s3n3l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["R*2d", "1d1c", "S*3b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 148, "chapter": null, "sfen": "gn1g5/k8/lPp6/ppB+r5/2P6/9/9/9/9 b RB2g4s3n3l13p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["R*8b", "9a8b", "B*7a", "6a7a", "8c8b+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 149, "chapter": null, "sfen": "lnB6/k8/1pps5/p8/9/3+b5/9/9/9 b GSN2r3g2s2n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*8d", "8c8d", "G*8b", "9b9c", "S*7d"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 150, "chapter": null, "sfen": "lnB6/k8/2p6/pp7/9/1+r7/9/9/9 b GSrb3g3s3n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*7b", "R*8c", "G*7d", "7c7d", "7b8c+", "9b8c", "R*8b", "8c7c", "8b6b+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 151, "chapter": null, "sfen": "7n1/5g3/7Pk/6Bpl/7s1/9/9/9/9 b 2S2rb3gs3n3l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*2b", "1c1b", "S*1c", "2a1c", "2b3a"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 152, "chapter": null, "sfen": "lnB6/k1s6/1p7/p8/1s7/9/9/9/9 b G2N2rb3g2sn3l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*8d", "8c8d", "G*8b", "9b9c", "N*7e", "9d9e", "8b7b", "9c9d", "S*8c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 153, "chapter": null, "sfen": "7nl/8k/6p2/8p/9/9/9/7R1/9 b Lr2b4g4s3n2l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["L*2i"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 154, "chapter": null, "sfen": "8k/7g1/7+R1/9/9/9/9/9/9 b SLr2b3g3s4n3l18p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*1b", "2b1b", "L*1i"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 155, "chapter": null, "sfen": "ln1g5/1ks6/pppp5/9/PPPN5/9/9/9/9 b GS2N 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*8f", "8b9b", "N*7d", "7c7d", "8f7d", "6a7a", "G*8b", "7a8b", "S*7a"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 156, "chapter": null, "sfen": "5+B1nl/6gk1/5gspp/4ppp2/7P1/4PPP1P/6N2/7R1/8L b SNn 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*2d", "2c2d", "2e2d", "3c2d", "2h2d", "P*2c", "S*3a", "2b3c", "S*2b", "3c2d", "P*2e", "2d1d", "1f1e"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 157, "chapter": null, "sfen": "7nl/6gk1/3+P1p1p1/6p1p/7N1/9/9/9/9 b RS 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*4a", "2c2d", "R*6b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 158, "chapter": null, "sfen": "ln1g+R4/2k6/pppp5/9/1P7/9/9/9/9 b GSr2b2g3s3n3l13p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*6b", "6a6b", "S*7a", "G*6a", "7a6b+"], ["G*6b", "6a6b", "S*7a", "S*6a", "7a6b+", "6a6b", "G*8b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 159, "chapter": null, "sfen": "7nl/7k1/6p2/7Pp/9/9/9/9/9 b BG2rb3g4s3n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*4a"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 160, "chapter": null, "sfen": "5+B1nl/6gk1/4spppp/9/7s1/6P2/9/9/9 b GSN 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*2d", "2c2d", "G*3a", "2b2c", "4a3b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 161, "chapter": null, "sfen": "4k4/R8/9/9/9/9/9/9/9 b Sr2b4g3s4n4l18p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*5c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 162, "chapter": null, "sfen": "6knl/3+R+P1g2/5p2p/5+bpp1/9/9/9/9/9 b GPrb2g4s3n3l12p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["P*2c", "G*4b", "G*4a", "4b4a", "5b4a", "3a4a", "G*5b", "4a3a", "6b5a"], ["P*2c", "G*4b", "G*4a", "4b4a", "5b4a", "3a4a", "G*5b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 163, "chapter": null, "sfen": "7kl/5+R3/6pp1/8p/9/9/9/9/9 b 2NLr2b4g4s2n2l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*2d"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 164, "chapter": null, "sfen": "8l/4RBsk1/4p1pp1/5p3/7g1/9/9/9/9 b GSNb2g2s3n3l12p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["4b3a+", "2b3a", "N*3d", "3c3d", "S*3c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 165, "chapter": null, "sfen": "7nl/7k1/5+Bspp/6p2/9/9/9/9/9 b G2rb3g3s3n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*3b", "2b1b", "4c3c", "S*3a", "S*2b", "1c1d", "2b2a", "1b1c", "N*2e"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 166, "chapter": null, "sfen": "5kbnl/3G5/4Spppp/9/9/9/9/9/9 b G2rb2g3s3n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*4b", "3a4b", "6b5b", "4a3b", "5b4b", "3b2b", "B*3a", "2b1b", "4b3b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 167, "chapter": null, "sfen": "4k4/1+r7/4+P4/9/9/9/9/9/9 b RG2b3g4s4n4l17p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["R*8a", "G*6a", "8a8b+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 168, "chapter": null, "sfen": "4k2nl/5g3/3+PSp1p1/3p2p1p/9/9/9/9/9 b B2rb3g3s3n3l12p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*3a", "G*3b", "3a4b+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 169, "chapter": null, "sfen": "6knl/4+P1s2/5gs+Rp/9/9/9/9/9/9 b Gr2b2g2s3n3l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*2b", "3c2b", "2c4c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 170, "chapter": null, "sfen": "6knl/6g1p/5+R1p1/6p2/4+r3P/9/9/9/9 b GSN2b2g3s2n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*2d", "2c2d", "G*4a", "3a2b", "S*3a", "3b3a", "4a3a"]], "wrong_sequences": [["N*2d", "2c2d", "S*2c", "G*4b", "2c3b+", "4b3b", "G*2c", "G*4b"]], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 171, "chapter": null, "sfen": "ln7/k1G6/ppp6/1s7/1N7/9/9/9/9 b S2r2b3g2s2n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*7a"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 172, "chapter": null, "sfen": "7nk/8l/6b+Pp/6p2/9/9/9/9/9 b SN2rb4g3s2n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*2b", "3c2b", "N*2d"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 173, "chapter": null, "sfen": "4R2nl/7k1/5pspp/6p2/7P1/9/9/9/9 b BGrb3g3s3n3l13p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*3a", "2b1b", "G*3b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 174, "chapter": null, "sfen": "lng6/1ks6/pppp5/3B5/9/9/9/9/9 b RBNr3g3s2n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["N*7d", "8b9b", "R*8b", "7a8b", "B*7a"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 175, "chapter": null, "sfen": "4k4/9/4+P4/9/9/9/9/9/9 b 2B2r4g4s4n4l17p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*5b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 176, "chapter": null, "sfen": "6b1l/8k/6S1p/6g2/8P/9/9/9/9 b GS2rb2g2s4n3l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*2b", "3a2b", "3c3b"]], "wrong_sequences": [["3c3b", "R*2g"]], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 177, "chapter": null, "sfen": "5B1nl/6+P1k/9/7sp/9/9/9/9/9 b S2rb4g2s3n3l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["3b3c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 178, "chapter": null, "sfen": "ln1B5/k1G6/1pp6/p8/1P7/9/9/9/9 b G2rb2g4s3n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*8b", "9b9c", "7b7c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 179, "chapter": null, "sfen": "5Bsnl/4s2k1/7pp/5Rp2/9/7+b1/9/9/9 b GSNr3gs2n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["4d4b+", "3a4b", "G*3b", "2b1b", "N*2d", "2c2d", "3b3c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 180, "chapter": null, "sfen": "5B1nl/7k1/7ps/8p/9/9/9/9/9 b 2GN2rb2g3s2n3l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*3b", "2b1b", "N*2d", "1c2d", "G*2b", "1b1c", "3b3c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 181, "chapter": null, "sfen": "6k1l/9/6p1p/6N2/9/9/9/9/9 b GS2r2b3g3s3n3l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*4b", "3a2a", "S*2c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 182, "chapter": null, "sfen": "lnkg5/5s3/4R4/1s7/9/9/9/9/9 b G2Sr2b2g3n3l18p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*8b", "7a8b", "S*8c", "8b7a", "5c5b+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 183, "chapter": null, "sfen": "7nl/7k1/6p2/7Pp/9/9/9/9/9 b GS2r2b3g3s3n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*2c", "2b1c", "2c3d+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 184, "chapter": null, "sfen": "7nl/7k1/6p2/6S1p/9/9/9/9/9 b GS2r2b3g2s3n3l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*2c", "2b1c", "2c1b+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 185, "chapter": null, "sfen": "lns6/2kg5/p1pp5/1P7/9/9/9/9/9 b BG2rb2g3s3n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*8c", "7b8b", "8c6a+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 186, "chapter": null, "sfen": "lns6/2kg5/p1pp5/1P7/9/9/9/9/9 b B2S2rb3gs3n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*8c", "7b8b", "8c9b+", "9a9b", "S*8c", "8b9a", "8c9b+", "9a9b", "S*8c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 187, "chapter": null, "sfen": "ln7/k1+B6/p3r4/3b5/9/9/9/9/9 b 2Gr2g4s3n3l17p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*7c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 188, "chapter": null, "sfen": "6kn1/4R2s1/5p1p1/6rb1/9/9/9/9/9 b GSb3g2s3n4l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*3c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 189, "chapter": null, "sfen": "6bgk/6S1l/9/5b3/9/9/9/9/9 b GNP2r2g3s3n3l17p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["P*2b", "2a2b", "N*2c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 190, "chapter": null, "sfen": "7n1/8k/8l/5Bg+rp/9/9/9/9/9 b GPrb2g4s3n3l16p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["P*2c", "2d2c", "G*1a"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 191, "chapter": null, "sfen": "lnB6/k1s6/1pp6/p2p5/9/P1P6/1P1P5/3G5/LN7 b G2rb2g3s2n2l10p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*8b", "9b9c", "8b7b", "9c8d", "S*7e", "8d8e", "6h7g"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 192, "chapter": null, "sfen": "7nl/5sk2/5p1p1/6p1p/5P3/6P1P/6N2/7R1/8L b BGg 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["2h2c+", "3b2c", "B*4a", "G*3b", "P*2d", "2c2d", "4a3b+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 193, "chapter": null, "sfen": "lnk6/2s2+R3/1ppp5/p8/1+b7/9/9/9/9 b 2S 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*6a", "7a8b", "S*8d"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 194, "chapter": null, "sfen": "ln7/k1+P6/1ppP5/p1g6/1P7/P8/9/9/L8 b B2rb3g4s3n2l11p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*7a", "S*9c", "9f9e", "9d9e", "7a9c+", "9b9c", "9i9e", "P*9d", "S*8b", "9c9b", "P*9c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 195, "chapter": null, "sfen": "5+B1nl/7k1/6pp1/8p/6g2/9/9/9/9 b BN2r3g4s2n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["B*3a", "2b1b", "4a3b", "S*1c", "N*2d", "2c2d", "3a1c+", "1b1c", "S*2c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 196, "chapter": null, "sfen": "6knl/4G4/5ppp1/8p/9/9/9/9/9 b G2SNP2r2b2g2s2n3l13p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*1c", "2a1c", "N*3d", "3c3d", "S*3c", "R*1b", "P*3b", "1b3b", "G*4b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 197, "chapter": null, "sfen": "5nkSl/4+P2P1/5pg2/6s2/9/9/9/9/9 b 2G2r2bg2s3n3l15p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*3b", "3c3b", "2a1b+", "3b4b", "G*3c"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 198, "chapter": null, "sfen": "6knl/4Bg3/4PSsp1/5pp1p/6+b2/9/9/9/9 b 3G2r2s3n3l13p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["G*3b", "4b3b", "5b4a+", "3a4a", "G*2b"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 199, "chapter": null, "sfen": "4+B2nl/3+P2k2/4pps2/5bp2/7g1/9/9/9/9 b 2GS2rg2s3n3l14p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["5a4a", "3b4a", "S*2c", "S*3b", "2c2b+"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}, {"book": "寄せの手筋200", "problem_no": 200, "chapter": null, "sfen": "7k1/9/9/9/7+p1/5+b3/7+r1/9/9 b GSNrb3g3s3n4l17p 1", "turn": "b", "answer": {"type": "sequence", "sequences": [["S*2c", "B*7g", "G*3b", "2a1a", "N*3c", "7g3c+", "3b3c", "R*8b", "B*4d"]], "wrong_sequences": [], "hisshi_index": [], "kind": null}}];
+
+const KAN_NUM=["","一","二","三","四","五","六","七","八","九"];
+const ZEN_NUM=["","１","２","３","４","５","６","７","８","９"];
+const RANK_L="abcdefghi";
+const PIECE_JP={P:"歩",L:"香",N:"桂",S:"銀",G:"金",B:"角",R:"飛",K:"玉",
+ "+P":"と","+L":"成香","+N":"成桂","+S":"成銀","+B":"馬","+R":"龍"};
+const HAND_ORDER=["R","B","G","S","N","L","P"];
+const PROMOTABLE={P:true,L:true,N:true,S:true,B:true,R:true};
+
+function parseSfen(sfen){
+  const [board,turn,hand]=sfen.split(" ");
+  const grid=[];
+  for(const row of board.split("/")){
+    const cells=[];let promoted=false;
+    for(const ch of row){
+      if(ch==="+"){promoted=true;continue;}
+      if(/[0-9]/.test(ch)){for(let i=0;i<+ch;i++)cells.push(null);}
+      else{cells.push((promoted?"+":"")+ch);promoted=false;}
+    }
+    grid.push(cells);
+  }
+  const hands={s:{},g:{}};
+  if(hand&&hand!=="-"){
+    let n="";
+    for(const ch of hand){
+      if(/[0-9]/.test(ch)){n+=ch;continue;}
+      const cnt=n?+n:1;n="";
+      const up=ch.toUpperCase();
+      const side=ch===up?"s":"g";
+      hands[side][up]=(hands[side][up]||0)+cnt;
+    }
+  }
+  return {grid,turn,hands};
+}
+function cloneBoardState(s){return {grid:s.grid.map(r=>r.slice()),hands:{s:{...s.hands.s},g:{...s.hands.g}},turn:s.turn};}
+function cloneState(sfen){const s=parseSfen(sfen);return cloneBoardState(s);}
+function boardToSfen(grid){
+  return grid.map(row=>{
+    let out="",empty=0;
+    for(const cell of row){
+      if(!cell){empty++;continue;}
+      if(empty){out+=String(empty);empty=0;}
+      out+=cell;
+    }
+    if(empty)out+=String(empty);
+    return out;
+  }).join("/");
+}
+function handsToSfen(hands){
+  let out="";
+  for(const p of HAND_ORDER){
+    const s=hands.s[p]||0,g=hands.g[p]||0;
+    if(s)out+=(s>1?String(s):"")+p;
+    if(g)out+=(g>1?String(g):"")+p.toLowerCase();
+  }
+  return out||"-";
+}
+function stateToSfen(state){return boardToSfen(state.grid)+" "+state.turn+" "+handsToSfen(state.hands)+" 1";}
+function sqToRC(sq){const file=+sq[0],rank=RANK_L.indexOf(sq[1]);return {r:rank,c:9-file,file};}
+function rcToSq(r,c){return String(9-c)+RANK_L[r];}
+function rcToLabel(r,c){return ZEN_NUM[9-c]+KAN_NUM[r+1];}
+function sideOf(cell){return cell===cell.toLowerCase()?"g":"s";}
+function sideToMove(state){return state.turn==="b"?"s":"g";}
+function basePieceOf(cell){return cell.replace("+","").toUpperCase();}
+function isPromoted(cell){return cell&&cell[0]==="+";}
+
+function renderHand(side,h){
+  let html="";
+  for(const p of HAND_ORDER){
+    const n=h[p]||0;
+    if(!n)continue;
+    const sel=selected&&selected.kind==="hand"&&selected.side===side&&selected.piece===p?" sel":"";
+    html+=`<button class="handbtn ${side==='g'?'g':'s'}${sel}" data-hand-side="${side}" data-hand-piece="${p}"><span>${PIECE_JP[p]}</span><small>${n}</small></button>`;
+  }
+  return html||'<div class="handempty">なし</div>';
+}
+
+function renderBoard(host,state){
+  const {grid,turn,hands}=state;
+  let files='<div class="files">';
+  for(let f=9;f>=1;f--)files+=`<i>${f}</i>`;
+  files+='</div>';
+  let tbl='<table class="board editable">';
+  for(let r=0;r<9;r++){
+    tbl+='<tr>';
+    for(let f=0;f<9;f++){
+      const p=grid[r][f];
+      const sel=selected&&selected.kind==="board"&&selected.r===r&&selected.c===f?' sel':'';
+      const dst=selected&&moveTarget&&moveTarget.r===r&&moveTarget.c===f?' dst':'';
+      if(!p){tbl+=`<td data-r="${r}" data-c="${f}" class="${sel}${dst}"></td>`;continue;}
+      const up=p.replace("+","").toUpperCase();
+      const base=(p[0]==="+"?"+":"")+up;
+      const isGote=p.replace("+","")===p.replace("+","").toLowerCase();
+      tbl+=`<td data-r="${r}" data-c="${f}" class="${isGote?'g':'s'}${sel}${dst}"><span>${PIECE_JP[base]||"?"}</span></td>`;
+    }
+    tbl+='</tr>';
+  }
+  tbl+='</table>';
+  let ranks='<div class="ranks">';
+  for(let r=0;r<9;r++)ranks+=`<i>${KAN_NUM[r+1]}</i>`;
+  ranks+='</div>';
+  host.innerHTML='<div class="brd">'+files+'<div class="bmid">'+tbl+ranks+'</div></div>';
+  document.getElementById("senteHandPc").innerHTML=renderHand("s",hands.s);
+  document.getElementById("goteHandPc").innerHTML=renderHand("g",hands.g);
+  document.getElementById("turnLbl").innerHTML="手番 <b>"+(turn==="b"?"先手":"後手")+"</b>";
+  host.querySelectorAll("td[data-r]").forEach(td=>td.addEventListener("click",onBoardCellClick));
+  document.querySelectorAll("[data-hand-side]").forEach(btn=>btn.addEventListener("click",onHandClick));
+}
+
+function usiToJp(state,usi,prevDest){
+  const black=state.turn==="b",mark=black?"▲":"△";
+  let dest,jp,isDrop=usi.includes("*"),promote=usi.endsWith("+");
+  if(isDrop){
+    const piece=usi[0];
+    dest=usi.slice(2,4).replace("+","");
+    const d=sqToRC(dest);
+    jp=mark+ZEN_NUM[d.file]+KAN_NUM[d.r+1]+PIECE_JP[piece]+"打";
+    state.grid[d.r][d.c]=black?piece:piece.toLowerCase();
+    state.hands[black?"s":"g"][piece]--;
+  }else{
+    const from=usi.slice(0,2),to=usi.slice(2,4);
+    const f=sqToRC(from),t=sqToRC(to);
+    let mover=state.grid[f.r][f.c]||"P";
+    const baseUp=mover.replace("+","").toUpperCase();
+    const isSame=prevDest&&prevDest===to;
+    const pieceName=(mover[0]==="+")?PIECE_JP["+"+baseUp]:PIECE_JP[baseUp];
+    const sq=isSame?"同":ZEN_NUM[t.file]+KAN_NUM[t.r+1];
+    jp=mark+sq+pieceName+(promote?"成":"");
+    const cap=state.grid[t.r][t.c];
+    if(cap){
+      const cu=cap.replace("+","").toUpperCase();
+      state.hands[black?"s":"g"][cu]=(state.hands[black?"s":"g"][cu]||0)+1;
+    }
+    let np=mover;
+    if(promote)np=(mover[0]==="+"?mover:"+"+mover);
+    state.grid[t.r][t.c]=np;
+    state.grid[f.r][f.c]=null;
+  }
+  state.turn=black?"w":"b";
+  return {jp,dest:usi.slice(2,4).replace("+","")};
+}
+function renderSeq(sfen,moves){
+  const st=cloneState(sfen);let prev=null;const out=[];
+  for(const m of moves){const r=usiToJp(st,m,prev);out.push(r.jp);prev=r.dest;}
+  return out;
+}
+
+let curIdx=0;
+let initialState=null,currentState=null,selected=null,moveTarget=null,pendingPromotion=null;
+let playMode="answer",answerSolved=false;
+const POSKEY="shogibook_pos_"+BOOK_SLUG;
+
+function currentProblem(){return DATA[curIdx];}
+function currentAnswer(){return currentProblem().answer||null;}
+function currentAnswerUsi(){return (currentAnswer()&&currentAnswer().usi)||"";}
+function hasModeToggle(){return !!document.getElementById("modeGroup");}
+function supportsAutoJudge(p=currentProblem()){
+  return !!(hasModeToggle()&&p&&p.answer&&p.answer.type==="next_move"&&p.answer.usi);
+}
+function effectiveMode(p=currentProblem()){
+  if(!hasModeToggle())return "review";
+  if(playMode==="review")return "review";
+  return supportsAutoJudge(p)?"answer":"review";
+}
+function savePos(){try{localStorage.setItem(POSKEY,curIdx);}catch(e){}}
+function loadPos(){try{const v=+localStorage.getItem(POSKEY);if(v>=0&&v<DATA.length)curIdx=v;}catch(e){}}
+function clearSelection(){selected=null;moveTarget=null;pendingPromotion=null;}
+function setPromotionBox(show){
+  const box=document.getElementById("promoBox");
+  if(box)box.classList.toggle("show",show);
+}
+function showAnswer(force){
+  const ans=document.getElementById("answer");
+  ans.classList.toggle("show",!!force);
+  document.getElementById("showBtn").textContent=ans.classList.contains("show")?"解答を隠す":"解答を見る";
+}
+function syncModeButtons(){
+  const ansBtn=document.getElementById("answerModeBtn");
+  const reviewBtn=document.getElementById("reviewModeBtn");
+  if(!ansBtn||!reviewBtn)return;
+  const judgeable=supportsAutoJudge();
+  ansBtn.disabled=!judgeable;
+  ansBtn.classList.toggle("active",judgeable&&playMode==="answer");
+  reviewBtn.classList.toggle("active",effectiveMode()==="review");
+}
+function resetBoardState(msg){
+  currentState=cloneBoardState(initialState);
+  answerSolved=false;
+  clearSelection();
+  renderBoard(document.getElementById("boardHost"),currentState);
+  syncBoardTools(msg);
+}
+function inPromotionZone(side,row){return side==="s"?row<=2:row>=6;}
+function canPromoteMove(mover,from,to){
+  if(!mover||isPromoted(mover))return false;
+  const base=basePieceOf(mover);
+  if(!PROMOTABLE[base])return false;
+  const side=sideOf(mover);
+  return inPromotionZone(side,from.r)||inPromotionZone(side,to.r);
+}
+function mustPromoteMove(mover,to){
+  const base=basePieceOf(mover),side=sideOf(mover);
+  if(side==="s"){
+    if((base==="P"||base==="L")&&to.r===0)return true;
+    if(base==="N"&&to.r<=1)return true;
+  }else{
+    if((base==="P"||base==="L")&&to.r===8)return true;
+    if(base==="N"&&to.r>=7)return true;
+  }
+  return false;
+}
+function buildMoveUsi(from,to,promote){return rcToSq(from.r,from.c)+rcToSq(to.r,to.c)+(promote?"+":"");}
+function buildDropUsi(sel,to){return sel.piece+"*"+rcToSq(to.r,to.c);}
+function playCorrectChime(){
+  try{
+    const Ctx=window.AudioContext||window.webkitAudioContext;
+    if(!Ctx)return;
+    const ctx=new Ctx();
+    const now=ctx.currentTime;
+    [784,1046].forEach((freq,i)=>{
+      const osc=ctx.createOscillator();
+      const gain=ctx.createGain();
+      osc.type="triangle";
+      osc.frequency.value=freq;
+      gain.gain.setValueAtTime(0.0001,now+i*0.16);
+      gain.gain.exponentialRampToValueAtTime(0.12,now+i*0.16+0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001,now+i*0.16+0.15);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now+i*0.16);
+      osc.stop(now+i*0.16+0.16);
+    });
+  }catch(e){}
+}
+function syncBoardTools(msg){
+  const stat=document.getElementById("toolStatus");
+  const mode=effectiveMode();
+  syncModeButtons();
+  setPromotionBox(!!pendingPromotion);
+  if(msg){stat.innerHTML=msg;return;}
+  if(hasModeToggle()&&playMode==="answer"&&!supportsAutoJudge()){
+    stat.innerHTML="この問題は正解判定が未整備です。<br>検討モードで盤面を動かせます。";
+    return;
+  }
+  if(mode==="answer"&&answerSolved){
+    stat.innerHTML="正解です。<br>解答を表示しました。";
+    return;
+  }
+  if(pendingPromotion){
+    stat.innerHTML=mode==="answer"?"成る/成らないを選ぶと判定します。":"成る/成らないを選んでください。";
+    return;
+  }
+  if(selected){
+    if(selected.kind==="hand"){
+      stat.innerHTML=mode==="answer"
+        ?"打つマスを選んでください。<br>正解なら自動で解答を開きます。"
+        :`${selected.side==="s"?"先手":"後手"}の持ち駒 ${PIECE_JP[selected.piece]} を選択中<br>置きたいマスをタップしてください。`;
+      return;
+    }
+    const p=currentState.grid[selected.r][selected.c]||"";
+    const piece=PIECE_JP[(p[0]==="+"?"+":"")+p.replace("+","").toUpperCase()]||"駒";
+    stat.innerHTML=mode==="answer"
+      ?`${piece} を選択中<br>行き先をタップすると正解判定します。`
+      :`${piece} を選択中<br>${rcToLabel(selected.r,selected.c)} から動かす先をタップしてください。`;
+    return;
+  }
+  stat.innerHTML=mode==="answer"
+    ?"解答モードです。<br>正解手を指すと音を鳴らして解答を表示します。"
+    :"検討モードです。<br>駒を自由に動かして盤面を検討できます。";
+}
+async function copyCurrentSfen(){
+  const sfen=stateToSfen(currentState);
+  try{
+    await navigator.clipboard.writeText(sfen);
+    syncBoardTools("SFEN をコピーしました。<br>そのまま貼り付けできます。");
+  }catch(e){
+    const ta=document.createElement("textarea");
+    ta.value=sfen;document.body.appendChild(ta);ta.select();
+    try{
+      document.execCommand("copy");
+      syncBoardTools("SFEN をコピーしました。<br>そのまま貼り付けできます。");
+    }catch(_e){
+      syncBoardTools("コピーに失敗しました。<br>ブラウザの権限を確認してください。");
+    }
+    ta.remove();
+  }
+}
+function commitCorrect(commit){
+  answerSolved=true;
+  commit();
+  playCorrectChime();
+  showAnswer(true);
+}
+function judgeAttempt(usi,commit){
+  if(effectiveMode()!=="answer")return false;
+  if(usi===currentAnswerUsi()){
+    commitCorrect(commit);
+  }else{
+    clearSelection();
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools("違います。<br>もう一度どうぞ。");
+  }
+  return true;
+}
+function applyBoardMove(from,to,promote,msg){
+  const mover=currentState.grid[from.r][from.c];
+  if(!mover)return;
+  const target=currentState.grid[to.r][to.c];
+  if(target&&((target===target.toLowerCase())===(mover===mover.toLowerCase()))){
+    selected={kind:"board",r:to.r,c:to.c};
+    moveTarget=null;
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools();
+    return;
+  }
+  if(target){
+    const up=target.replace("+","").toUpperCase();
+    const side=mover===mover.toLowerCase()?"g":"s";
+    currentState.hands[side][up]=(currentState.hands[side][up]||0)+1;
+  }
+  const placed=(promote&&!isPromoted(mover))?("+"+mover):mover;
+  currentState.grid[to.r][to.c]=placed;
+  currentState.grid[from.r][from.c]=null;
+  currentState.turn=(mover===mover.toLowerCase())?"b":"w";
+  clearSelection();
+  renderBoard(document.getElementById("boardHost"),currentState);
+  syncBoardTools(msg||(promote?"成りました。<br>続けて盤面を動かせます。":"動かしました。<br>続けて盤面を動かせます。"));
+}
+function dropHandPiece(sel,to,msg){
+  if(currentState.grid[to.r][to.c]){
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools("そのマスには駒があります。<br>空きマスを選んでください。");
+    return;
+  }
+  const count=currentState.hands[sel.side][sel.piece]||0;
+  if(count<=0){
+    clearSelection();
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools("その持ち駒はもうありません。");
+    return;
+  }
+  currentState.hands[sel.side][sel.piece]=count-1;
+  if(!currentState.hands[sel.side][sel.piece])delete currentState.hands[sel.side][sel.piece];
+  currentState.grid[to.r][to.c]=sel.side==="s"?sel.piece:sel.piece.toLowerCase();
+  currentState.turn=sel.side==="s"?"w":"b";
+  clearSelection();
+  renderBoard(document.getElementById("boardHost"),currentState);
+  syncBoardTools(msg||"持ち駒を置きました。<br>続けて盤面を動かせます。");
+}
+function movePiece(from,to){
+  const mover=currentState.grid[from.r][from.c];
+  if(!mover)return;
+  if(canPromoteMove(mover,from,to)){
+    if(mustPromoteMove(mover,to)){
+      if(judgeAttempt(buildMoveUsi(from,to,true),()=>applyBoardMove(from,to,true,"正解です。<br>解答を表示しました。")))return;
+      applyBoardMove(from,to,true);
+      return;
+    }
+    pendingPromotion={from:{...from},to:{...to}};
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools();
+    return;
+  }
+  if(judgeAttempt(buildMoveUsi(from,to,false),()=>applyBoardMove(from,to,false,"正解です。<br>解答を表示しました。")))return;
+  applyBoardMove(from,to,false);
+}
+function resolvePromotion(promote){
+  if(!pendingPromotion)return;
+  const mv=pendingPromotion;
+  const usi=buildMoveUsi(mv.from,mv.to,promote);
+  if(judgeAttempt(usi,()=>applyBoardMove(mv.from,mv.to,promote,"正解です。<br>解答を表示しました。")))return;
+  applyBoardMove(mv.from,mv.to,promote);
+}
+function onHandClick(e){
+  if(pendingPromotion){syncBoardTools("先に 成る / 成らない を選んでください。");return;}
+  if(effectiveMode()==="answer"&&answerSolved){syncBoardTools("正解済みです。<br>次の問題へ進むか初期配置に戻してください。");return;}
+  const btn=e.currentTarget;
+  const side=btn.dataset.handSide,piece=btn.dataset.handPiece;
+  if(effectiveMode()==="answer"&&side!==sideToMove(currentState)){
+    syncBoardTools("手番側の持ち駒を選んでください。");
+    return;
+  }
+  if(selected&&selected.kind==="hand"&&selected.side===side&&selected.piece===piece){
+    clearSelection();
+  }else{
+    selected={kind:"hand",side,piece};
+    moveTarget=null;
+  }
+  renderBoard(document.getElementById("boardHost"),currentState);
+  syncBoardTools();
+}
+function onBoardCellClick(e){
+  if(pendingPromotion){syncBoardTools("先に 成る / 成らない を選んでください。");return;}
+  if(effectiveMode()==="answer"&&answerSolved){syncBoardTools("正解済みです。<br>次の問題へ進むか初期配置に戻してください。");return;}
+  const td=e.currentTarget;
+  const r=+td.dataset.r,c=+td.dataset.c;
+  const p=currentState.grid[r][c];
+  if(selected&&selected.kind==="hand"){
+    moveTarget={r,c};
+    if(judgeAttempt(buildDropUsi(selected,{r,c}),()=>dropHandPiece(selected,{r,c},"正解です。<br>解答を表示しました。")))return;
+    dropHandPiece(selected,{r,c});
+    return;
+  }
+  if(!selected){
+    if(!p){syncBoardTools("空きマスです。<br>動かしたい駒を選んでください。");return;}
+    if(effectiveMode()==="answer"&&sideOf(p)!==sideToMove(currentState)){
+      syncBoardTools("手番側の駒を選んでください。");
+      return;
+    }
+    selected={kind:"board",r,c};
+    moveTarget=null;
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools();
+    return;
+  }
+  if(selected.kind==="board"&&selected.r===r&&selected.c===c){
+    clearSelection();
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools();
+    return;
+  }
+  moveTarget={r,c};
+  if(selected.kind==="board"&&p&&((p===p.toLowerCase())===(currentState.grid[selected.r][selected.c]===currentState.grid[selected.r][selected.c].toLowerCase()))){
+    selected={kind:"board",r,c};
+    moveTarget=null;
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools();
+    return;
+  }
+  if(selected.kind==="board")movePiece(selected,{r,c});
+}
+function buildAnswer(p,a){
+  if(a&&a.image_ans){
+    let s="<div class='ans-h'>本の解答ページ</div>";
+    if(a.type==="next_move"){
+      const jp=a.usi ? renderSeq(p.sfen,[a.usi])[0] : (a.move_jp||"");
+      if(jp)s+="<div class='movebig'>"+esc(jp)+"</div>";
+      if(a.percent!=null)s+="<div class='note'>正解率 "+esc(String(a.percent))+"%</div>";
+      if(a.title)s+="<div class='captured'>"+esc(a.title)+"</div>";
+    }
+    s+="<img class='ansimg' src='"+a.image_ans+"' loading='lazy' alt='解答画像'>";
+    if(a.incomplete)s+="<div class='pending'>一部の解答情報は補完中です。</div>";
+    return s;
+  }
+  return _answerBody(p,a);
+}
+function esc(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function _answerBody(p,a){
+  if(!a)return "<div class='ans-h'>解答データなし</div>";
+  if(a.type==="final_move"){
+    if(a.explanation){
+      let s="<div class='ans-h'>解答</div>";
+      if(a.title)s+="<div class='movebig'>"+esc(a.title)+"</div>";
+      s+="<div class='expl'>"+esc(a.explanation)+"</div>";
+      if(a.captured)s+="<div class='captured'>持ち駒　"+esc(a.captured)+"</div>";
+      return s;
+    }
+    let s="<div class='ans-h'>解答</div>";
+    s+="<div class='movebig'>"+esc(a.move_jp)+" まで</div>";
+    if(a.incomplete)s+="<div class='note'>表記は一部省略しています。</div>";
+    return s;
+  }
+  if(a.type==="single"){
+    const jp=renderSeq(p.sfen,[a.usi])[0];
+    return "<div class='ans-h'>正解</div><div class='movebig'>"+jp+"</div>";
+  }
+  if(a.type==="next_move"){
+    const jp=a.usi ? renderSeq(p.sfen,[a.usi])[0] : (a.move_jp||"");
+    let s="<div class='ans-h'>正解</div>";
+    s+="<div class='movebig'>"+esc(jp||a.move_jp||"")+"</div>";
+    if(a.percent!=null)s+="<div class='note'>正解率 "+esc(String(a.percent))+"%</div>";
+    if(a.title)s+="<div class='captured'>"+esc(a.title)+"</div>";
+    if(a.explanation)s+="<div class='expl'>"+esc(a.explanation)+"</div>";
+    if(a.incomplete)s+="<div class='note'>一部の解答情報は補完中です。</div>";
+    return s;
+  }
+  if(a.type==="choice"){
+    let s="<div class='ans-h'>選択肢</div>";
+    for(const c of a.choices){
+      const ok=c.label===a.correct;
+      s+="<div class='choice"+(ok?" correct":"")+"'><span class='tag'>"+c.label+(ok?" 正解":"")+"</span>";
+      s+="<div class='mv'>"+c.move_jp+"</div>";
+      if(c.explanation)s+="<div class='ex'>"+c.explanation+"</div>";
+      s+="</div>";
+    }
+    return s;
+  }
+  if(a.type==="sequence"){
+    let s="";
+    if(a.kind)s+="<span class='kind'>"+a.kind+"</span>";
+    s+="<div class='ans-h'>正解手順</div>";
+    (a.sequences||[]).forEach((seq,si)=>{
+      const jps=renderSeq(p.sfen,seq);
+      const hi=(a.hisshi_index||[])[si];
+      s+="<div class='seq'>";
+      jps.forEach((mv,k)=>{
+        const isH=(hi!==undefined&&k===hi);
+        s+="<span class='ply"+(isH?" hisshi":"")+"'>"+(k+1)+". "+mv+"</span>";
+      });
+      s+="</div>";
+    });
+    if(a.wrong_sequences&&a.wrong_sequences.length){
+      s+="<div class='wrongseq'><div class='ans-h'>誤答例</div>";
+      a.wrong_sequences.forEach(seq=>{
+        const jps=renderSeq(p.sfen,seq);
+        s+="<div class='seq' style='opacity:.75'>"+jps.map((m,i)=>"<span class='ply'>"+(i+1)+". "+m+"</span>").join("")+"</div>";
+      });
+      s+="</div>";
+    }
+    return s;
+  }
+  return "<div class='ans-h'>未対応の解答形式です</div>";
+}
+function answerImageSrc(p,a){
+  if(a&&a.image_ans)return a.image_ans;
+  if(!p||p.problem_no==null)return "";
+  return "yose_img/"+String(p.problem_no).padStart(3,"0")+".webp";
+}
+buildAnswer=function(p,a){
+  const imageSrc=answerImageSrc(p,a);
+  if(imageSrc)return "<img class='ansimg' src='"+imageSrc+"' loading='lazy' alt='解答画像'>";
+  return _answerBody(p,a);
+};
+function render(){
+  const p=currentProblem();
+  document.getElementById("curNo").textContent=p.problem_no;
+  document.getElementById("qmeta").textContent=p.label||p.chapter||"";
+  const sit=document.getElementById("situation");
+  if(p.situation){sit.style.display="block";sit.textContent=p.situation;}else sit.style.display="none";
+  initialState=parseSfen(p.sfen);
+  currentState=cloneBoardState(initialState);
+  answerSolved=false;
+  clearSelection();
+  renderBoard(document.getElementById("boardHost"),currentState);
+  document.getElementById("answer").innerHTML=buildAnswer(p,p.answer);
+  showAnswer(false);
+  syncBoardTools();
+  document.getElementById("jumpInp").value=p.problem_no;
+  savePos();
+}
+function go(n){curIdx=Math.max(0,Math.min(n,DATA.length-1));render();}
+
+document.getElementById("prevBtn").onclick=()=>go(curIdx-1);
+document.getElementById("nextBtn").onclick=()=>go(curIdx+1);
+document.getElementById("showBtn").onclick=()=>{
+  const ans=document.getElementById("answer");
+  showAnswer(!ans.classList.contains("show"));
+};
+if(document.getElementById("answerModeBtn"))document.getElementById("answerModeBtn").onclick=()=>{
+  if(!supportsAutoJudge())return;
+  playMode="answer";
+  resetBoardState();
+  showAnswer(false);
+};
+if(document.getElementById("reviewModeBtn"))document.getElementById("reviewModeBtn").onclick=()=>{
+  playMode="review";
+  resetBoardState();
+  showAnswer(false);
+};
+document.getElementById("resetBtn").onclick=()=>resetBoardState();
+document.getElementById("copySfenBtn").onclick=()=>copyCurrentSfen();
+document.getElementById("promoteBtn").onclick=()=>resolvePromotion(true);
+document.getElementById("stayBtn").onclick=()=>resolvePromotion(false);
+document.getElementById("jumpBtn").onclick=()=>{
+  const v=+document.getElementById("jumpInp").value;
+  const i=DATA.findIndex(p=>p.problem_no===v);
+  if(i>=0)go(i);
+};
+document.getElementById("jumpInp").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("jumpBtn").click();});
+let tx=0,ty=0;
+document.addEventListener("touchstart",e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
+document.addEventListener("touchend",e=>{
+  const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;
+  if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.6){if(dx<0)go(curIdx+1);else go(curIdx-1);}
+},{passive:true});
+function sizeBoard(){
+  const vv=window.visualViewport;
+  const w=(vv&&vv.width)||window.innerWidth;
+  const h=(vv&&vv.height)||window.innerHeight;
+  const wrap=document.querySelector(".wrap");
+  const boardBox=document.querySelector(".boardbox");
+  const boardRow=document.querySelector(".boardrow");
+  const right=document.querySelector(".right");
+  const tools=document.querySelector(".boardtools");
+  const hands=[...document.querySelectorAll(".hand")];
+  const twoCol=w>820;
+  const rowStyle=boardRow?getComputedStyle(boardRow):null;
+  const gap=rowStyle?parseFloat(rowStyle.columnGap||rowStyle.gap||"0"):0;
+  let availW=(twoCol?w*0.96:w*0.96)-24;
+  if(boardRow&&tools){
+    availW=boardRow.clientWidth-tools.getBoundingClientRect().width-gap-6;
+  }
+  let availH=(twoCol?h:h*0.60)-120;
+  if(twoCol&&right&&boardBox){
+    const handHeights=hands.reduce((sum,el)=>sum+el.getBoundingClientRect().height,0);
+    const boxStyle=getComputedStyle(boardBox);
+    const boxGap=parseFloat(boxStyle.rowGap||boxStyle.gap||"0");
+    availH=right.clientHeight-handHeights-(boxGap*2)-8;
+  }
+  if(wrap&&twoCol&&wrap.clientWidth<1180){
+    availW-=6;
+  }
+  const byH=Math.max(22,availH)/9.7;
+  const byW=Math.max(22,availW)/10.15;
+  const maxCell=(twoCol&&w<1280)?72:80;
+  const cell=Math.max(22,Math.min(maxCell,Math.floor(Math.min(byH,byW))));
+  document.documentElement.style.setProperty("--cell",cell+"px");
+  document.documentElement.style.setProperty("--bw",(cell*10)+"px");
+}
+function relocateJumpControls(){
+  const jump=document.querySelector(".jump");
+  const tools=document.querySelector(".boardtools");
+  if(!jump||!tools)return;
+  if(!jump.querySelector(".jump-label")){
+    const label=document.createElement("label");
+    label.className="jump-label";
+    label.htmlFor="jumpInp";
+    label.textContent=(jump.firstChild&&jump.firstChild.textContent||"").trim();
+    if(label.textContent){
+      jump.insertBefore(label, jump.firstElementChild||null);
+    }
+    if(jump.firstChild&&jump.firstChild.nodeType===Node.TEXT_NODE){
+      jump.removeChild(jump.firstChild);
+    }
+  }
+  const btn=document.getElementById("jumpBtn");
+  if(btn)btn.className="jumpbtn";
+  jump.classList.add("tooljump");
+  tools.insertBefore(jump, document.getElementById("promoBox"));
+}
+window.addEventListener("resize",sizeBoard);
+window.addEventListener("orientationchange",()=>setTimeout(sizeBoard,80));
+if(window.visualViewport)window.visualViewport.addEventListener("resize",sizeBoard);
+document.getElementById("total").textContent=DATA.length;
+relocateJumpControls();loadPos();sizeBoard();render();setTimeout(sizeBoard,60);
+
+</script></body></html>
