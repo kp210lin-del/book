@@ -10,7 +10,7 @@
   --bg:#1f2430; --panel:#2a3140; --line:#3a4150; --ink:#eef2f7;
   --sub:#9aa7bd; --accent:#e0853a; --ok:#46b46b; --bad:#d9534f;
   --board:#e8c479; --grid:#7a5a22;
-  --left-col:clamp(280px, 29vw, 390px);
+  --left-col:clamp(420px, 34vw, 560px);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%}
@@ -30,7 +30,7 @@ body{overflow:hidden}
 .meta .counter b{color:var(--ink);font-size:20px}
 .meta .turn{font-size:15px;color:var(--sub)}
 .meta .turn b{color:var(--accent)}
-.wrap{display:flex;gap:14px;padding:10px;align-items:stretch;max-width:1180px;margin:0 auto;
+.wrap{display:flex;gap:12px;padding:10px;align-items:stretch;max-width:1480px;margin:0 auto;
   height:100dvh;max-height:100dvh;overflow:hidden}
 .left{flex:0 0 var(--left-col);min-width:0;height:100%;padding-right:4px;display:flex;flex-direction:column;min-height:0}
 .left-main .answer{width:100%;max-width:none}
@@ -758,7 +758,7 @@ function sizeBoard(){
   const twoCol=w>820;
   const availH=(twoCol?h:h*0.60)-120;
   const byH=availH/9.23;
-  const availW=(twoCol?w*0.43:w*0.96)-120;
+  const availW=(twoCol?w*0.39:w*0.96)-120;
   const byW=availW/9.7;
   const cell=Math.max(22,Math.min(80,Math.floor(Math.min(byH,byW))));
   document.documentElement.style.setProperty("--cell",cell+"px");
