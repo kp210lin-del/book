@@ -10,6 +10,7 @@
   --bg:#1f2430; --panel:#2a3140; --line:#3a4150; --ink:#eef2f7;
   --sub:#9aa7bd; --accent:#e0853a; --ok:#46b46b; --bad:#d9534f;
   --board:#e8c479; --grid:#7a5a22;
+  --left-col:clamp(280px, 29vw, 390px);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%}
@@ -31,7 +32,8 @@ body{overflow:hidden}
 .meta .turn b{color:var(--accent)}
 .wrap{display:flex;gap:14px;padding:10px;align-items:stretch;max-width:1180px;margin:0 auto;
   height:100dvh;max-height:100dvh;overflow:hidden}
-.left{flex:1 1 calc(var(--bw) + 48px);min-width:0;height:100%;padding-right:4px;display:flex;flex-direction:column;min-height:0}
+.left{flex:0 0 var(--left-col);min-width:0;height:100%;padding-right:4px;display:flex;flex-direction:column;min-height:0}
+.left-main .answer{width:100%;max-width:none}
 .left-main{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:8px}
 .right{flex:0 0 auto;display:flex;align-items:center;justify-content:center}
 .boardbox{display:flex;flex-direction:column;align-items:center;gap:5px}
@@ -98,7 +100,7 @@ button.big:active{filter:brightness(.9)}
 .expl{font-size:17px;line-height:1.85;margin-top:10px;white-space:pre-wrap;
   font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
 .captured{margin-top:10px;font-size:14px;color:var(--sub)}
-.ansimg{width:min(calc(var(--bw) * 0.9), 100%);max-width:min(calc(var(--bw) * 0.9), 100%);border-radius:10px;border:1px solid #000;background:#fff;display:block;margin:0 auto;box-shadow:0 8px 18px rgba(0,0,0,.28)}
+.ansimg{width:100%;max-width:none;border-radius:10px;border:1px solid #000;background:#fff;display:block;margin:0 auto;box-shadow:0 8px 18px rgba(0,0,0,.28)}
 .pending{margin-top:8px;font-size:13px;color:var(--sub)}
 .choice{border:1px solid #3a4150;border-radius:10px;padding:10px 12px;margin:8px 0}
 .choice.correct{border-color:var(--ok);background:rgba(70,180,107,.12)}
@@ -130,7 +132,7 @@ button.big:active{filter:brightness(.9)}
   .boardtools{width:96px}
   .toolbtn{font-size:14px;min-height:40px;padding:8px 6px}
   .answer{max-width:100%}
-  .ansimg{width:min(calc(var(--bw) * 0.9), 96vw);max-width:min(calc(var(--bw) * 0.9), 96vw)}
+  .ansimg{width:min(100%, 96vw);max-width:min(100%, 96vw)}
 }
 </style></head><body>
 <div class="wrap">
@@ -756,7 +758,7 @@ function sizeBoard(){
   const twoCol=w>820;
   const availH=(twoCol?h:h*0.60)-120;
   const byH=availH/9.23;
-  const availW=(twoCol?w*0.50:w*0.96)-120;
+  const availW=(twoCol?w*0.43:w*0.96)-120;
   const byW=availW/9.7;
   const cell=Math.max(22,Math.min(80,Math.floor(Math.min(byH,byW))));
   document.documentElement.style.setProperty("--cell",cell+"px");
