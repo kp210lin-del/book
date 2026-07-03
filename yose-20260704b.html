@@ -10,7 +10,7 @@
   --bg:#1f2430; --panel:#2a3140; --line:#3a4150; --ink:#eef2f7;
   --sub:#9aa7bd; --accent:#e0853a; --ok:#46b46b; --bad:#d9534f;
   --board:#e8c479; --grid:#7a5a22;
-  --left-col:clamp(360px, 31vw, 500px);
+  --left-col:clamp(440px, 37vw, 640px);
   --tool-col:112px;
   --hand-label:92px;
 }
@@ -32,20 +32,21 @@ body{overflow:hidden}
 .meta .counter b{color:var(--ink);font-size:20px}
 .meta .turn{font-size:15px;color:var(--sub)}
 .meta .turn b{color:var(--accent)}
-.wrap{display:flex;gap:16px;padding:10px 12px;align-items:stretch;max-width:1480px;margin:0 auto;
+.wrap{display:flex;gap:14px;padding:10px 12px;align-items:stretch;max-width:1480px;margin:0 auto;
   height:100dvh;max-height:100dvh;overflow:hidden}
 .left{flex:0 0 var(--left-col);min-width:0;height:100%;padding-right:2px;display:flex;flex-direction:column;min-height:0}
 .left-main .answer{width:100%;max-width:none}
 .left-main{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:8px}
 .right{flex:1 1 auto;min-width:0;display:flex;align-items:stretch;justify-content:center}
 .boardbox{display:grid;grid-template-rows:auto minmax(0,1fr) auto;align-content:center;gap:10px;
-  width:100%;max-width:820px;margin:0 auto}
+  width:100%;max-width:740px;margin:0 auto}
 .boardrow{display:grid;grid-template-columns:minmax(0,1fr) var(--tool-col);align-items:start;column-gap:10px;width:100%}
 #boardHost{min-width:0;justify-self:center}
 .boardtools{display:flex;flex-direction:column;gap:10px;width:100%}
 .modegroup{display:flex;flex-direction:column;gap:8px}
 .toolbtn{width:100%;padding:10px 8px;border-radius:10px;border:1px solid #000;
   background:#39414f;color:var(--ink);font-size:15px;font-weight:700;min-height:44px}
+.toolbtn.showbtn{background:var(--accent);color:#1b1b1b;font-size:18px;min-height:52px}
 .toolbtn.active{background:var(--accent);color:#1b1b1b}
 .toolbtn:disabled{opacity:.45;cursor:default}
 .promobox{display:none;flex-direction:column;gap:8px}
@@ -99,7 +100,7 @@ button.big{flex:1 1 auto;font-size:18px;font-weight:700;padding:12px;border-radi
 button.nav{background:#39414f;color:var(--ink)}
 button.big:active{filter:brightness(.9)}
 .answer{display:none;background:var(--panel);border:1px solid #000;border-radius:12px;
-  padding:14px;font-size:17px;line-height:1.6;max-width:calc(var(--bw) + 28px);margin:0 auto}
+  padding:14px;font-size:17px;line-height:1.6;width:100%;max-width:none;margin:0}
 .answer.show{display:block}
 .ans-h{font-size:14px;color:var(--sub);margin-bottom:8px}
 .movebig{font-size:30px;font-weight:800;color:var(--accent);font-family:"Hiragino Mincho ProN",serif}
@@ -148,16 +149,16 @@ button.big:active{filter:brightness(.9)}
   .ansimg{width:min(100%, 96vw);max-width:min(100%, 96vw)}
 }
 @media (min-width:821px){
-  .wrap{gap:18px;padding-inline:14px}
+  .wrap{gap:14px;padding-inline:12px}
   .boardtools{align-self:center}
 }
 @media (min-width:821px) and (max-width:1180px) and (orientation:landscape){
   :root{
-    --left-col:clamp(340px, 30vw, 450px);
+    --left-col:clamp(400px, 35vw, 540px);
     --tool-col:108px;
     --hand-label:84px;
   }
-  .wrap{gap:14px;padding-inline:10px}
+  .wrap{gap:12px;padding-inline:10px}
   .boardbox{gap:8px}
   .hand{padding:9px 10px;min-height:64px}
   .hand .pc{grid-template-columns:repeat(auto-fit, minmax(60px, 64px))}
@@ -808,7 +809,7 @@ function sizeBoard(){
   }
   const byH=Math.max(22,availH)/9.7;
   const byW=Math.max(22,availW)/10.15;
-  const maxCell=(twoCol&&w<1280)?72:80;
+  const maxCell=(twoCol&&w<1280)?58:66;
   const cell=Math.max(22,Math.min(maxCell,Math.floor(Math.min(byH,byW))));
   document.documentElement.style.setProperty("--cell",cell+"px");
   document.documentElement.style.setProperty("--bw",(cell*10)+"px");
@@ -817,6 +818,15 @@ function relocateJumpControls(){
   const jump=document.querySelector(".jump");
   const tools=document.querySelector(".boardtools");
   if(!jump||!tools)return;
+  const showBtn=document.getElementById("showBtn");
+  if(showBtn){
+    const oldRow=showBtn.closest(".btnrow");
+    showBtn.className="toolbtn showbtn";
+    tools.insertBefore(showBtn, tools.firstElementChild||null);
+    if(oldRow&&oldRow.parentElement===document.querySelector(".left-main")&&oldRow.childElementCount===0){
+      oldRow.remove();
+    }
+  }
   if(!jump.querySelector(".jump-label")){
     const label=document.createElement("label");
     label.className="jump-label";
