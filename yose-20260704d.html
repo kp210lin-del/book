@@ -104,8 +104,6 @@ td.s{color:#16407a} td.g{color:#a32a2a}  /* 自陣(先手)=青 / 敵(後手)=赤
 .handbtn.sel{background:var(--accent);color:#1b1b1b}
 .handempty{grid-column:1/-1;font-size:15px;color:var(--sub);padding-top:10px}
 .qmeta{font-size:13px;color:var(--sub);margin-bottom:4px}
-.situation{background:var(--panel);border:1px solid #000;border-radius:12px;
-  padding:10px 12px;font-size:16px;line-height:1.5;margin-bottom:8px}
 .btnrow{display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap}
 button.big{flex:1 1 auto;font-size:18px;font-weight:700;padding:12px;border-radius:12px;
   border:none;background:var(--accent);color:#1b1b1b;min-height:48px}
@@ -143,6 +141,9 @@ button.big:active{filter:brightness(.9)}
   font-size:15px;font-weight:700;min-height:44px}
 .jump.tooljump{display:grid;grid-auto-flow:row;gap:8px;align-items:stretch;margin-top:0;font-size:13px}
 .jump.tooljump input,.jump.tooljump button{width:100%}
+.tool-actions{display:flex;flex-direction:column;gap:8px;margin-top:auto}
+.problem-nav{display:flex;flex-direction:column;gap:6px}
+.problem-nav .toolbtn{min-height:34px;padding:7px 8px;font-size:13px;font-weight:600}
 .navrow-fixed{position:sticky;bottom:0;z-index:8;margin-top:auto;margin-bottom:0;padding:10px 0 calc(env(safe-area-inset-bottom) + 10px);
   background:linear-gradient(to top, rgba(31,36,48,.98), rgba(31,36,48,.9) 70%, rgba(31,36,48,0))}
 .navrow-fixed .big{min-height:52px;box-shadow:0 6px 18px rgba(0,0,0,.28)}
@@ -188,13 +189,7 @@ button.big:active{filter:brightness(.9)}
       <div class="turn" id="turnLbl"></div>
     </div>
     <div class="qmeta" id="qmeta"></div>
-    <div class="situation" id="situation"></div>
-    <div class="btnrow"><button class="big" id="showBtn">解答を見る</button></div>
     <div class="answer" id="answer"></div>
-    </div>
-    <div class="btnrow navrow-fixed" style="margin-top:8px">
-      <button class="big nav" id="prevBtn">◀ 前の問題</button>
-      <button class="big nav" id="nextBtn">次の問題 ▶</button>
     </div>
     <div class="jump">問題番号へ <input type="number" id="jumpInp" min="1">
       <button class="nav" style="padding:8px 14px;border-radius:8px;border:none;color:#fff" id="jumpBtn">移動</button></div>
@@ -212,6 +207,13 @@ button.big:active{filter:brightness(.9)}
           <button class="promobtn" id="stayBtn">成らず</button>
         </div>
         <div class="toolstatus" id="toolStatus">盤の横ボタンで移動モードにします。</div>
+        <div class="tool-actions">
+          <button class="toolbtn showbtn" id="showBtn">解答を見る</button>
+          <div class="problem-nav">
+            <button class="toolbtn nav" id="prevBtn">◀ 前の問題</button>
+            <button class="toolbtn nav" id="nextBtn">次の問題 ▶</button>
+          </div>
+        </div>
       </div>
     </div>
     <div class="hands"><div class="hand"><span class="lab">先手 持駒</span><span class="pc" id="senteHandPc">なし</span></div></div>
@@ -794,8 +796,6 @@ function render(){
   const p=currentProblem();
   document.getElementById("curNo").textContent=p.problem_no;
   document.getElementById("qmeta").textContent=p.label||p.chapter||"";
-  const sit=document.getElementById("situation");
-  if(p.situation){sit.style.display="block";sit.textContent=p.situation;}else sit.style.display="none";
   initialState=parseSfen(p.sfen);
   currentState=cloneBoardState(initialState);
   answerSolved=false;
@@ -880,15 +880,6 @@ function relocateJumpControls(){
   const jump=document.querySelector(".jump");
   const tools=document.querySelector(".boardtools");
   if(!jump||!tools)return;
-  const showBtn=document.getElementById("showBtn");
-  if(showBtn){
-    const oldRow=showBtn.closest(".btnrow");
-    showBtn.className="toolbtn showbtn";
-    tools.insertBefore(showBtn, tools.firstElementChild||null);
-    if(oldRow&&oldRow.parentElement===document.querySelector(".left-main")&&oldRow.childElementCount===0){
-      oldRow.remove();
-    }
-  }
   if(!jump.querySelector(".jump-label")){
     const label=document.createElement("label");
     label.className="jump-label";
