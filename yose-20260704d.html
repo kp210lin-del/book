@@ -144,9 +144,7 @@ button.big:active{filter:brightness(.9)}
 .tool-actions{display:flex;flex-direction:column;gap:8px;margin-top:auto}
 .problem-nav{display:flex;flex-direction:column;gap:6px}
 .problem-nav .toolbtn{min-height:34px;padding:7px 8px;font-size:13px;font-weight:600}
-.navrow-fixed{position:sticky;bottom:0;z-index:8;margin-top:auto;margin-bottom:0;padding:10px 0 calc(env(safe-area-inset-bottom) + 10px);
-  background:linear-gradient(to top, rgba(31,36,48,.98), rgba(31,36,48,.9) 70%, rgba(31,36,48,0))}
-.navrow-fixed .big{min-height:52px;box-shadow:0 6px 18px rgba(0,0,0,.28)}
+.navrow-fixed,.situation,.toolstatus{display:none !important}
 @media (max-width:820px){
   .wrap{flex-direction:column;align-items:stretch;gap:6px}
   .right{order:1;width:100%;flex:0 0 auto}
@@ -880,6 +878,39 @@ function relocateJumpControls(){
   const jump=document.querySelector(".jump");
   const tools=document.querySelector(".boardtools");
   if(!jump||!tools)return;
+  const status=document.getElementById("toolStatus");
+  if(status)status.style.display="none";
+  const situation=document.getElementById("situation");
+  if(situation)situation.remove();
+  const oldNav=document.querySelector(".navrow-fixed");
+  if(oldNav)oldNav.remove();
+  const showBtn=document.getElementById("showBtn");
+  const prevBtn=document.getElementById("prevBtn");
+  const nextBtn=document.getElementById("nextBtn");
+  let actions=tools.querySelector(".tool-actions");
+  if(!actions){
+    actions=document.createElement("div");
+    actions.className="tool-actions";
+    tools.appendChild(actions);
+  }
+  let problemNav=actions.querySelector(".problem-nav");
+  if(!problemNav){
+    problemNav=document.createElement("div");
+    problemNav.className="problem-nav";
+    actions.appendChild(problemNav);
+  }
+  if(showBtn){
+    showBtn.className="toolbtn showbtn";
+    actions.insertBefore(showBtn, problemNav);
+  }
+  if(prevBtn){
+    prevBtn.className="toolbtn nav";
+    problemNav.appendChild(prevBtn);
+  }
+  if(nextBtn){
+    nextBtn.className="toolbtn nav";
+    problemNav.appendChild(nextBtn);
+  }
   if(!jump.querySelector(".jump-label")){
     const label=document.createElement("label");
     label.className="jump-label";
