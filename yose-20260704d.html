@@ -40,7 +40,7 @@ body{overflow:hidden}
 .boardbox{display:grid;grid-template-rows:auto minmax(0,1fr) auto;align-content:center;gap:10px;
   width:100%;max-width:580px;margin:0 auto}
 .boardrow{display:grid;grid-template-columns:minmax(0,1fr) var(--tool-col);align-items:start;column-gap:10px;width:100%}
-#boardHost{min-width:0;justify-self:center}
+#boardHost{min-width:0;justify-self:center;position:relative}
 .boardtools{display:flex;flex-direction:column;gap:10px;width:100%}
 .modegroup{display:flex;flex-direction:column;gap:8px}
 .toolbtn{width:100%;padding:10px 8px;border-radius:10px;border:1px solid #000;
@@ -48,14 +48,15 @@ body{overflow:hidden}
 .toolbtn.showbtn{background:var(--accent);color:#1b1b1b;font-size:18px;min-height:52px}
 .toolbtn.active{background:var(--accent);color:#1b1b1b}
 .toolbtn:disabled{opacity:.45;cursor:default}
-.promobox{display:none;flex-direction:column;gap:8px}
-.promobox.show{display:flex}
+.promobox{display:none !important;flex-direction:column;gap:8px}
+.promobox.show{display:none !important}
 .promobtn{width:100%;padding:10px 8px;border-radius:10px;border:1px solid #000;
   background:#5d6a82;color:var(--ink);font-size:15px;font-weight:700;min-height:44px}
 .toolstatus{width:100%;background:var(--panel);border:1px solid #000;border-radius:10px;
   padding:10px;font-size:12px;line-height:1.6;color:var(--sub);min-height:112px}
 .turn{font-size:16px;color:var(--sub)}
 .turn b{color:var(--accent)}
+.brd-wrap{position:relative;width:max-content;max-width:100%;margin:0 auto}
 table.board{border-collapse:collapse;background:var(--board);
   box-shadow:0 6px 20px rgba(0,0,0,.45);border:3px solid var(--grid)}
 table.board td{width:var(--cell);height:var(--cell);border:1px solid var(--grid);
@@ -72,6 +73,18 @@ td.s{color:#16407a} td.g{color:#a32a2a}  /* 自陣(先手)=青 / 敵(後手)=赤
 .files{display:flex;padding-left:3px}
 .files i{width:var(--cell);text-align:center;font-style:normal;font-weight:700;
   font-size:calc(var(--cell)*.23);color:var(--sub);font-family:sans-serif;padding-bottom:3px}
+.promo-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:rgba(17,20,28,.34);backdrop-filter:blur(2px);border-radius:12px;z-index:8}
+.promo-card{min-width:min(86vw, 280px);max-width:min(86vw, 320px);padding:16px 14px 14px;
+  border-radius:16px;border:1px solid rgba(255,255,255,.14);background:rgba(35,41,57,.96);
+  box-shadow:0 18px 36px rgba(0,0,0,.35);text-align:center}
+.promo-title{font-size:18px;font-weight:800;color:var(--ink);margin-bottom:10px}
+.promo-sub{font-size:14px;color:var(--sub);margin-bottom:14px}
+.promo-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.promo-choice{padding:12px 10px;border-radius:12px;border:1px solid #000;background:#39414f;
+  color:var(--ink);font-size:18px;font-weight:800;cursor:pointer}
+.promo-choice.primary{background:var(--accent);color:#1b1b1b}
+.promo-choice:active{filter:brightness(.94)}
 .bmid{display:flex;align-items:flex-start}
 .ranks{display:flex;flex-direction:column;padding-top:3px}
 .ranks i{height:var(--cell);display:flex;align-items:center;justify-content:center;
@@ -146,6 +159,9 @@ button.big:active{filter:brightness(.9)}
   .handbtn{min-height:42px;font-size:22px}
   .answer{max-width:100%}
   .ansimg{width:min(100%, 96vw);max-width:min(100%, 96vw)}
+  .promo-card{min-width:min(74vw, 250px);padding:14px 12px 12px}
+  .promo-title{font-size:17px}
+  .promo-choice{font-size:16px}
 }
 @media (min-width:821px){
   .wrap{gap:14px;padding-inline:12px}
@@ -281,6 +297,22 @@ function renderHand(side,h){
   return html||'<div class="handempty">なし</div>';
 }
 
+function renderPromotionOverlay(){
+  if(!pendingPromotion||!currentState)return "";
+  const mover=currentState.grid[pendingPromotion.from.r][pendingPromotion.from.c];
+  const piece=PIECE_JP[(mover&&mover[0]==="+"?"+":"")+basePieceOf(mover||"P")]||"駒";
+  return `<div class="promo-overlay" id="promoOverlay" aria-live="polite">
+    <div class="promo-card" role="dialog" aria-modal="true" aria-label="成り選択">
+      <div class="promo-title">${piece}を成りますか？</div>
+      <div class="promo-sub">盤上でそのまま選べます</div>
+      <div class="promo-actions">
+        <button class="promo-choice primary" data-promo-choice="promote">成る</button>
+        <button class="promo-choice" data-promo-choice="stay">成らず</button>
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderBoard(host,state){
   const {grid,turn,hands}=state;
   let files='<div class="files">';
@@ -305,11 +337,12 @@ function renderBoard(host,state){
   let ranks='<div class="ranks">';
   for(let r=0;r<9;r++)ranks+=`<i>${KAN_NUM[r+1]}</i>`;
   ranks+='</div>';
-  host.innerHTML='<div class="brd">'+files+'<div class="bmid">'+tbl+ranks+'</div></div>';
+  host.innerHTML='<div class="brd-wrap"><div class="brd">'+files+'<div class="bmid">'+tbl+ranks+'</div></div>'+renderPromotionOverlay()+'</div>';
   document.getElementById("senteHandPc").innerHTML=renderHand("s",hands.s);
   document.getElementById("goteHandPc").innerHTML=renderHand("g",hands.g);
   document.getElementById("turnLbl").innerHTML="手番 <b>"+(turn==="b"?"先手":"後手")+"</b>";
   host.querySelectorAll("td[data-r]").forEach(td=>td.addEventListener("click",onBoardCellClick));
+  host.querySelectorAll("[data-promo-choice]").forEach(btn=>btn.addEventListener("click",onPromotionChoice));
   document.querySelectorAll("[data-hand-side]").forEach(btn=>btn.addEventListener("click",onHandClick));
 }
 
@@ -355,6 +388,7 @@ let curIdx=0;
 let initialState=null,currentState=null,selected=null,moveTarget=null,pendingPromotion=null;
 let playMode="answer",answerSolved=false;
 const POSKEY="shogibook_pos_"+BOOK_SLUG;
+let moveAudioCtx=null;
 
 function currentProblem(){return DATA[curIdx];}
 function currentAnswer(){return currentProblem().answer||null;}
@@ -373,7 +407,7 @@ function loadPos(){try{const v=+localStorage.getItem(POSKEY);if(v>=0&&v<DATA.len
 function clearSelection(){selected=null;moveTarget=null;pendingPromotion=null;}
 function setPromotionBox(show){
   const box=document.getElementById("promoBox");
-  if(box)box.classList.toggle("show",show);
+  if(box)box.classList.remove("show");
 }
 function showAnswer(force){
   const ans=document.getElementById("answer");
@@ -419,9 +453,8 @@ function buildMoveUsi(from,to,promote){return rcToSq(from.r,from.c)+rcToSq(to.r,
 function buildDropUsi(sel,to){return sel.piece+"*"+rcToSq(to.r,to.c);}
 function playCorrectChime(){
   try{
-    const Ctx=window.AudioContext||window.webkitAudioContext;
-    if(!Ctx)return;
-    const ctx=new Ctx();
+    const ctx=getMoveAudioContext(true);
+    if(!ctx)return;
     const now=ctx.currentTime;
     [784,1046].forEach((freq,i)=>{
       const osc=ctx.createOscillator();
@@ -437,11 +470,36 @@ function playCorrectChime(){
     });
   }catch(e){}
 }
+function getMoveAudioContext(forceResume){
+  const Ctx=window.AudioContext||window.webkitAudioContext;
+  if(!Ctx)return null;
+  if(!moveAudioCtx)moveAudioCtx=new Ctx();
+  if(forceResume&&moveAudioCtx.state==="suspended")moveAudioCtx.resume().catch(()=>{});
+  return moveAudioCtx;
+}
+function playMoveClick(){
+  try{
+    const ctx=getMoveAudioContext(true);
+    if(!ctx)return;
+    const now=ctx.currentTime;
+    const osc=ctx.createOscillator();
+    const gain=ctx.createGain();
+    osc.type="triangle";
+    osc.frequency.setValueAtTime(420,now);
+    osc.frequency.exponentialRampToValueAtTime(250,now+0.055);
+    gain.gain.setValueAtTime(0.0001,now);
+    gain.gain.exponentialRampToValueAtTime(0.09,now+0.008);
+    gain.gain.exponentialRampToValueAtTime(0.0001,now+0.07);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now+0.075);
+  }catch(e){}
+}
 function syncBoardTools(msg){
   const stat=document.getElementById("toolStatus");
   const mode=effectiveMode();
   syncModeButtons();
-  setPromotionBox(!!pendingPromotion);
+  setPromotionBox(false);
   if(msg){stat.innerHTML=msg;return;}
   if(hasModeToggle()&&playMode==="answer"&&!supportsAutoJudge()){
     stat.innerHTML="この問題は正解判定が未整備です。<br>検討モードで盤面を動かせます。";
@@ -452,7 +510,7 @@ function syncBoardTools(msg){
     return;
   }
   if(pendingPromotion){
-    stat.innerHTML=mode==="answer"?"成る/成らないを選ぶと判定します。":"成る/成らないを選んでください。";
+    stat.innerHTML=mode==="answer"?"盤上の 成る / 成らず を選ぶと判定します。":"盤上オーバーレイで 成る / 成らず を選んでください。";
     return;
   }
   if(selected){
@@ -528,6 +586,7 @@ function applyBoardMove(from,to,promote,msg){
   currentState.grid[from.r][from.c]=null;
   currentState.turn=(mover===mover.toLowerCase())?"b":"w";
   clearSelection();
+  playMoveClick();
   renderBoard(document.getElementById("boardHost"),currentState);
   syncBoardTools(msg||(promote?"成りました。<br>続けて盤面を動かせます。":"動かしました。<br>続けて盤面を動かせます。"));
 }
@@ -549,6 +608,7 @@ function dropHandPiece(sel,to,msg){
   currentState.grid[to.r][to.c]=sel.side==="s"?sel.piece:sel.piece.toLowerCase();
   currentState.turn=sel.side==="s"?"w":"b";
   clearSelection();
+  playMoveClick();
   renderBoard(document.getElementById("boardHost"),currentState);
   syncBoardTools(msg||"持ち駒を置きました。<br>続けて盤面を動かせます。");
 }
@@ -576,8 +636,12 @@ function resolvePromotion(promote){
   if(judgeAttempt(usi,()=>applyBoardMove(mv.from,mv.to,promote,"正解です。<br>解答を表示しました。")))return;
   applyBoardMove(mv.from,mv.to,promote);
 }
+function onPromotionChoice(e){
+  const choice=e.currentTarget.dataset.promoChoice;
+  resolvePromotion(choice==="promote");
+}
 function onHandClick(e){
-  if(pendingPromotion){syncBoardTools("先に 成る / 成らない を選んでください。");return;}
+  if(pendingPromotion){syncBoardTools("先に盤上の 成る / 成らず を選んでください。");return;}
   if(effectiveMode()==="answer"&&answerSolved){syncBoardTools("正解済みです。<br>次の問題へ進むか初期配置に戻してください。");return;}
   const btn=e.currentTarget;
   const side=btn.dataset.handSide,piece=btn.dataset.handPiece;
@@ -595,7 +659,7 @@ function onHandClick(e){
   syncBoardTools();
 }
 function onBoardCellClick(e){
-  if(pendingPromotion){syncBoardTools("先に 成る / 成らない を選んでください。");return;}
+  if(pendingPromotion){syncBoardTools("先に盤上の 成る / 成らず を選んでください。");return;}
   if(effectiveMode()==="answer"&&answerSolved){syncBoardTools("正解済みです。<br>次の問題へ進むか初期配置に戻してください。");return;}
   const td=e.currentTarget;
   const r=+td.dataset.r,c=+td.dataset.c;
