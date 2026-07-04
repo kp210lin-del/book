@@ -12,7 +12,6 @@
   --board:#e8c479; --grid:#7a5a22;
   --left-col:clamp(500px, 45vw, 620px);
   --tool-col:112px;
-  --hand-label:92px;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%}
@@ -79,9 +78,9 @@ td.s{color:#16407a} td.g{color:#a32a2a}  /* 自陣(先手)=青 / 敵(後手)=赤
   width:calc(var(--cell)*.62);font-style:normal;font-weight:700;
   font-size:calc(var(--cell)*.23);color:var(--sub);font-family:sans-serif}
 .hands{display:flex;flex-direction:column;gap:4px;width:100%;max-width:none}
-.hand{display:grid;grid-template-columns:var(--hand-label) minmax(0,1fr);align-items:start;column-gap:10px;
+.hand{display:grid;grid-template-columns:minmax(0,1fr);align-items:start;
   background:var(--panel);border:1px solid #000;border-radius:10px;padding:10px 12px;font-size:17px;min-height:68px}
-.hand .lab{color:var(--sub);font-size:13px;line-height:1.4;padding-top:4px;white-space:nowrap}
+.hand .lab{display:none}
 .hand .pc{display:grid;grid-template-columns:repeat(auto-fit, minmax(64px, 68px));gap:8px;
   align-content:start;justify-content:start;font-family:"Hiragino Mincho ProN",serif;min-width:0}
 .handbtn{width:100%;min-width:0;min-height:48px;padding:6px 8px;border-radius:10px;border:1px solid #000;
@@ -142,7 +141,7 @@ button.big:active{filter:brightness(.9)}
   .boardrow{grid-template-columns:minmax(0,1fr) 96px;column-gap:8px}
   .toolbtn{font-size:14px;min-height:40px;padding:8px 6px}
   .toolstatus{min-height:96px;padding:8px}
-  .hand{grid-template-columns:78px minmax(0,1fr);padding:8px 10px;min-height:60px}
+  .hand{grid-template-columns:minmax(0,1fr);padding:8px 10px;min-height:60px}
   .hand .pc{grid-template-columns:repeat(auto-fit, minmax(54px, 60px));gap:6px}
   .handbtn{min-height:42px;font-size:22px}
   .answer{max-width:100%}
@@ -156,7 +155,6 @@ button.big:active{filter:brightness(.9)}
   :root{
     --left-col:clamp(470px, 42vw, 580px);
     --tool-col:108px;
-    --hand-label:84px;
   }
   .wrap{gap:12px;padding-inline:10px}
   .boardbox{gap:8px}
