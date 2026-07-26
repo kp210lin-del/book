@@ -57,15 +57,23 @@ body{overflow:hidden}
 .turn{font-size:16px;color:var(--sub)}
 .turn b{color:var(--accent)}
 .brd-wrap{position:relative;width:max-content;max-width:100%;margin:0 auto}
-table.board{border-collapse:collapse;background:var(--board);
+table.board{table-layout:fixed;border-collapse:collapse;background:var(--board);
   box-shadow:0 6px 20px rgba(0,0,0,.45);border:3px solid var(--grid)}
-table.board td{width:var(--cell);height:var(--cell);border:1px solid var(--grid);
+table.board td{width:var(--cell);height:var(--cell);max-width:var(--cell);overflow:hidden;
+  border:1px solid var(--grid);
   text-align:center;vertical-align:middle;padding:0;
   font-size:calc(var(--cell)*.72);line-height:1;font-weight:600;
   font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
 table.board.editable td{cursor:pointer}
 table.board td.sel{background:rgba(224,133,58,.28)}
 table.board td.dst{box-shadow:inset 0 0 0 3px rgba(70,180,107,.8)}
+/* 選択中の駒が行けるマス（空きマス=ドット / 取れる駒=枠） */
+table.board td.can{position:relative}
+table.board td.can::after{content:"";position:absolute;left:50%;top:50%;
+  width:26%;height:26%;transform:translate(-50%,-50%);border-radius:50%;
+  background:rgba(70,180,107,.6);pointer-events:none}
+table.board td.can:has(span)::after{width:78%;height:78%;border-radius:6px;
+  background:transparent;border:3px solid rgba(70,180,107,.6);box-sizing:border-box}
 td.g span{display:inline-block;transform:rotate(180deg)}
 td.s{color:#16407a} td.g{color:#a32a2a}  /* 自陣(先手)=青 / 敵(後手)=赤 で視認性UP */
 /* 座標は盤の外（上=筋9..1 / 右=段一..九） */
@@ -228,6 +236,8 @@ const PIECE_JP={P:"歩",L:"香",N:"桂",S:"銀",G:"金",B:"角",R:"飛",K:"玉",
  "+P":"と","+L":"成香","+N":"成桂","+S":"成銀","+B":"馬","+R":"龍"};
 const HAND_ORDER=["R","B","G","S","N","L","P"];
 const PROMOTABLE={P:true,L:true,N:true,S:true,B:true,R:true};
+// 盤上だけ 1 文字表記（全/圭/杏）。解答文の棋譜表記は PIECE_JP（成銀/成桂/成香）のまま
+const PIECE_JP_BOARD=Object.assign({},PIECE_JP,{"+L":"杏","+N":"圭","+S":"全"});
 
 function parseSfen(sfen){
   const [board,turn,hand]=sfen.split(" ");
@@ -286,6 +296,154 @@ function sideToMove(state){return state.turn==="b"?"s":"g";}
 function basePieceOf(cell){return cell.replace("+","").toUpperCase();}
 function isPromoted(cell){return cell&&cell[0]==="+";}
 
+/* ---- 合法手判定（駒本来の動き / 二歩・行き所のない駒 / 王手放置）----
+   先手(s)は grid の行番号が減る向きが前進。後手(g)は dr を反転するだけでよい
+   （すべての駒の利きは左右対称なので dc の反転は不要）。
+   打ち歩詰めだけは判定しない。 */
+const STEP_DIRS={
+  P:[[-1,0]],
+  N:[[-2,-1],[-2,1]],
+  S:[[-1,-1],[-1,0],[-1,1],[1,-1],[1,1]],
+  G:[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,0]],
+  K:[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]],
+  "+B":[[-1,0],[1,0],[0,-1],[0,1]],
+  "+R":[[-1,-1],[-1,1],[1,-1],[1,1]]
+};
+const SLIDE_DIRS={
+  L:[[-1,0]],
+  B:[[-1,-1],[-1,1],[1,-1],[1,1]],
+  R:[[-1,0],[1,0],[0,-1],[0,1]],
+  "+B":[[-1,-1],[-1,1],[1,-1],[1,1]],
+  "+R":[[-1,0],[1,0],[0,-1],[0,1]]
+};
+const GOLD_LIKE={"+P":1,"+L":1,"+N":1,"+S":1};
+function moveKindOf(cell){
+  const key=(isPromoted(cell)?"+":"")+basePieceOf(cell);
+  return GOLD_LIKE[key]?"G":key;
+}
+function onBoard(r,c){return r>=0&&r<9&&c>=0&&c<9;}
+function pseudoMovesFrom(state,r,c){
+  const out=[];
+  const cell=state.grid[r][c];
+  if(!cell)return out;
+  const side=sideOf(cell),kind=moveKindOf(cell),sgn=side==="s"?1:-1;
+  const push=(rr,cc)=>{
+    if(!onBoard(rr,cc))return false;
+    const t=state.grid[rr][cc];
+    if(t&&sideOf(t)===side)return false;
+    out.push({r:rr,c:cc});
+    return !t;                       // 駒を取ったらそこで止まる
+  };
+  for(const d of (STEP_DIRS[kind]||[]))push(r+d[0]*sgn,c+d[1]);
+  for(const d of (SLIDE_DIRS[kind]||[])){
+    let rr=r+d[0]*sgn,cc=c+d[1];
+    while(push(rr,cc)){rr+=d[0]*sgn;cc+=d[1];}
+  }
+  return out;
+}
+function kingSquare(state,side){
+  const k=side==="s"?"K":"k";
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++)if(state.grid[r][c]===k)return {r,c};
+  return null;
+}
+function attacksSquare(state,bySide,tr,tc){
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    const cell=state.grid[r][c];
+    if(!cell||sideOf(cell)!==bySide)continue;
+    const mv=pseudoMovesFrom(state,r,c);
+    for(let i=0;i<mv.length;i++)if(mv[i].r===tr&&mv[i].c===tc)return true;
+  }
+  return false;
+}
+// 自玉が盤上に無い局面（部分図）では常に false ＝ 王手放置の判定をしない
+function kingInCheck(state,side){
+  const k=kingSquare(state,side);
+  if(!k)return false;
+  return attacksSquare(state,side==="s"?"g":"s",k.r,k.c);
+}
+function legalMovesFrom(state,r,c){
+  const cell=state.grid[r][c];
+  if(!cell)return [];
+  const side=sideOf(cell);
+  return pseudoMovesFrom(state,r,c).filter(m=>{
+    const nx=cloneBoardState(state);
+    const promote=mustPromoteMove(cell,m)&&!isPromoted(cell);
+    nx.grid[m.r][m.c]=promote?("+"+cell):cell;
+    nx.grid[r][c]=null;
+    return !kingInCheck(nx,side);
+  });
+}
+function isLegalMove(state,from,to){
+  return legalMovesFrom(state,from.r,from.c).some(m=>m.r===to.r&&m.c===to.c);
+}
+// 本に載っている正解手だけは判定を通す（SFEN の読み取り誤りで正解手が指せなくなるのを防ぐ）。
+// 成/不成の違いは無視して 4 文字で比較する。
+function isAnswerAttempt(usi){
+  const a=currentAnswerUsi();
+  return !!a&&!!usi&&a.slice(0,4)===usi.slice(0,4);
+}
+function answerOverridesDrop(sel,to){
+  return isAnswerAttempt(buildDropUsi(sel,to))
+    &&!currentState.grid[to.r][to.c]
+    &&(currentState.hands[sel.side][sel.piece]||0)>0;
+}
+// 打てない理由（打てるなら null）。ctx.inCheck を渡すと自玉の王手判定を使い回す
+function dropIllegalReason(state,side,piece,r,c,ctx){
+  if((state.hands[side][piece]||0)<=0)return "その持ち駒はもうありません。";
+  if(state.grid[r][c])return "そのマスには駒があります。<br>空きマスを選んでください。";
+  const last=side==="s"?0:8,last2=side==="s"?1:7;
+  if((piece==="P"||piece==="L")&&r===last)return "そこに打つと動けなくなります。";
+  if(piece==="N"&&(r===last||r===last2))return "そこに打つと動けなくなります。";
+  if(piece==="P"){
+    const own=side==="s"?"P":"p";
+    for(let rr=0;rr<9;rr++)if(state.grid[rr][c]===own)return "二歩です。<br>別の筋に打ってください。";
+  }
+  // 駒を足すだけの手は自玉の利きを開けないので、既に王手のときだけ調べればよい
+  const inCheck=(ctx&&"inCheck" in ctx)?ctx.inCheck:kingInCheck(state,side);
+  if(inCheck){
+    const nx=cloneBoardState(state);
+    nx.grid[r][c]=side==="s"?piece:piece.toLowerCase();
+    if(kingInCheck(nx,side))return "王手を防げていません。";
+  }
+  return null;
+}
+function dropTargets(state,side,piece){
+  const ctx={inCheck:kingInCheck(state,side)};
+  const out=[];
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    if(!dropIllegalReason(state,side,piece,r,c,ctx))out.push({r,c});
+  }
+  return out;
+}
+// 選択中の駒／持ち駒から行けるマス（盤上に候補マーカーを出す用）
+function candidateSquares(state){
+  if(!selected)return [];
+  if(selected.kind==="hand")return dropTargets(state,selected.side,selected.piece);
+  return legalMovesFrom(state,selected.r,selected.c);
+}
+function boardPieceName(cell){
+  if(!cell)return "駒";
+  return PIECE_JP_BOARD[(isPromoted(cell)?"+":"")+basePieceOf(cell)]||"駒";
+}
+function playIllegalSound(){
+  try{
+    const ctx=getMoveAudioContext(true);
+    if(!ctx)return;
+    const now=ctx.currentTime;
+    const osc=ctx.createOscillator();
+    const gain=ctx.createGain();
+    osc.type="square";
+    osc.frequency.setValueAtTime(190,now);
+    osc.frequency.exponentialRampToValueAtTime(120,now+0.16);
+    gain.gain.setValueAtTime(0.0001,now);
+    gain.gain.exponentialRampToValueAtTime(0.07,now+0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001,now+0.2);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now+0.21);
+  }catch(e){}
+}
+
 function renderHand(side,h){
   let html="";
   for(const p of HAND_ORDER){
@@ -318,6 +476,8 @@ function renderBoard(host,state){
   let files='<div class="files">';
   for(let f=9;f>=1;f--)files+=`<i>${f}</i>`;
   files+='</div>';
+  const cands=candidateSquares(state);
+  const isCand=(r,c)=>cands.some(m=>m.r===r&&m.c===c);
   let tbl='<table class="board editable">';
   for(let r=0;r<9;r++){
     tbl+='<tr>';
@@ -325,11 +485,12 @@ function renderBoard(host,state){
       const p=grid[r][f];
       const sel=selected&&selected.kind==="board"&&selected.r===r&&selected.c===f?' sel':'';
       const dst=selected&&moveTarget&&moveTarget.r===r&&moveTarget.c===f?' dst':'';
-      if(!p){tbl+=`<td data-r="${r}" data-c="${f}" class="${sel}${dst}"></td>`;continue;}
+      const can=isCand(r,f)?' can':'';
+      if(!p){tbl+=`<td data-r="${r}" data-c="${f}" class="${sel}${dst}${can}"></td>`;continue;}
       const up=p.replace("+","").toUpperCase();
       const base=(p[0]==="+"?"+":"")+up;
       const isGote=p.replace("+","")===p.replace("+","").toLowerCase();
-      tbl+=`<td data-r="${r}" data-c="${f}" class="${isGote?'g':'s'}${sel}${dst}"><span>${PIECE_JP[base]||"?"}</span></td>`;
+      tbl+=`<td data-r="${r}" data-c="${f}" class="${isGote?'g':'s'}${sel}${dst}${can}"><span>${PIECE_JP_BOARD[base]||"?"}</span></td>`;
     }
     tbl+='</tr>';
   }
@@ -521,7 +682,7 @@ function syncBoardTools(msg){
       return;
     }
     const p=currentState.grid[selected.r][selected.c]||"";
-    const piece=PIECE_JP[(p[0]==="+"?"+":"")+p.replace("+","").toUpperCase()]||"駒";
+    const piece=boardPieceName(p);
     stat.innerHTML=mode==="answer"
       ?`${piece} を選択中<br>行き先をタップすると正解判定します。`
       :`${piece} を選択中<br>${rcToLabel(selected.r,selected.c)} から動かす先をタップしてください。`;
@@ -591,16 +752,14 @@ function applyBoardMove(from,to,promote,msg){
   syncBoardTools(msg||(promote?"成りました。<br>続けて盤面を動かせます。":"動かしました。<br>続けて盤面を動かせます。"));
 }
 function dropHandPiece(sel,to,msg){
-  if(currentState.grid[to.r][to.c]){
-    renderBoard(document.getElementById("boardHost"),currentState);
-    syncBoardTools("そのマスには駒があります。<br>空きマスを選んでください。");
-    return;
-  }
   const count=currentState.hands[sel.side][sel.piece]||0;
-  if(count<=0){
-    clearSelection();
+  const reason=dropIllegalReason(currentState,sel.side,sel.piece,to.r,to.c);
+  if(reason&&!answerOverridesDrop(sel,to)){
+    if(count<=0)clearSelection();
+    moveTarget=null;
+    playIllegalSound();
     renderBoard(document.getElementById("boardHost"),currentState);
-    syncBoardTools("その持ち駒はもうありません。");
+    syncBoardTools(reason);
     return;
   }
   currentState.hands[sel.side][sel.piece]=count-1;
@@ -615,6 +774,13 @@ function dropHandPiece(sel,to,msg){
 function movePiece(from,to){
   const mover=currentState.grid[from.r][from.c];
   if(!mover)return;
+  if(!isLegalMove(currentState,from,to)&&!isAnswerAttempt(buildMoveUsi(from,to,false))){
+    moveTarget=null;
+    playIllegalSound();
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools(`${boardPieceName(mover)} はそこへは動けません。<br>緑の印のマスへ動かせます。`);
+    return;
+  }
   if(canPromoteMove(mover,from,to)){
     if(mustPromoteMove(mover,to)){
       if(judgeAttempt(buildMoveUsi(from,to,true),()=>applyBoardMove(from,to,true,"正解です。<br>解答を表示しました。")))return;
@@ -665,6 +831,14 @@ function onBoardCellClick(e){
   const r=+td.dataset.r,c=+td.dataset.c;
   const p=currentState.grid[r][c];
   if(selected&&selected.kind==="hand"){
+    const dropNg=dropIllegalReason(currentState,selected.side,selected.piece,r,c);
+    if(dropNg&&!answerOverridesDrop(selected,{r,c})){
+      moveTarget=null;
+      playIllegalSound();
+      renderBoard(document.getElementById("boardHost"),currentState);
+      syncBoardTools(dropNg);
+      return;
+    }
     moveTarget={r,c};
     if(judgeAttempt(buildDropUsi(selected,{r,c}),()=>dropHandPiece(selected,{r,c},"正解です。<br>解答を表示しました。")))return;
     dropHandPiece(selected,{r,c});
