@@ -831,6 +831,17 @@ function onBoardCellClick(e){
   const r=+td.dataset.r,c=+td.dataset.c;
   const p=currentState.grid[r][c];
   if(selected&&selected.kind==="hand"){
+    if(p){
+      if(effectiveMode()==="answer"&&sideOf(p)!==sideToMove(currentState)){
+        syncBoardTools("手番側の駒を選んでください。");
+        return;
+      }
+      selected={kind:"board",r,c};
+      moveTarget=null;
+      renderBoard(document.getElementById("boardHost"),currentState);
+      syncBoardTools();
+      return;
+    }
     const dropNg=dropIllegalReason(currentState,selected.side,selected.piece,r,c);
     if(dropNg&&!answerOverridesDrop(selected,{r,c})){
       moveTarget=null;
