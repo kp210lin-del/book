@@ -10,7 +10,7 @@
   --board:#e8c479; --grid:#7a5a22;
   --sidew:290px;
   /* 盤は画面の高さと残り幅のうち窄い方に合わせて最大化（持駒2段+座標ぶんを引く） */
-  --cell:clamp(44px, min(calc((100dvh - 225px) / 9), calc((100vw - var(--sidew) - 108px - 110px) / 9.7)), 120px);
+  --cell:clamp(44px, min(calc((100dvh - 237px) / 9), calc((100vw - var(--sidew) - 108px - 110px) / 9.7)), 120px);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%}
@@ -66,13 +66,9 @@ button.big.ghost{background:#39414f;color:var(--ink);border:1px solid #000}
 .boardrow{display:flex;align-items:flex-start;justify-content:center;gap:10px;width:100%}
 .boardwrap{position:relative}
 .boardtools{display:flex;flex-direction:column;gap:8px;width:108px}
-.modegroup{display:flex;flex-direction:column;gap:8px}
 .toolbtn{width:100%;padding:10px 8px;border-radius:10px;border:1px solid #000;
   background:#39414f;color:var(--ink);font-size:15px;font-weight:700;min-height:44px}
-.toolbtn.active{background:var(--accent);color:#1b1b1b}
 .toolbtn:disabled{opacity:.45;cursor:default}
-.toolstatus{background:var(--panel);border:1px solid #000;border-radius:10px;
-  padding:8px 10px;font-size:12px;line-height:1.5;color:var(--sub);min-height:92px}
 .jumpbox{display:flex;flex-direction:column;gap:6px}
 .jumpbox input{width:100%;font-size:15px;padding:6px;border-radius:8px;
   border:1px solid #000;background:#2a3140;color:var(--ink);text-align:center}
@@ -81,7 +77,7 @@ table.board{table-layout:fixed;border-collapse:collapse;background:var(--board);
   box-shadow:0 6px 20px rgba(0,0,0,.45);border:3px solid var(--grid)}
 table.board td{width:var(--cell);height:var(--cell);max-width:var(--cell);overflow:hidden;
   border:1px solid var(--grid);text-align:center;vertical-align:middle;padding:0;
-  font-size:calc(var(--cell)*.72);line-height:1;font-weight:600;cursor:pointer;
+  font-size:calc(var(--cell)*.8);line-height:1;font-weight:600;cursor:pointer;
   font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
 table.board td.sel{background:rgba(224,133,58,.28)}
 table.board td.dst{box-shadow:inset 0 0 0 3px rgba(70,180,107,.8)}
@@ -101,11 +97,11 @@ td.g span{display:inline-block;transform:rotate(180deg)}
 
 .hands{display:flex;flex-direction:column;gap:4px;width:100%;max-width:var(--bw)}
 .hand{display:flex;align-items:flex-start;gap:8px;background:var(--panel);
-  border:1px solid #000;border-radius:10px;padding:8px 10px;font-size:17px;min-height:56px}
+  border:1px solid #000;border-radius:10px;padding:8px 10px;font-size:17px;min-height:62px}
 .hand .lab{color:var(--sub);font-size:13px;flex:0 0 auto;padding-top:5px}
 .hand .pc{display:flex;flex-wrap:wrap;gap:8px;font-family:"Hiragino Mincho ProN",serif}
-.handbtn{min-width:44px;min-height:40px;padding:4px 8px;border-radius:10px;border:1px solid #000;
-  background:#485164;color:var(--ink);font-size:24px;line-height:1;
+.handbtn{min-width:52px;min-height:46px;padding:4px 10px;border-radius:10px;border:1px solid #000;
+  background:#485164;color:var(--ink);font-size:28px;line-height:1;
   font-family:"Hiragino Mincho ProN",serif}
 .handbtn small{font-size:14px;margin-left:2px}
 .handbtn.g span{display:inline-block;transform:rotate(180deg)}
@@ -208,10 +204,6 @@ table.mini td.g span{display:inline-block;transform:rotate(180deg)}
         </div>
       </div>
       <div class="boardtools">
-        <div class="modegroup">
-          <button class="toolbtn active" id="answerModeBtn">解答モード</button>
-          <button class="toolbtn" id="reviewModeBtn">検討モード</button>
-        </div>
         <button class="toolbtn" id="resetBtn">初期配置</button>
         <button class="toolbtn" id="undoBtn">一手戻る</button>
         <button class="toolbtn" id="prevBtn">◀ 前の問題</button>
@@ -220,7 +212,6 @@ table.mini td.g span{display:inline-block;transform:rotate(180deg)}
           <input type="number" id="jumpInp" min="1" placeholder="問題番号">
           <button class="toolbtn" id="jumpBtn">移動</button>
         </div>
-        <div class="toolstatus" id="toolStatus"></div>
       </div>
     </div>
     <div class="hands"><div class="hand"><span class="lab">先手 持駒</span>
@@ -257,7 +248,6 @@ const S = {
   board: null,      // 表示中の盤 {grid, sente, gote}
   played: [],       // 表示用の指し手（日本語）
   sel: null,        // {type:"cell"|"hand", idx|piece}
-  mode: "answer",
   done: new Set(JSON.parse(localStorage.getItem("tsume_done") || "[]")),
   pending: null,    // 成り確認待ち {from,to}
 };
@@ -447,7 +437,6 @@ function currentMoves() {
 }
 
 function onHand(p) {
-  if (S.mode !== "answer") { say("検討モードでは持駒は使えません。", "info"); return; }
   if (S.sel && S.sel.type === "hand" && S.sel.piece === p) { S.sel = null; S.dst = null; }
   else {
     S.sel = { type: "hand", piece: p };
@@ -462,8 +451,6 @@ function onCell(idx) {
   const { grid } = S.board;
   const r = (idx / 9) | 0, f = idx % 9, cell = grid[r][f];
   const isGote = cell && cell.replace("+", "") === cell.replace("+", "").toLowerCase();
-
-  if (S.mode === "review") { reviewClick(idx, cell, isGote); return; }
 
   if (S.sel) {
     const to = idxToUsi(idx);
@@ -532,20 +519,6 @@ function submit(usi) {
   render();
 }
 
-/* 検討モード: 合法手の判定はせず、自由に動かして形を確かめるだけ */
-function reviewClick(idx, cell, isGote) {
-  const r = (idx / 9) | 0, f = idx % 9;
-  if (S.sel && S.sel.type === "cell") {
-    const sr = (S.sel.idx / 9) | 0, sf = S.sel.idx % 9;
-    S.board.grid[r][f] = S.board.grid[sr][sf];
-    S.board.grid[sr][sf] = "";
-    S.sel = null; S.dst = null; sPlace();
-  } else if (cell) {
-    S.sel = { type: "cell", idx }; S.dst = null; sPick();
-  }
-  render();
-}
-
 function revealAnswer() {
   const q = DATA[S.qi];
   $("answer").className = "answer show";
@@ -582,25 +555,11 @@ function load(i) {
   S.sel = null; S.dst = null; S.lastUsi = null; S.pending = null;
   $("promoBox").classList.remove("show");
   $("answer").className = "answer";
-  setMode(S.mode);
   say("", "info");
   render();
 }
 
-function setMode(m) {
-  S.mode = m;
-  $("answerModeBtn").classList.toggle("active", m === "answer");
-  $("reviewModeBtn").classList.toggle("active", m === "review");
-  $("toolStatus").textContent = m === "answer"
-    ? "解答モードです。駒を選んで着手すると正誤を判定し、正解なら玉方が応じます。同手数の別解も正解になります。"
-    : "検討モードです。駒を自由に動かして形を確かめられます（合法手の判定はしません）。「初期配置」で戻ります。";
-  S.sel = null; S.dst = null;
-  render();
-}
-
 /* ── ボタン ── */
-$("answerModeBtn").addEventListener("click", () => { load(S.qi); setMode("answer"); });
-$("reviewModeBtn").addEventListener("click", () => setMode("review"));
 $("resetBtn").addEventListener("click", () => load(S.qi));
 $("undoBtn").addEventListener("click", () => {
   if (!S.played.length) return;
@@ -652,6 +611,5 @@ document.addEventListener("keydown", (e) => {
 });
 
 load(0);
-setMode("answer");
 </script>
 </body></html>
