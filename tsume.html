@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>將之詰将棋</title>
+<style>
+:root{
+  --bg:#1f2430; --panel:#2a3140; --line:#3a4150; --ink:#eef2f7;
+  --sub:#9aa7bd; --accent:#e0853a; --ok:#46b46b; --bad:#d9534f;
+  --board:#e8c479; --grid:#7a5a22;
+  --sidew:290px;
+  /* 盤は画面の高さと残り幅のうち窄い方に合わせて最大化（持駒2段+座標ぶんを引く） */
+  --cell:clamp(44px, min(calc((100dvh - 225px) / 9), calc((100vw - var(--sidew) - 108px - 110px) / 9.7)), 120px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);overflow:hidden;
+  font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+  -webkit-text-size-adjust:100%;overscroll-behavior:none}
+
+.wrap{display:flex;gap:14px;padding:10px;align-items:stretch;max-width:1600px;margin:0 auto;
+  height:100dvh;max-height:100dvh;overflow:hidden}
+.left{flex:0 0 var(--sidew);min-width:0;height:100%;overflow-y:auto;padding-right:4px}
+.right{flex:1 1 auto;min-width:0;display:flex;align-items:center;justify-content:center}
+
+.meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-bottom:8px;
+  padding-bottom:8px;border-bottom:1px solid #333}
+.meta .back{font-size:15px;padding:8px 12px;border-radius:10px;background:#2a3140;
+  border:1px solid #000;color:var(--ink);font-weight:700}
+.meta .bktitle{font-size:19px;font-weight:700}
+.meta .bktitle small{font-size:14px;color:var(--sub);font-weight:600;margin-left:6px}
+.meta .counter{font-size:15px;color:var(--sub);white-space:nowrap}
+.meta .counter b{color:var(--ink);font-size:20px}
+.meta .turn{font-size:15px;color:var(--sub)}
+.meta .turn b{color:var(--accent)}
+
+.kind{display:inline-block;font-size:13px;padding:3px 10px;border-radius:20px;
+  background:var(--accent);color:#1b1b1b;font-weight:700;margin-bottom:8px}
+.situation{background:var(--panel);border:1px solid #000;border-radius:12px;
+  padding:10px 12px;font-size:16px;line-height:1.5;margin-bottom:8px}
+.btnrow{display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+button.big{flex:1 1 auto;font-size:18px;font-weight:700;padding:12px;border-radius:12px;
+  border:none;background:var(--accent);color:#1b1b1b;min-height:48px}
+button.big:active{filter:brightness(.9)}
+button.big.ghost{background:#39414f;color:var(--ink);border:1px solid #000}
+
+.progress{background:var(--panel);border:1px solid #000;border-radius:12px;padding:10px 12px;
+  font-size:16px;line-height:1.7;margin-bottom:8px;min-height:52px}
+.progress .ply{display:inline-block;padding:2px 9px;margin:2px;border-radius:8px;background:#39414f;
+  font-family:"Hiragino Mincho ProN","Yu Mincho",serif;font-size:18px}
+.progress .ply.g{color:#f0b4b4}
+.progress .hint{color:var(--sub);font-size:14px}
+.verdict{font-weight:700;font-size:17px;min-height:26px;margin-bottom:8px}
+.verdict.ok{color:var(--ok)} .verdict.ng{color:var(--bad)} .verdict.info{color:var(--sub);font-weight:400}
+
+.answer{display:none;background:var(--panel);border:1px solid #000;border-radius:12px;
+  padding:14px;font-size:17px;line-height:1.6}
+.answer.show{display:block}
+.ans-h{font-size:14px;color:var(--sub);margin-bottom:8px}
+.seq{font-size:19px;line-height:1.9;font-family:"Hiragino Mincho ProN",serif}
+.seq .ply{display:inline-block;padding:2px 8px;margin:2px;border-radius:8px;background:#39414f}
+.seq .ply.g{color:#f0b4b4}
+.note{margin-top:10px;font-size:13px;color:var(--sub)}
+
+.boardbox{display:flex;flex-direction:column;align-items:center;gap:5px}
+.boardrow{display:flex;align-items:flex-start;justify-content:center;gap:10px;width:100%}
+.boardwrap{position:relative}
+.boardtools{display:flex;flex-direction:column;gap:8px;width:108px}
+.modegroup{display:flex;flex-direction:column;gap:8px}
+.toolbtn{width:100%;padding:10px 8px;border-radius:10px;border:1px solid #000;
+  background:#39414f;color:var(--ink);font-size:15px;font-weight:700;min-height:44px}
+.toolbtn.active{background:var(--accent);color:#1b1b1b}
+.toolbtn:disabled{opacity:.45;cursor:default}
+.toolstatus{background:var(--panel);border:1px solid #000;border-radius:10px;
+  padding:8px 10px;font-size:12px;line-height:1.5;color:var(--sub);min-height:92px}
+.jumpbox{display:flex;flex-direction:column;gap:6px}
+.jumpbox input{width:100%;font-size:15px;padding:6px;border-radius:8px;
+  border:1px solid #000;background:#2a3140;color:var(--ink);text-align:center}
+
+table.board{table-layout:fixed;border-collapse:collapse;background:var(--board);
+  box-shadow:0 6px 20px rgba(0,0,0,.45);border:3px solid var(--grid)}
+table.board td{width:var(--cell);height:var(--cell);max-width:var(--cell);overflow:hidden;
+  border:1px solid var(--grid);text-align:center;vertical-align:middle;padding:0;
+  font-size:calc(var(--cell)*.72);line-height:1;font-weight:600;cursor:pointer;
+  font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
+table.board td.sel{background:rgba(224,133,58,.28)}
+table.board td.dst{box-shadow:inset 0 0 0 3px rgba(70,180,107,.8)}
+table.board td.last{background:rgba(70,180,107,.16)}
+td.s{color:#16407a} td.g{color:#a32a2a}
+td.g span{display:inline-block;transform:rotate(180deg)}
+
+.brd{display:inline-block}
+.files{display:flex;padding-left:3px}
+.files i{width:var(--cell);text-align:center;font-style:normal;font-weight:700;
+  font-size:calc(var(--cell)*.23);color:var(--sub);font-family:sans-serif;padding-bottom:3px}
+.bmid{display:flex;align-items:flex-start}
+.ranks{display:flex;flex-direction:column;padding-top:3px}
+.ranks i{height:var(--cell);display:flex;align-items:center;justify-content:center;
+  width:calc(var(--cell)*.62);font-style:normal;font-weight:700;
+  font-size:calc(var(--cell)*.23);color:var(--sub);font-family:sans-serif}
+
+.hands{display:flex;flex-direction:column;gap:4px;width:100%;max-width:var(--bw)}
+.hand{display:flex;align-items:flex-start;gap:8px;background:var(--panel);
+  border:1px solid #000;border-radius:10px;padding:8px 10px;font-size:17px;min-height:56px}
+.hand .lab{color:var(--sub);font-size:13px;flex:0 0 auto;padding-top:5px}
+.hand .pc{display:flex;flex-wrap:wrap;gap:8px;font-family:"Hiragino Mincho ProN",serif}
+.handbtn{min-width:44px;min-height:40px;padding:4px 8px;border-radius:10px;border:1px solid #000;
+  background:#485164;color:var(--ink);font-size:24px;line-height:1;
+  font-family:"Hiragino Mincho ProN",serif}
+.handbtn small{font-size:14px;margin-left:2px}
+.handbtn.g span{display:inline-block;transform:rotate(180deg)}
+.handbtn.sel{background:var(--accent);color:#1b1b1b}
+.handempty{font-size:15px;color:var(--sub);padding-top:7px}
+
+.promobox{display:none;flex-direction:column;gap:10px;position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);z-index:20;background:rgba(20,24,32,.95);
+  border:2px solid var(--accent);border-radius:14px;padding:18px 22px;
+  box-shadow:0 8px 30px rgba(0,0,0,.55);min-width:160px}
+.promobox.show{display:flex}
+.promolabel{font-size:15px;text-align:center;font-weight:700}
+.promobtn{width:100%;padding:12px 8px;border-radius:10px;border:1px solid #000;
+  background:#5d6a82;color:var(--ink);font-size:17px;font-weight:700;min-height:48px}
+
+.sheet{display:none;position:fixed;inset:0;z-index:40;background:rgba(10,12,16,.72)}
+.sheet.show{display:flex;align-items:center;justify-content:center}
+.sheetbox{background:var(--panel);border:1px solid #000;border-radius:14px;padding:16px;
+  width:min(92vw,420px);max-height:80vh;overflow-y:auto}
+.sheetbox h3{margin:0 0 10px;font-size:16px;color:var(--sub);font-weight:700}
+.listitem{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  padding:10px 12px;border-radius:10px;background:#39414f;margin-bottom:8px;cursor:pointer}
+.listitem.cur{outline:2px solid var(--accent)}
+.listitem .n{font-weight:700}
+.listitem .m{font-size:13px;color:var(--sub)}
+.listitem .done{color:var(--ok);font-weight:700}
+
+.okoverlay{display:none;position:fixed;inset:0;z-index:60;background:rgba(10,12,16,.55);
+  align-items:center;justify-content:center}
+.okoverlay.show{display:flex}
+.okbox{background:var(--panel);border:3px solid var(--ok);border-radius:18px;
+  padding:26px 44px;text-align:center;animation:okpop .25s ease-out}
+.okmark{font-size:44px;font-weight:800;color:var(--ok)}
+.oksub{margin-top:8px;font-size:15px;color:var(--sub)}
+@keyframes okpop{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+.shake{animation:shake .32s}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-9px)}
+  40%{transform:translateX(9px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
+.sheetbox.wide{width:min(96vw,1100px);max-height:88vh}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.ghead{grid-column:1/-1;font-size:14px;font-weight:700;color:var(--sub);
+  border-bottom:1px solid var(--line);padding:4px 2px 2px;margin-top:4px}
+.listhead{font-size:13px;font-weight:700;color:var(--sub);margin:10px 0 6px}
+.gitem{background:#39414f;border-radius:10px;padding:8px;cursor:pointer;text-align:center}
+.gitem.cur{outline:2px solid var(--accent)}
+.gitem .gh{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px}
+.gitem .gh .n{font-weight:700}
+.gitem .gh .m{color:var(--sub)}
+.gitem .done{color:var(--ok);font-weight:700}
+table.mini{table-layout:fixed;border-collapse:collapse;background:var(--board);
+  border:2px solid var(--grid);margin:0 auto}
+table.mini td{width:22px;height:22px;border:1px solid var(--grid);padding:0;text-align:center;
+  vertical-align:middle;font-size:15px;line-height:1;font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
+table.mini td.g span{display:inline-block;transform:rotate(180deg)}
+.gitem .gh2{font-size:12px;color:var(--sub);margin-top:5px;text-align:left;
+  font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
+.gitem .gh2 b{color:var(--ink)}
+
+@media (max-width:820px){
+  :root{--cell:38px}
+  .wrap{flex-direction:column;align-items:stretch;gap:6px}
+  .right{order:1;width:100%;flex:0 0 auto}
+  .left{order:2;width:100%;flex:1 1 auto;min-height:0;height:auto;overflow-y:auto}
+  .boardtools{width:96px}
+  .toolbtn{font-size:14px;min-height:40px;padding:8px 6px}
+}
+</style></head>
+<body>
+
+<div class="wrap">
+  <div class="left">
+    <div class="meta">
+      <button class="back" id="listBtn">☰ 一覧</button>
+      <button class="back" id="galBtn">▦ 全問</button>
+      <a class="back" href="index.html">📚 本棚</a><div class="bktitle">將之詰将棋<small>› 頭金の詰み</small></div>
+      <div class="counter">第 <b id="curNo">1</b> 問 / <span id="total">0</span></div>
+      <div class="turn">手番 <b>先手</b></div>
+    </div>
+    <div><span class="kind" id="kindLbl">1手詰</span></div>
+    <div class="situation" id="situation"></div>
+    <div class="verdict info" id="verdict"></div>
+    <div class="progress" id="progress"></div>
+    <div class="btnrow">
+      <button class="big" id="showBtn">解答を見る</button>
+      <button class="big ghost" id="hintBtn">ヒント</button>
+    </div>
+    <div class="answer" id="answer"></div>
+  </div>
+
+  <div class="right"><div class="boardbox">
+    <div class="hands"><div class="hand"><span class="lab">後手 持駒</span>
+      <span class="pc" id="goteHandPc">なし</span></div></div>
+    <div class="boardrow">
+      <div class="boardwrap">
+        <div id="boardHost"></div>
+        <div class="promobox" id="promoBox">
+          <div class="promolabel">成りますか？</div>
+          <button class="promobtn" id="promoteBtn">成る</button>
+          <button class="promobtn" id="stayBtn">成らず</button>
+        </div>
+      </div>
+      <div class="boardtools">
+        <div class="modegroup">
+          <button class="toolbtn active" id="answerModeBtn">解答モード</button>
+          <button class="toolbtn" id="reviewModeBtn">検討モード</button>
+        </div>
+        <button class="toolbtn" id="resetBtn">初期配置</button>
+        <button class="toolbtn" id="undoBtn">一手戻る</button>
+        <button class="toolbtn" id="prevBtn">◀ 前の問題</button>
+        <button class="toolbtn" id="nextBtn">次の問題 ▶</button>
+        <div class="jumpbox">
+          <input type="number" id="jumpInp" min="1" placeholder="問題番号">
+          <button class="toolbtn" id="jumpBtn">移動</button>
+        </div>
+        <div class="toolstatus" id="toolStatus"></div>
+      </div>
+    </div>
+    <div class="hands"><div class="hand"><span class="lab">先手 持駒</span>
+      <span class="pc" id="senteHandPc">なし</span></div></div>
+  </div></div>
+</div>
+
+<div class="okoverlay" id="okOverlay"><div class="okbox">
+  <div class="okmark">◯ 正解！</div><div class="oksub" id="okSub"></div>
+</div></div>
+
+<div class="sheet" id="sheet"><div class="sheetbox">
+  <h3>問題一覧</h3><div id="listHost"></div>
+</div></div>
+
+<div class="sheet" id="galSheet"><div class="sheetbox wide">
+  <h3>全問（盤面つき）</h3><div class="gallery" id="galHost"></div>
+</div></div>
+
+<script>
+const DATA = [{"no": 1, "group": 1, "mate_len": 1, "sfen": "7k1/9/7G1/9/9/9/9/9/9 b 2r2bG2g4s4n4l18p 1", "pv": ["G*2b"], "pvJa": ["▲２二金打"], "tree": [{"sfen": "7k1/9/7G1/9/9/9/9/9/9 b G2r2b2g4s4n4l18p 1", "remaining": 1, "moves": {"G*2b": {"ja": "▲２二金打", "reply": null, "replyJa": null, "next": null, "sfen": "7k1/7G1/7G1/9/9/9/9/9/9 w 2r2b2g4s4n4l18p 2"}}}]}, {"no": 2, "group": 1, "mate_len": 1, "sfen": "6sk1/9/7G1/9/9/9/9/9/9 b 2r2b3gS2s4n4l18p 1", "pv": ["S*1b"], "pvJa": ["▲１二銀打"], "tree": [{"sfen": "6sk1/9/7G1/9/9/9/9/9/9 b S2r2b3g2s4n4l18p 1", "remaining": 1, "moves": {"S*1b": {"ja": "▲１二銀打", "reply": null, "replyJa": null, "next": null, "sfen": "6sk1/8S/7G1/9/9/9/9/9/9 w 2r2b3g2s4n4l18p 2"}}}]}, {"no": 3, "group": 1, "mate_len": 1, "sfen": "6nk1/9/7S1/9/9/9/9/9/9 b S2r2b4g2s3n4l18p 1", "pv": ["S*1b"], "pvJa": ["▲１二銀打"], "tree": [{"sfen": "6nk1/9/7S1/9/9/9/9/9/9 b S2r2b4g2s3n4l18p 1", "remaining": 1, "moves": {"S*2b": {"ja": "▲２二銀打", "reply": null, "replyJa": null, "next": null, "sfen": "6nk1/7S1/7S1/9/9/9/9/9/9 w 2r2b4g2s3n4l18p 2"}, "S*1b": {"ja": "▲１二銀打", "reply": null, "replyJa": null, "next": null, "sfen": "6nk1/8S/7S1/9/9/9/9/9/9 w 2r2b4g2s3n4l18p 2"}}}]}, {"no": 4, "group": 1, "mate_len": 1, "sfen": "6nkb/9/7S1/9/9/9/9/9/9 b G2rb3g3s3n4l18p 1", "pv": ["G*1b"], "pvJa": ["▲１二金打"], "tree": [{"sfen": "6nkb/9/7S1/9/9/9/9/9/9 b G2rb3g3s3n4l18p 1", "remaining": 1, "moves": {"G*3b": {"ja": "▲３二金打", "reply": null, "replyJa": null, "next": null, "sfen": "6nkb/6G2/7S1/9/9/9/9/9/9 w 2rb3g3s3n4l18p 2"}, "G*1b": {"ja": "▲１二金打", "reply": null, "replyJa": null, "next": null, "sfen": "6nkb/8G/7S1/9/9/9/9/9/9 w 2rb3g3s3n4l18p 2"}}}]}, {"no": 5, "group": 1, "mate_len": 1, "sfen": "9/8k/7Pp/9/9/9/9/9/9 b G2r2b3g4s4n4l16p 1", "pv": ["G*2b"], "pvJa": ["▲２二金打"], "tree": [{"sfen": "9/8k/7Pp/9/9/9/9/9/9 b G2r2b3g4s4n4l16p 1", "remaining": 1, "moves": {"G*2b": {"ja": "▲２二金打", "reply": null, "replyJa": null, "next": null, "sfen": "9/7Gk/7Pp/9/9/9/9/9/9 w 2r2b3g4s4n4l16p 2"}}}]}, {"no": 6, "group": 2, "mate_len": 1, "sfen": "6knl/4+R4/6ppp/9/9/9/9/9/9 b Gr2b3g4s3n3l15p 1", "pv": ["G*2b"], "pvJa": ["▲２二金打"], "tree": [{"sfen": "6knl/4+R4/6ppp/9/9/9/9/9/9 b Gr2b3g4s3n3l15p 1", "remaining": 1, "moves": {"G*4a": {"ja": "▲４一金打", "reply": null, "replyJa": null, "next": null, "sfen": "5Gknl/4+R4/6ppp/9/9/9/9/9/9 w r2b3g4s3n3l15p 2"}, "G*3b": {"ja": "▲３二金打", "reply": null, "replyJa": null, "next": null, "sfen": "6knl/4+R1G2/6ppp/9/9/9/9/9/9 w r2b3g4s3n3l15p 2"}, "G*2b": {"ja": "▲２二金打", "reply": null, "replyJa": null, "next": null, "sfen": "6knl/4+R2G1/6ppp/9/9/9/9/9/9 w r2b3g4s3n3l15p 2"}}}]}, {"no": 7, "group": 2, "mate_len": 1, "sfen": "6k2/7s1/5+Bp2/9/9/9/9/9/9 b G2rb3g3s4n4l17p 1", "pv": ["G*3b"], "pvJa": ["▲３二金打"], "tree": [{"sfen": "6k2/7s1/5+Bp2/9/9/9/9/9/9 b G2rb3g3s4n4l17p 1", "remaining": 1, "moves": {"G*4b": {"ja": "▲４二金打", "reply": null, "replyJa": null, "next": null, "sfen": "6k2/5G1s1/5+Bp2/9/9/9/9/9/9 w 2rb3g3s4n4l17p 2"}, "G*3b": {"ja": "▲３二金打", "reply": null, "replyJa": null, "next": null, "sfen": "6k2/6Gs1/5+Bp2/9/9/9/9/9/9 w 2rb3g3s4n4l17p 2"}}}]}, {"no": 8, "group": 2, "mate_len": 1, "sfen": "6k2/7s1/5+Bps1/9/9/9/9/9/9 b G2rb3g2s4n4l17p 1", "pv": ["G*4b"], "pvJa": ["▲４二金打"], "tree": [{"sfen": "6k2/7s1/5+Bps1/9/9/9/9/9/9 b G2rb3g2s4n4l17p 1", "remaining": 1, "moves": {"G*4b": {"ja": "▲４二金打", "reply": null, "replyJa": null, "next": null, "sfen": "6k2/5G1s1/5+Bps1/9/9/9/9/9/9 w 2rb3g2s4n4l17p 2"}}}]}, {"no": 9, "group": 3, "mate_len": 1, "sfen": "6knl/9/6pSp/9/6N2/9/9/9/9 b G2r2b3g3s2n3l16p 1", "pv": ["G*3b"], "pvJa": ["▲３二金打"], "tree": [{"sfen": "6knl/9/6pSp/9/6N2/9/9/9/9 b G2r2b3g3s2n3l16p 1", "remaining": 1, "moves": {"G*3b": {"ja": "▲３二金打", "reply": null, "replyJa": null, "next": null, "sfen": "6knl/6G2/6pSp/9/6N2/9/9/9/9 w 2r2b3g3s2n3l16p 2"}}}]}, {"no": 10, "group": 3, "mate_len": 3, "sfen": "7nl/7k1/6p1p/9/6N2/9/9/9/9 b 2r2bG3gS3s2n3l16p 1", "pv": ["S*2c", "2b3a", "G*3b"], "pvJa": ["▲２三銀打", "△３一玉", "▲３二金打"], "tree": [{"sfen": "7nl/7k1/6p1p/9/6N2/9/9/9/9 b GS2r2b3g3s2n3l16p 1", "remaining": 3, "moves": {"S*2c": {"ja": "▲２三銀打", "reply": "2b3a", "replyJa": "△３一玉", "next": 1, "sfen": null}}}, {"sfen": "6knl/9/6pSp/9/6N2/9/9/9/9 b G2r2b3g3s2n3l16p 3", "remaining": 1, "moves": {"G*3b": {"ja": "▲３二金打", "reply": null, "replyJa": null, "next": null, "sfen": "6knl/6G2/6pSp/9/6N2/9/9/9/9 w 2r2b3g3s2n3l16p 4"}}}]}, {"no": 11, "group": 4, "mate_len": 1, "sfen": "5sk2/9/6S2/6S2/9/9/9/9/9 b 2r2bG3gs4n4l18p 1", "pv": ["G*2b"], "pvJa": ["▲２二金打"], "tree": [{"sfen": "5sk2/9/6S2/6S2/9/9/9/9/9 b G2r2b3gs4n4l18p 1", "remaining": 1, "moves": {"G*2b": {"ja": "▲２二金打", "reply": null, "replyJa": null, "next": null, "sfen": "5sk2/7G1/6S2/6S2/9/9/9/9/9 w 2r2b3gs4n4l18p 2"}}}]}, {"no": 12, "group": 4, "mate_len": 3, "sfen": "9/6k2/9/6S2/9/9/9/9/9 b 2r2bG3gS2s4n4l18p 1", "pv": ["S*3c", "3b2a", "G*2b"], "pvJa": ["▲３三銀打", "△２一玉", "▲２二金打"], "tree": [{"sfen": "9/6k2/9/6S2/9/9/9/9/9 b GS2r2b3g2s4n4l18p 1", "remaining": 3, "moves": {"S*3c": {"ja": "▲３三銀打", "reply": "3b2a", "replyJa": "△２一玉", "next": 1, "sfen": null}}}, {"sfen": "7k1/9/6S2/6S2/9/9/9/9/9 b G2r2b3g2s4n4l18p 3", "remaining": 1, "moves": {"G*2b": {"ja": "▲２二金打", "reply": null, "replyJa": null, "next": null, "sfen": "7k1/7G1/6S2/6S2/9/9/9/9/9 w 2r2b3g2s4n4l18p 4"}}}]}, {"no": 13, "group": 4, "mate_len": 5, "sfen": "5k3/9/9/5S3/9/9/9/9/9 b 2r2b3Gg3s4n4l18p 1", "pv": ["G*4b", "4a4b", "G*4c", "4b3a", "G*3b"], "pvJa": ["▲４二金打", "△４二玉", "▲４三金打", "△３一玉", "▲３二金打"], "tree": [{"sfen": "5k3/9/9/5S3/9/9/9/9/9 b 3G2r2bg3s4n4l18p 1", "remaining": 5, "moves": {"G*4b": {"ja": "▲４二金打", "reply": "4a4b", "replyJa": "△４二玉", "next": 1, "sfen": null}}}, {"sfen": "9/5k3/9/5S3/9/9/9/9/9 b 2G2r2b2g3s4n4l18p 3", "remaining": 3, "moves": {"G*4c": {"ja": "▲４三金打", "reply": "4b3a", "replyJa": "△３一玉", "next": 2, "sfen": null}}}, {"sfen": "6k2/9/5G3/5S3/9/9/9/9/9 b G2r2b2g3s4n4l18p 5", "remaining": 1, "moves": {"G*3b": {"ja": "▲３二金打", "reply": null, "replyJa": null, "next": null, "sfen": "6k2/6G2/5G3/5S3/9/9/9/9/9 w 2r2b2g3s4n4l18p 6"}}}]}, {"no": 14, "group": 5, "mate_len": 1, "sfen": "9/7Sk/6S2/7S1/9/9/9/9/9 b 2r2b4gs4n4l18p 1", "pv": ["2d1c+"], "pvJa": ["▲１三銀成"], "tree": [{"sfen": "9/7Sk/6S2/7S1/9/9/9/9/9 b 2r2b4gs4n4l18p 1", "remaining": 1, "moves": {"2d1c+": {"ja": "▲１三銀成", "reply": null, "replyJa": null, "next": null, "sfen": "9/7Sk/6S1+S/9/9/9/9/9/9 w 2r2b4gs4n4l18p 2"}}}]}, {"no": 15, "group": 5, "mate_len": 3, "sfen": "7k1/9/6S2/7S1/9/9/9/9/9 b S2r2b4gs4n4l18p 1", "pv": ["S*2b", "2a1b", "2d1c+"], "pvJa": ["▲２二銀打", "△１二玉", "▲１三銀成"], "tree": [{"sfen": "7k1/9/6S2/7S1/9/9/9/9/9 b S2r2b4gs4n4l18p 1", "remaining": 3, "moves": {"S*2b": {"ja": "▲２二銀打", "reply": "2a1b", "replyJa": "△１二玉", "next": 1, "sfen": null}}}, {"sfen": "9/7Sk/6S2/7S1/9/9/9/9/9 b 2r2b4gs4n4l18p 3", "remaining": 1, "moves": {"2d1c+": {"ja": "▲１三銀成", "reply": null, "replyJa": null, "next": null, "sfen": "9/7Sk/6S1+S/9/9/9/9/9/9 w 2r2b4gs4n4l18p 4"}}}]}, {"no": 16, "group": 5, "mate_len": 5, "sfen": "9/7k1/9/7S1/9/9/9/9/9 b 2r2b4g2Ss4n4l18p 1", "pv": ["S*3c", "2b1a", "S*2b", "1a1b", "2d1c+"], "pvJa": ["▲３三銀打", "△１一玉", "▲２二銀打", "△１二玉", "▲１三銀成"], "tree": [{"sfen": "9/7k1/9/7S1/9/9/9/9/9 b 2S2r2b4gs4n4l18p 1", "remaining": 5, "moves": {"S*3c": {"ja": "▲３三銀打", "reply": "2b1a", "replyJa": "△１一玉", "next": 1, "sfen": null}}}, {"sfen": "8k/9/6S2/7S1/9/9/9/9/9 b S2r2b4gs4n4l18p 3", "remaining": 3, "moves": {"S*2b": {"ja": "▲２二銀打", "reply": "1a1b", "replyJa": "△１二玉", "next": 2, "sfen": null}}}, {"sfen": "9/7Sk/6S2/7S1/9/9/9/9/9 b 2r2b4gs4n4l18p 5", "remaining": 1, "moves": {"2d1c+": {"ja": "▲１三銀成", "reply": null, "replyJa": null, "next": null, "sfen": "9/7Sk/6S1+S/9/9/9/9/9/9 w 2r2b4gs4n4l18p 6"}}}]}, {"no": 17, "group": 6, "mate_len": 1, "sfen": "7nl/8k/6p2/7pp/6N2/9/9/9/9 b G2r2b3g4s2n3l15p 1", "pv": ["G*2c"], "pvJa": ["▲２三金打"], "tree": [{"sfen": "7nl/8k/6p2/7pp/6N2/9/9/9/9 b G2r2b3g4s2n3l15p 1", "remaining": 1, "moves": {"G*2c": {"ja": "▲２三金打", "reply": null, "replyJa": null, "next": null, "sfen": "7nl/8k/6pG1/7pp/6N2/9/9/9/9 w 2r2b3g4s2n3l15p 2"}}}]}, {"no": 18, "group": 6, "mate_len": 3, "sfen": "7nl/9/6pSk/7pp/6N2/9/9/9/9 b G2r2b3g3s2n3l15p 1", "pv": ["2c1b+", "1c1b", "G*2c"], "pvJa": ["▲１二銀成", "△１二玉", "▲２三金打"], "tree": [{"sfen": "7nl/9/6pSk/7pp/6N2/9/9/9/9 b G2r2b3g3s2n3l15p 1", "remaining": 3, "moves": {"2c1b+": {"ja": "▲１二銀成", "reply": "1c1b", "replyJa": "△１二玉", "next": 1, "sfen": null}}}, {"sfen": "7nl/8k/6p2/7pp/6N2/9/9/9/9 b G2r2b3g4s2n3l15p 3", "remaining": 1, "moves": {"G*2c": {"ja": "▲２三金打", "reply": null, "replyJa": null, "next": null, "sfen": "7nl/8k/6pG1/7pp/6N2/9/9/9/9 w 2r2b3g4s2n3l15p 4"}}}]}];
+const $ = (id) => document.getElementById(id);
+
+const KANJI = {p:"歩",l:"香",n:"桂",s:"銀",g:"金",b:"角",r:"飛",k:"玉",
+  "+p":"と","+l":"杏","+n":"圭","+s":"全","+b":"馬","+r":"龍"};
+const HAND_ORDER = ["R","B","G","S","N","L","P"];
+const FILE_CH = "987654321", RANK_CH = "abcdefghi";
+const idxToUsi = (i) => FILE_CH[i % 9] + RANK_CH[(i / 9) | 0];
+
+/* ── 状態 ── */
+const S = {
+  qi: 0,            // 問題 index
+  node: 0,          // 解答ツリーの現在ノード
+  board: null,      // 表示中の盤 {grid, sente, gote}
+  played: [],       // 表示用の指し手（日本語）
+  sel: null,        // {type:"cell"|"hand", idx|piece}
+  mode: "answer",
+  done: new Set(JSON.parse(localStorage.getItem("tsume_done") || "[]")),
+  pending: null,    // 成り確認待ち {from,to}
+};
+
+/* ── SFEN → 盤 ── */
+function parseSfen(sfen) {
+  const [bd, , hand] = sfen.split(" ");
+  const grid = [];
+  for (const rowStr of bd.split("/")) {
+    const row = [];
+    let promo = false;
+    for (const ch of rowStr) {
+      if (ch === "+") { promo = true; continue; }
+      if (/\d/.test(ch)) { for (let i = 0; i < +ch; i++) row.push(""); continue; }
+      row.push((promo ? "+" : "") + ch); promo = false;
+    }
+    grid.push(row);
+  }
+  const sente = {}, gote = {};
+  if (hand !== "-") {
+    for (const m of hand.matchAll(/(\d*)([A-Za-z])/g)) {
+      const n = m[1] ? +m[1] : 1, pc = m[2];
+      const t = pc === pc.toUpperCase() ? sente : gote;
+      t[pc.toUpperCase()] = (t[pc.toUpperCase()] || 0) + n;
+    }
+  }
+  return { grid, sente, gote };
+}
+
+/* ── 描画 ── */
+function renderBoard() {
+  const { grid } = S.board;
+  const lastSq = lastMoveSquares();
+  let html = '<div class="brd"><div class="files">';
+  for (const f of "987654321") html += `<i>${f}</i>`;
+  html += '</div><div class="bmid"><table class="board"><tbody>';
+  for (let r = 0; r < 9; r++) {
+    html += "<tr>";
+    for (let f = 0; f < 9; f++) {
+      const idx = f + r * 9, cell = grid[r][f];
+      const isGote = cell && cell.replace("+", "") === cell.replace("+", "").toLowerCase();
+      const cls = [cell ? (isGote ? "g" : "s") : ""];
+      if (S.sel && S.sel.type === "cell" && S.sel.idx === idx) cls.push("sel");
+      if (S.dst && S.dst.has(idx)) cls.push("dst");
+      if (lastSq.includes(idx)) cls.push("last");
+      const ch = cell ? KANJI[cell.toLowerCase()] || "?" : "";
+      html += `<td class="${cls.join(" ")}" data-i="${idx}">` +
+              (ch ? `<span>${ch}</span>` : "") + "</td>";
+    }
+    html += "</tr>";
+  }
+  html += '</tbody></table><div class="ranks">';
+  for (const k of "一二三四五六七八九") html += `<i>${k}</i>`;
+  html += "</div></div></div>";
+  $("boardHost").innerHTML = html;
+  for (const td of document.querySelectorAll("table.board td")) {
+    td.addEventListener("click", () => onCell(+td.dataset.i));
+  }
+}
+
+function lastMoveSquares() {
+  if (!S.lastUsi) return [];
+  const u = S.lastUsi, out = [];
+  const toIdx = (sq) => FILE_CH.indexOf(sq[0]) + RANK_CH.indexOf(sq[1]) * 9;
+  if (u.includes("*")) out.push(toIdx(u.slice(2, 4)));
+  else { out.push(toIdx(u.slice(0, 2))); out.push(toIdx(u.slice(2, 4))); }
+  return out;
+}
+
+function renderHands() {
+  for (const side of ["sente", "gote"]) {
+    const host = $(side + "HandPc");
+    const hand = S.board[side];
+    let html = "";
+    for (const p of HAND_ORDER) {
+      const n = hand[p] || 0;
+      if (!n) continue;
+      const selected = S.sel && S.sel.type === "hand" && S.sel.piece === p && side === "sente";
+      html += `<button class="handbtn ${side === "gote" ? "g" : ""} ${selected ? "sel" : ""}" ` +
+              `data-p="${p}" data-side="${side}"><span>${KANJI[p.toLowerCase()]}</span>` +
+              (n > 1 ? `<small>${n}</small>` : "") + "</button>";
+    }
+    host.innerHTML = html || '<span class="handempty">なし</span>';
+    for (const b of host.querySelectorAll(".handbtn")) {
+      if (b.dataset.side === "sente") b.addEventListener("click", () => onHand(b.dataset.p));
+    }
+  }
+}
+
+function renderProgress() {
+  const q = DATA[S.qi];
+  if (!S.played.length) {
+    $("progress").innerHTML = '<span class="hint">盤の駒か持駒を選び、着手してください。</span>';
+    return;
+  }
+  $("progress").innerHTML = S.played
+    .map((m, i) => `<span class="ply ${i % 2 ? "g" : ""}">${m}</span>`).join("");
+}
+
+function render() {
+  const q = DATA[S.qi];
+  renderBoard(); renderHands(); renderProgress();
+  $("curNo").textContent = q.no;
+  $("total").textContent = DATA.length;
+  $("kindLbl").textContent = q.mate_len + "手詰";
+  const node = q.tree[S.node];
+  const rest = node ? node.remaining : 0;
+  $("situation").innerHTML = S.node === -1
+    ? "詰み上がりです。"
+    : `先手（攻方）の手番です。<b>${q.mate_len}手</b>で詰ませてください。` +
+      (rest > 0 && rest !== q.mate_len ? ` 残り <b>${rest}</b> 手。` : "");
+  $("jumpInp").value = "";
+  renderList();
+}
+
+const groupHead = (i, cls) =>
+  (DATA[i].group != null && (i === 0 || DATA[i - 1].group !== DATA[i].group))
+    ? `<div class="${cls}">グループ ${DATA[i].group}</div>` : "";
+
+function renderList() {
+  $("listHost").innerHTML = DATA.map((q, i) =>
+    groupHead(i, "listhead") + `<div class="listitem ${i === S.qi ? "cur" : ""}" data-i="${i}">` +
+    `<span class="n">第${q.no}問</span>` +
+    `<span class="m">${q.mate_len}手詰 ${S.done.has(q.no) ? '<span class="done">✓</span>' : ""}</span>` +
+    "</div>").join("");
+  for (const el of $("listHost").querySelectorAll(".listitem")) {
+    el.addEventListener("click", () => { load(+el.dataset.i); $("sheet").classList.remove("show"); });
+  }
+}
+
+function handText(h) {
+  return HAND_ORDER.filter((p) => h[p]).map((p) => KANJI[p.toLowerCase()] + (h[p] > 1 ? h[p] : "")).join(" ") || "なし";
+}
+
+function renderGallery() {
+  $("galHost").innerHTML = DATA.map((q, i) => {
+    const { grid, sente } = parseSfen(q.sfen);
+    let t = '<table class="mini"><tbody>';
+    for (const row of grid) {
+      t += "<tr>";
+      for (const cell of row) {
+        const isGote = cell && cell.replace("+", "") === cell.replace("+", "").toLowerCase();
+        t += `<td class="${cell ? (isGote ? "g" : "s") : ""}">` +
+             (cell ? `<span>${KANJI[cell.toLowerCase()] || "?"}</span>` : "") + "</td>";
+      }
+      t += "</tr>";
+    }
+    t += "</tbody></table>";
+    return groupHead(i, "ghead") + `<div class="gitem ${i === S.qi ? "cur" : ""}" data-i="${i}">` +
+      `<div class="gh"><span class="n">第${q.no}問</span>` +
+      `<span class="m">${q.mate_len}手詰 ${S.done.has(q.no) ? '<span class="done">✓</span>' : ""}</span></div>` +
+      t + `<div class="gh2">先手持駒: <b>${handText(sente)}</b></div></div>`;
+  }).join("");
+  for (const el of $("galHost").querySelectorAll(".gitem")) {
+    el.addEventListener("click", () => { load(+el.dataset.i); $("galSheet").classList.remove("show"); });
+  }
+}
+
+function say(text, kind) {
+  const v = $("verdict");
+  v.textContent = text || "";
+  v.className = "verdict " + (kind || "info");
+}
+
+/* ── 音（外部音源なし） ── */
+let ac = null;
+function tone(f, d, type, g, delay) {
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const t0 = ac.currentTime + (delay || 0);
+    const o = ac.createOscillator(), gn = ac.createGain();
+    o.type = type || "triangle"; o.frequency.value = f;
+    gn.gain.setValueAtTime(g == null ? .08 : g, t0);
+    gn.gain.exponentialRampToValueAtTime(.0001, t0 + d);
+    o.connect(gn); gn.connect(ac.destination); o.start(t0); o.stop(t0 + d);
+  } catch (e) {}
+}
+const sPick = () => tone(660, .05, "triangle", .05);
+const sPlace = () => tone(320, .09, "triangle", .09);
+const sErr = () => { tone(150, .16, "sawtooth", .07); tone(150, .2, "sawtooth", .07, .2); };   // ぶぶー
+const sPico = () => { tone(1319, .09, "square", .05); tone(1760, .16, "square", .05, .09); };  // ぴこん
+
+/* ── 操作 ── */
+function currentMoves() {
+  const node = DATA[S.qi].tree[S.node];
+  return node ? node.moves : {};
+}
+
+function onHand(p) {
+  if (S.mode !== "answer") { say("検討モードでは持駒は使えません。", "info"); return; }
+  if (S.sel && S.sel.type === "hand" && S.sel.piece === p) { S.sel = null; S.dst = null; }
+  else {
+    S.sel = { type: "hand", piece: p };
+    S.dst = null;          // 正解の移動先は見せない（間違えたらぶぶー、が本筋）
+    sPick();
+  }
+  render();
+}
+
+function onCell(idx) {
+  if (S.pending) return;
+  const { grid } = S.board;
+  const r = (idx / 9) | 0, f = idx % 9, cell = grid[r][f];
+  const isGote = cell && cell.replace("+", "") === cell.replace("+", "").toLowerCase();
+
+  if (S.mode === "review") { reviewClick(idx, cell, isGote); return; }
+
+  if (S.sel) {
+    const to = idxToUsi(idx);
+    if (S.sel.type === "hand") { submit(`${S.sel.piece}*${to}`); return; }
+    const from = idxToUsi(S.sel.idx);
+    const plain = from + to, prom = plain + "+";
+    const moves = currentMoves();
+    if (moves[plain] && moves[prom]) { askPromote(plain); return; }
+    if (moves[prom] && !moves[plain]) { submit(prom); return; }
+    submit(plain);
+    return;
+  }
+  if (cell && !isGote) {
+    S.sel = { type: "cell", idx };
+    S.dst = null;
+    sPick();
+  }
+  render();
+}
+
+function askPromote(plain) {
+  S.pending = plain;
+  $("promoBox").classList.add("show");
+}
+$("promoteBtn").addEventListener("click", () => {
+  const p = S.pending; S.pending = null;
+  $("promoBox").classList.remove("show"); submit(p + "+");
+});
+$("stayBtn").addEventListener("click", () => {
+  const p = S.pending; S.pending = null;
+  $("promoBox").classList.remove("show"); submit(p);
+});
+
+function submit(usi) {
+  const moves = currentMoves();
+  S.sel = null; S.dst = null;
+  const m = moves[usi];
+  if (!m) {
+    sErr();
+    say("その手では詰みません。", "ng");
+    render();
+    const bh = $("boardHost");
+    bh.classList.remove("shake"); void bh.offsetWidth; bh.classList.add("shake");
+    return;
+  }
+  S.played.push(m.ja);
+  S.lastUsi = usi;
+  if (m.next === null) {                 // 詰み上がり
+    S.board = parseSfen(m.sfen);
+    S.node = -1;
+    sPico();
+    say("詰み！正解です。", "ok");
+    S.done.add(DATA[S.qi].no);
+    localStorage.setItem("tsume_done", JSON.stringify([...S.done]));
+    revealAnswer();
+    render();
+    showCorrect();
+    return;
+  }
+  S.played.push(m.replyJa);
+  S.node = m.next;
+  S.board = parseSfen(DATA[S.qi].tree[S.node].sfen);
+  S.lastUsi = m.reply;
+  sPico();
+  say("正解。玉方が応じました。", "ok");
+  render();
+}
+
+/* 検討モード: 合法手の判定はせず、自由に動かして形を確かめるだけ */
+function reviewClick(idx, cell, isGote) {
+  const r = (idx / 9) | 0, f = idx % 9;
+  if (S.sel && S.sel.type === "cell") {
+    const sr = (S.sel.idx / 9) | 0, sf = S.sel.idx % 9;
+    S.board.grid[r][f] = S.board.grid[sr][sf];
+    S.board.grid[sr][sf] = "";
+    S.sel = null; S.dst = null; sPlace();
+  } else if (cell) {
+    S.sel = { type: "cell", idx }; S.dst = null; sPick();
+  }
+  render();
+}
+
+function revealAnswer() {
+  const q = DATA[S.qi];
+  $("answer").className = "answer show";
+  $("answer").innerHTML =
+    '<div class="ans-h">正解手順</div><div class="seq">' +
+    q.pvJa.map((m, i) => `<span class="ply ${i % 2 ? "g" : ""}">${m}</span>`).join("") +
+    '</div><div class="note">同じ手数で詰む別解も正解として受け付けます。' +
+    'ここに出しているのは代表的な一手順です。</div>';
+}
+
+/* 正解画面: 2 秒見せて次の問題へ（最終問題では止まる） */
+let nextTimer = null;
+function showCorrect() {
+  const last = S.qi === DATA.length - 1;
+  $("okSub").textContent = last ? "全問終了です" : "2秒後に次の問題へ進みます";
+  $("okOverlay").classList.add("show");
+  clearTimeout(nextTimer);
+  if (!last) nextTimer = setTimeout(() => load(S.qi + 1), 2000);
+}
+function hideCorrect() {
+  clearTimeout(nextTimer);
+  $("okOverlay").classList.remove("show");
+}
+$("okOverlay").addEventListener("click", hideCorrect);
+
+/* ── 問題の読み込み ── */
+function load(i) {
+  hideCorrect();
+  S.qi = (i + DATA.length) % DATA.length;
+  const q = DATA[S.qi];
+  S.node = 0;
+  S.board = parseSfen(q.sfen);
+  S.played = [];
+  S.sel = null; S.dst = null; S.lastUsi = null; S.pending = null;
+  $("promoBox").classList.remove("show");
+  $("answer").className = "answer";
+  setMode(S.mode);
+  say("", "info");
+  render();
+}
+
+function setMode(m) {
+  S.mode = m;
+  $("answerModeBtn").classList.toggle("active", m === "answer");
+  $("reviewModeBtn").classList.toggle("active", m === "review");
+  $("toolStatus").textContent = m === "answer"
+    ? "解答モードです。駒を選んで着手すると正誤を判定し、正解なら玉方が応じます。同手数の別解も正解になります。"
+    : "検討モードです。駒を自由に動かして形を確かめられます（合法手の判定はしません）。「初期配置」で戻ります。";
+  S.sel = null; S.dst = null;
+  render();
+}
+
+/* ── ボタン ── */
+$("answerModeBtn").addEventListener("click", () => { load(S.qi); setMode("answer"); });
+$("reviewModeBtn").addEventListener("click", () => setMode("review"));
+$("resetBtn").addEventListener("click", () => load(S.qi));
+$("undoBtn").addEventListener("click", () => {
+  if (!S.played.length) return;
+  const target = Math.max(0, (S.played.length - (S.played.length % 2 === 0 ? 2 : 1)) / 2);
+  const q = DATA[S.qi];
+  load(S.qi);
+  for (let k = 0; k < target; k++) {   // 先頭から模範手順で指し直す
+    const node = q.tree[S.node];
+    const usi = q.pv[k * 2];
+    if (!node || !node.moves[usi]) break;
+    submitSilent(usi);
+  }
+  say("一手戻しました。", "info");
+});
+function submitSilent(usi) {
+  const m = currentMoves()[usi];
+  if (!m) return;
+  S.played.push(m.ja);
+  if (m.next === null) { S.board = parseSfen(m.sfen); S.node = -1; S.lastUsi = usi; return; }
+  S.played.push(m.replyJa);
+  S.node = m.next;
+  S.board = parseSfen(DATA[S.qi].tree[S.node].sfen);
+  S.lastUsi = m.reply;
+}
+$("prevBtn").addEventListener("click", () => load(S.qi - 1));
+$("nextBtn").addEventListener("click", () => load(S.qi + 1));
+$("jumpBtn").addEventListener("click", () => {
+  const n = parseInt($("jumpInp").value, 10);
+  if (n >= 1 && n <= DATA.length) load(n - 1);
+});
+$("showBtn").addEventListener("click", revealAnswer);
+$("hintBtn").addEventListener("click", () => {
+  const moves = currentMoves();
+  const keys = Object.keys(moves);
+  if (!keys.length) { say("ヒントはありません。", "info"); return; }
+  say("ヒント: " + moves[keys[0]].ja + (keys.length > 1 ? `（ほかに別解 ${keys.length - 1} 通り）` : ""), "info");
+});
+$("listBtn").addEventListener("click", () => $("sheet").classList.add("show"));
+$("galBtn").addEventListener("click", () => { renderGallery(); $("galSheet").classList.add("show"); });
+$("galSheet").addEventListener("click", (e) => {
+  if (e.target === $("galSheet")) $("galSheet").classList.remove("show");
+});
+$("sheet").addEventListener("click", (e) => {
+  if (e.target === $("sheet")) $("sheet").classList.remove("show");
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowLeft") load(S.qi - 1);
+  if (e.key === "ArrowRight") load(S.qi + 1);
+});
+
+load(0);
+setMode("answer");
+</script>
+</body></html>
