@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="ja"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="robots" content="noindex,nofollow">
+<title>銀多伝</title>
+<style>
+:root{
+  --bg:#1f2430; --panel:#2a3140; --line:#3a4150; --ink:#eef2f7;
+  --sub:#9aa7bd; --accent:#e0853a; --ok:#46b46b; --bad:#d9534f;
+  --board:#e8c479; --grid:#7a5a22;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);
+  font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+  -webkit-text-size-adjust:100%;overscroll-behavior:none}
+a{color:inherit;text-decoration:none}
+
+/* ビューアは1画面固定（全体スクロールさせない。長い解答は左カラム内でスクロール） */
+body{overflow:hidden}
+/* 左カラム上部のメタ情報（盤とは分離して左に寄せる） */
+.meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-bottom:8px;
+  padding-bottom:8px;border-bottom:1px solid #333}
+.meta .back{font-size:15px;padding:8px 12px;border-radius:10px;background:#2a3140}
+.meta .bktitle{font-size:19px;font-weight:700}
+.meta .counter{font-size:15px;color:var(--sub);white-space:nowrap}
+.meta .counter b{color:var(--ink);font-size:20px}
+.meta .turn{font-size:15px;color:var(--sub)}
+.meta .turn b{color:var(--accent)}
+.wrap{display:flex;gap:14px;padding:10px;align-items:stretch;max-width:1600px;margin:0 auto;
+  height:100dvh;max-height:100dvh;overflow:hidden}
+.left{flex:1 1 calc(var(--bw) + 48px);min-width:0;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-right:4px}
+.right{flex:0 0 auto;display:flex;align-items:center;justify-content:center}
+.boardbox{display:flex;flex-direction:column;align-items:center;gap:5px}
+.boardrow{display:flex;align-items:flex-start;justify-content:center;gap:10px;width:100%}
+.boardwrap{position:relative}
+.boardtools{display:flex;flex-direction:column;gap:8px;width:108px}
+.modegroup{display:flex;flex-direction:column;gap:8px}
+.toolbtn{width:100%;padding:10px 8px;border-radius:10px;border:1px solid #000;
+  background:#39414f;color:var(--ink);font-size:15px;font-weight:700;min-height:44px}
+.toolbtn.active{background:var(--accent);color:#1b1b1b}
+.toolbtn:disabled{opacity:.45;cursor:default}
+.promobox{display:none;flex-direction:column;gap:10px;position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);z-index:20;background:rgba(20,24,32,.95);
+  border:2px solid var(--accent);border-radius:14px;padding:18px 22px;
+  box-shadow:0 8px 30px rgba(0,0,0,.55);min-width:160px}
+.promobox.show{display:flex}
+.promolabel{font-size:15px;color:var(--ink);text-align:center;font-weight:700}
+.promobtn{width:100%;padding:12px 8px;border-radius:10px;border:1px solid #000;
+  background:#5d6a82;color:var(--ink);font-size:17px;font-weight:700;min-height:48px}
+.toolstatus{background:var(--panel);border:1px solid #000;border-radius:10px;
+  padding:8px 10px;font-size:12px;line-height:1.5;color:var(--sub);min-height:92px}
+.evalbtn{width:100%;padding:10px 8px;border-radius:10px;border:1px solid #000;
+  background:#3d5a80;color:var(--ink);font-size:15px;font-weight:700;min-height:44px}
+.evalbtn:disabled{opacity:.5}
+.evalbox{background:var(--panel);border:1px solid #000;border-radius:10px;
+  padding:8px 10px;text-align:center;min-height:58px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:2px}
+.evalbox .lab{font-size:11px;color:var(--sub)}
+.evalbox .val{font-size:24px;font-weight:800;color:var(--accent);line-height:1.1;
+  font-variant-numeric:tabular-nums}
+.evalbox .val.small{font-size:16px}
+.evalbox .note{font-size:10px;color:var(--sub)}
+.turn{font-size:16px;color:var(--sub)}
+.turn b{color:var(--accent)}
+table.board{table-layout:fixed;border-collapse:collapse;background:var(--board);
+  box-shadow:0 6px 20px rgba(0,0,0,.45);border:3px solid var(--grid)}
+table.board td{width:var(--cell);height:var(--cell);max-width:var(--cell);overflow:hidden;
+  border:1px solid var(--grid);
+  text-align:center;vertical-align:middle;padding:0;
+  font-size:calc(var(--cell)*.72);line-height:1;font-weight:600;
+  font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
+table.board.editable td{cursor:pointer}
+table.board td.sel{background:rgba(224,133,58,.28)}
+table.board td.dst{box-shadow:inset 0 0 0 3px rgba(70,180,107,.8)}
+/* 選択中の駒が行けるマス（空きマス=ドット / 取れる駒=枠） */
+table.board td.can{position:relative}
+table.board td.can::after{content:"";position:absolute;left:50%;top:50%;
+  width:26%;height:26%;transform:translate(-50%,-50%);border-radius:50%;
+  background:rgba(70,180,107,.6);pointer-events:none}
+table.board td.can:has(span)::after{width:78%;height:78%;border-radius:6px;
+  background:transparent;border:3px solid rgba(70,180,107,.6);box-sizing:border-box}
+td.g span{display:inline-block;transform:rotate(180deg)}
+td span.wide{font-size:.5em;white-space:nowrap}
+td.s{color:#16407a} td.g{color:#a32a2a}  /* 自陣(先手)=青 / 敵(後手)=赤 で視認性UP */
+/* 座標は盤の外（上=筋9..1 / 右=段一..九） */
+.brd{display:inline-block}
+.files{display:flex;padding-left:3px}
+.files i{width:var(--cell);text-align:center;font-style:normal;font-weight:700;
+  font-size:calc(var(--cell)*.23);color:var(--sub);font-family:sans-serif;padding-bottom:3px}
+.bmid{display:flex;align-items:flex-start}
+.ranks{display:flex;flex-direction:column;padding-top:3px}
+.ranks i{height:var(--cell);display:flex;align-items:center;justify-content:center;
+  width:calc(var(--cell)*.62);font-style:normal;font-weight:700;
+  font-size:calc(var(--cell)*.23);color:var(--sub);font-family:sans-serif}
+.hands{display:flex;flex-direction:column;gap:4px;width:100%;max-width:var(--bw)}
+.hand{display:flex;align-items:flex-start;gap:8px;background:var(--panel);
+  border:1px solid #000;border-radius:10px;padding:8px 10px;font-size:17px;min-height:56px}
+.hand .lab{color:var(--sub);font-size:13px;flex:0 0 auto;padding-top:5px}
+.hand .pc{display:flex;flex-wrap:wrap;gap:8px;font-family:"Hiragino Mincho ProN",serif}
+.handbtn{min-width:44px;min-height:40px;padding:4px 8px;border-radius:10px;border:1px solid #000;
+  background:#485164;color:var(--ink);font-size:24px;line-height:1;font-family:"Hiragino Mincho ProN",serif}
+.handbtn small{font-size:14px;margin-left:2px}
+.handbtn.g span{display:inline-block;transform:rotate(180deg)}
+.handbtn.sel{background:var(--accent);color:#1b1b1b}
+.handempty{font-size:15px;color:var(--sub);padding-top:7px}
+.qmeta{font-size:13px;color:var(--sub);margin-bottom:4px}
+.situation{background:var(--panel);border:1px solid #000;border-radius:12px;
+  padding:10px 12px;font-size:16px;line-height:1.5;margin-bottom:8px}
+.btnrow{display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+button.big{flex:1 1 auto;font-size:18px;font-weight:700;padding:12px;border-radius:12px;
+  border:none;background:var(--accent);color:#1b1b1b;min-height:48px}
+button.big:active{filter:brightness(.9)}
+.answer{display:none;background:var(--panel);border:1px solid #000;border-radius:12px;
+  padding:14px;font-size:17px;line-height:1.6}
+.answer.show{display:block}
+.ans-h{font-size:14px;color:var(--sub);margin-bottom:8px}
+.movebig{font-size:30px;font-weight:800;color:var(--accent);font-family:"Hiragino Mincho ProN",serif}
+.expl{font-size:17px;line-height:1.85;margin-top:10px;white-space:pre-wrap;
+  font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
+.captured{margin-top:10px;font-size:14px;color:var(--sub)}
+.ansimg{width:100%;max-width:100%;border-radius:10px;border:1px solid #000;background:#fff;display:block}
+.pending{margin-top:8px;font-size:13px;color:var(--sub)}
+.choice{border:1px solid #3a4150;border-radius:10px;padding:10px 12px;margin:8px 0}
+.choice.correct{border-color:var(--ok);background:rgba(70,180,107,.12)}
+.choice .mv{font-size:20px;font-weight:700}
+.choice .tag{float:right;font-size:13px;padding:2px 8px;border-radius:20px;background:#39414f}
+.choice.correct .tag{background:var(--ok);color:#08240f}
+.choice .ex{margin-top:6px;font-size:15px;color:#d4dbe8}
+.seq{font-size:19px;line-height:1.9;font-family:"Hiragino Mincho ProN",serif}
+.seq .ply{display:inline-block;padding:2px 8px;margin:2px;border-radius:8px;background:#39414f}
+.seq .hisshi{background:var(--bad);color:#fff;font-weight:700}
+.wrongseq{margin-top:10px;font-size:16px;color:var(--sub)}
+.note{margin-top:10px;font-size:13px;color:var(--sub)}
+.kind{display:inline-block;font-size:13px;padding:3px 10px;border-radius:20px;
+  background:var(--accent);color:#1b1b1b;font-weight:700;margin-bottom:8px}
+.jumpbox{display:flex;flex-direction:column;gap:6px}
+.jumpbox input{width:100%;box-sizing:border-box;font-size:15px;padding:6px;border-radius:8px;
+  border:1px solid #000;background:#2a3140;color:var(--ink);text-align:center}
+@media (max-width:820px){
+  .wrap{flex-direction:column;align-items:stretch;gap:6px}
+  .right{order:1;width:100%;flex:0 0 auto}
+  .left{order:2;width:100%;flex:1 1 auto;min-height:0;height:auto;overflow-y:auto}
+  .boardtools{width:96px}
+  .toolbtn{font-size:14px;min-height:40px;padding:8px 6px}
+}
+</style></head><body>
+<div class="wrap">
+  <div class="left">
+    <div class="meta">
+      <a class="back" href="index.html">☰ 一覧</a>
+      <div class="bktitle">銀多伝</div>
+      <div class="counter">第 <b id="curNo">1</b> 問 / <span id="total">0</span></div>
+      <div class="turn" id="turnLbl"></div>
+    </div>
+    <div class="qmeta" id="qmeta"></div>
+    <div class="situation" id="situation"></div>
+    <div class="btnrow"><button class="big" id="showBtn">解答を見る</button></div>
+    <div class="answer" id="answer"></div>
+  </div>
+  <div class="right"><div class="boardbox">
+    <div class="hands"><div class="hand"><span class="lab">後手 持駒</span><span class="pc" id="goteHandPc">なし</span></div></div>
+    <div class="boardrow">
+      <div class="boardwrap">
+        <div id="boardHost"></div>
+        <div class="promobox" id="promoBox">
+          <div class="promolabel">成りますか？</div>
+          <button class="promobtn" id="promoteBtn">成る</button>
+          <button class="promobtn" id="stayBtn">成らず</button>
+        </div>
+      </div>
+      <div class="boardtools">
+        
+        <button class="toolbtn" id="resetBtn">初期配置</button>
+        <button class="toolbtn" id="copySfenBtn">SFENコピー</button>
+        
+        <button class="toolbtn" id="prevBtn">◀ 前の問題</button>
+        <button class="toolbtn" id="nextBtn">次の問題 ▶</button>
+        <div class="jumpbox">
+          <input type="number" id="jumpInp" min="1" placeholder="問題番号">
+          <button class="toolbtn" id="jumpBtn">移動</button>
+        </div>
+        <div class="toolstatus" id="toolStatus">盤の横ボタンで移動モードにします。</div>
+      </div>
+    </div>
+    <div class="hands"><div class="hand"><span class="lab">先手 持駒</span><span class="pc" id="senteHandPc">なし</span></div></div>
+  </div></div>
+</div>
+<script>
+const BOOK_SLUG="銀多伝";
+const EVAL_API=null;
+const DATA=[{"book": "銀多伝", "problem_no": 1, "chapter": "基本棋譜（36手目まで）", "sfen": "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/5S3/LNSGKG1NL w - 2", "turn": "w", "answer": {"type": "next_move", "move_jp": "△３四歩", "usi": "3c3d", "percent": null, "title": "", "explanation": "△３四歩。角道を開ける。（私見）", "answer_sfen": "lnsgkgsnl/1r5b1/pppppp1pp/6p2/9/9/PPPPPPPPP/5S3/LNSGKG1NL b - 3", "candidates": ["3c3d"]}, "situation": "下手（後手）の手番。銀多伝の次の一手を指してください。", "caption": "二枚落ち 銀多伝（1手目まで）"}, {"book": "銀多伝", "problem_no": 2, "chapter": "基本棋譜（36手目まで）", "sfen": "lnsgkgsnl/1r5b1/pppppp1pp/6p2/9/4P4/PPPP1PPPP/5S3/LNSGKG1NL w - 4", "turn": "w", "answer": {"type": "next_move", "move_jp": "△６四歩", "usi": "6c6d", "percent": null, "title": "", "explanation": "△６四歩。６五へ進める準備。（私見）", "answer_sfen": "lnsgkgsnl/1r5b1/ppp1pp1pp/3p2p2/9/4P4/PPPP1PPPP/5S3/LNSGKG1NL b - 5", "candidates": ["6c6d"]}, "situation": "下手（後手）の手番。銀多伝の次の一手を指してください。", "caption": "二枚落ち 銀多伝（3手目まで）"}, {"book": "銀多伝", "problem_no": 3, "chapter": "基本棋譜（36手目まで）", "sfen": "lnsgkgsnl/1r5b1/ppp1pp1pp/3p2p2/9/4P4/PPPPSPPPP/9/LNSGKG1NL w - 6", "turn": "w", "answer": {"type": "next_move", "move_jp": "△６五歩", "usi": "6d6e", "percent": null, "title": "", "explanation": "△６五歩。位を取る（一つ目）。（資料）", "answer_sfen": "lnsgkgsnl/1r5b1/ppp1pp1pp/6p2/3p5/4P4/PPPPSPPPP/9/LNSGKG1NL b - 7", "candidates": ["6d6e"]}, "situation": "下手（後手）の手番。銀多伝の次の一手を指してください。", "caption": "二枚落ち 銀多伝（5手目まで）"}, {"book": "銀多伝", "problem_no": 4, "chapter": "基本棋譜（36手目まで）", "sfen": "lnsgkgsnl/1r5b1/ppp1pp1pp/6p2/3p5/4P4/PPPPSPPPP/2G6/LNS1KG1NL w - 8", "turn": "w", "answer": {"type": "next_move", "move_jp": "△７四歩", "usi": "7c7d", "percent": null, "title": "", "explanation": "△７四歩。７五へ進める準備。（私見）", "answer_sfen": "lnsgkgsnl/1r5b1/pp2pp1pp/2p3p2/3p5/4P4/PPPPSPPPP/2G6/LNS1KG1NL b - 9", "candidates": ["7c7d"]}, "situation": "下手（後手）の手番。銀多伝の次の一手を指してください。", "caption": "二枚落ち 銀多伝（7手目まで）"}, {"book": "銀多伝", "problem_no": 5, "chapter": "基本棋譜（36手目まで）", "sfen": "lnsgkgsnl/1r5b1/pp2pp1pp/2p3p2/3p5/4P4/PPPPSPPPP/1SG6/LN2KG1NL w - 10", "turn": "w", "answer": {"type": "next_move", "move_jp": "△７五歩", "usi": "7d7e", "percent": null, "title": "", "explanation": "△７五歩。二つ目の位。位を二つ取るのが銀多伝の要点。（資料）", "answer_sfen": "lnsgkgsnl/1r5b1/pp2pp1pp/6p2/2pp5/4P4/PPPPSPPPP/1SG6/LN2KG1NL b - 11", "candidates": ["7d7e"]}, "situation": "下手（後手）の手番。銀多伝の次の一手を指してください。", "caption": "二枚落ち 銀多伝（9手目まで）"}, {"book": "銀多伝", "problem_no": 6, "chapter": "基本棋譜（36手目まで）", "sfen": "lnsgkgsnl/1r5b1/pp2pp1pp/6p2/2pp5/4P4/PPPPSPPPP/1SG2K3/LN3G1NL w - 12", "turn": "w", "answer": {"type": "next_move", "move_jp": "△５四歩", "usi": "5c5d", "percent": null, "title": "", "explanation": "△５四歩。５筋を突く。銀を斜めに出す準備。（資料）", "answer_sfen": "lnsgkgsnl/1r5b1/pp3p1pp/4p1p2/2pp5/4P4/PPPPSPPPP/1SG2K3/LN3G1NL b - 13", "candidates": ["5c5d"]}, "situation": "下手（後手）の手番。銀多伝の次の一手を指してください。", "caption": "二枚落ち 銀多伝（11手目まで）"}, {"book": "銀多伝", "problem_no": 7, "chapter": "基本棋譜（36手目まで）", "sfen": "lnsgkgsnl/1r5b1/pp3p1pp/4p1p2/2pp5/4P4/PPPPSPPPP/1SG2KG2/LN5NL w - 14", "turn": "w", "answer": {"type": "next_move", "move_jp": "△４二銀", "usi": "3a4b", "percent": null, "title": "", "explanation": "△４二銀。左の銀を５三へ向かわせる準備。（私見）", "answer_sfen": "lnsgkg1nl/1r3s1b1/pp3p1pp/4p1p2/2pp5/4P4/PPPPSPPPP/1SG2KG2/LN5NL b - 15", "candidates": ["3a4b"]}, "situation": "下手（後手）の手番。銀多伝の次の一手を指してください。", "caption": "二枚落ち 銀多伝（13手目まで）"}, {"book": "銀多伝", "problem_no": 8, "chapter": "基本棋譜（36手目まで）", "sfen": "lnsgkg1nl/1r3s1b1/pp3p1pp/4p1p2/2pp5/4P1P2/PPPPSP1PP/1SG2KG2/LN5NL w - 16", "turn": "w", "answer": {"type": "next_move", "move_jp": "△５三銀", "usi": "4b5c", "percent": null, "title": "", "explanation": "△５三銀。銀を斜めに出す一歩目。（資料）", "answer_sfen": "lnsgkg1nl/1r5b1/pp2sp1pp/4p1p2/2pp5/4P1P2/PPPPSP1PP/1SG2KG2/LN5NL b - 17", "candidates": ["4b5c"]}, "situation": "下手（後手）の手番。銀多伝の次の一手を指してください。", "caption": "二枚落ち 銀多伝（15手目まで）"}, {"book": "銀多伝", "problem_no": 9, "chapter": "基本棋譜（36手目まで）", "sfen": "lnsgkg1nl/1r5b1/pp2sp1pp/4p1p2/2pp5/4PPP2/PPPPS2PP/1SG2KG2/LN5NL w - 18", "turn": "w", "answer": {"type": "next_move", "move_jp": "△６四銀", "usi": "5c6d", "percent": null, "title": "", "explanation": "△６四銀。銀を斜めに繰り出す（６四）。（資料）", "answer_sfen": "lnsgkg1nl/1r5b1/pp3p1pp/3sp1p2/2pp5/4PPP2/PPPPS2PP/1SG2KG2/LN5NL b - 19", "candidates": ["5c6d"]}, "situation": "下手（後手）の手番。銀多伝の次の一手を指してください。", "caption": "二枚落ち 銀多伝（17手目まで）"}, {"book": "銀多伝", "problem_no": 10, "chapter": "基本棋譜（36手目まで）", "sfen": "lnsgkg1nl/1r5b1/pp3p1pp/3sp1p2/2pp5/4PPP2/PPPPSG1PP/1SG2K3/LN5NL w - 20", "turn": "w", "answer": {"type": "next_move", "move_jp": "△５二飛", "usi": "8b5b", "percent": null, "title": "", "explanation": "△５二飛。飛車を５筋の下段へ。端攻めへの備えにもなる。（資料）", "answer_sfen": "lnsgkg1nl/4r2b1/pp3p1pp/3sp1p2/2pp5/4PPP2/PPPPSG1PP/1SG2K3/LN5NL b - 21", "candidates": ["8b5b"]}, "situation": "下手（後手）の手番。銀多伝の次の一手を指してください。", "caption": "二枚落ち 銀多伝（19手目まで）"}, {"book": "銀多伝", "problem_no": 11, "chapter": "基本棋譜（36手目まで）", "sfen": "lnsgkg1nl/4r2b1/pp3p1pp/3sp1p2/2pp5/4PPP2/PPPPSGNPP/1SG2K3/LN6L w - 22", "turn": "w", "answer": {"type": "next_move", "move_jp": "△６二銀", "usi": "7a6b", "percent": null, "title": "", "explanation": "△６二銀。右の銀を中央へ寄せる。（資料）", "answer_sfen": "ln1gkg1nl/3sr2b1/pp3p1pp/3sp1p2/2pp5/4PPP2/PPPPSGNPP/1SG2K3/LN6L b - 23", "candidates": ["7a6b"]}, "situation": "下手（後手）の手番。銀多伝の次の一手を指してください。", "caption": "二枚落ち 銀多伝（21手目まで）"}, {"book": "銀多伝", "problem_no": 12, "chapter": "基本棋譜（36手目まで）", "sfen": "ln1gkg1nl/3sr2b1/pp3p1pp/3sp1p2/2pp1P3/4P1P2/PPPPSGNPP/1SG2K3/LN6L w - 24", "turn": "w", "answer": {"type": "next_move", "move_jp": "△６三銀", "usi": "6b6c", "percent": null, "title": "", "explanation": "△６三銀。６三・６四に銀が縦に並ぶ。これが銀多伝の形。（資料）", "answer_sfen": "ln1gkg1nl/4r2b1/pp1s1p1pp/3sp1p2/2pp1P3/4P1P2/PPPPSGNPP/1SG2K3/LN6L b - 25", "candidates": ["6b6c"]}, "situation": "下手（後手）の手番。銀多伝の次の一手を指してください。", "caption": "二枚落ち 銀多伝（23手目まで）"}, {"book": "銀多伝", "problem_no": 13, "chapter": "基本棋譜（36手目まで）", "sfen": "ln1gkg1nl/4r2b1/pp1s1p1pp/3sp1p2/2pp1P3/4PGP2/PPPPS1NPP/1SG2K3/LN6L w - 26", "turn": "w", "answer": {"type": "next_move", "move_jp": "△６二玉", "usi": "5a6b", "percent": null, "title": "", "explanation": "△６二玉。玉を囲いへ。（資料）", "answer_sfen": "ln1g1g1nl/3kr2b1/pp1s1p1pp/3sp1p2/2pp1P3/4PGP2/PPPPS1NPP/1SG2K3/LN6L b - 27", "candidates": ["5a6b"]}, "situation": "下手（後手）の手番。銀多伝の次の一手を指してください。", "caption": "二枚落ち 銀多伝（25手目まで）"}, {"book": "銀多伝", "problem_no": 14, "chapter": "基本棋譜（36手目まで）", "sfen": "ln1g1g1nl/3kr2b1/pp1s1p1pp/3sp1p2/2pp1PP2/4PG3/PPPPS1NPP/1SG2K3/LN6L w - 28", "turn": "w", "answer": {"type": "next_move", "move_jp": "△同歩", "usi": "3d3e", "percent": null, "title": "", "explanation": "△同歩。上手の▲３五歩を取って応じる（資料にない、この棋譜の展開）。（私見）", "answer_sfen": "ln1g1g1nl/3kr2b1/pp1s1p1pp/3sp4/2pp1Pp2/4PG3/PPPPS1NPP/1SG2K3/LN6L b p 29", "candidates": ["3d3e"]}, "situation": "下手（後手）の手番。銀多伝の次の一手を指してください。", "caption": "二枚落ち 銀多伝（27手目まで）"}, {"book": "銀多伝", "problem_no": 15, "chapter": "基本棋譜（36手目まで）", "sfen": "ln1g1g1nl/3kr2b1/pp1s1p1pp/3sp4/2pp1PG2/4P4/PPPPS1NPP/1SG2K3/LN6L w Pp 30", "turn": "w", "answer": {"type": "next_move", "move_jp": "△３二金", "usi": "4a3b", "percent": null, "title": "", "explanation": "△３二金。金で固める。（資料）", "answer_sfen": "ln1g3nl/3kr1gb1/pp1s1p1pp/3sp4/2pp1PG2/4P4/PPPPS1NPP/1SG2K3/LN6L b Pp 31", "candidates": ["4a3b"]}, "situation": "下手（後手）の手番。銀多伝の次の一手を指してください。", "caption": "二枚落ち 銀多伝（29手目まで）"}, {"book": "銀多伝", "problem_no": 16, "chapter": "基本棋譜（36手目まで）", "sfen": "ln1g3nl/3kr1gb1/pp1s1p1pp/3sp4/2pp1PG2/4P4/PPPPSKNPP/1SG6/LN6L w Pp 32", "turn": "w", "answer": {"type": "next_move", "move_jp": "△７二玉", "usi": "6b7b", "percent": null, "title": "", "explanation": "△７二玉。玉を囲いの奥へ。（資料）", "answer_sfen": "ln1g3nl/2k1r1gb1/pp1s1p1pp/3sp4/2pp1PG2/4P4/PPPPSKNPP/1SG6/LN6L b Pp 33", "candidates": ["6b7b"]}, "situation": "下手（後手）の手番。銀多伝の次の一手を指してください。", "caption": "二枚落ち 銀多伝（31手目まで）"}, {"book": "銀多伝", "problem_no": 17, "chapter": "基本棋譜（36手目まで）", "sfen": "ln1g3nl/2k1r1gb1/pp1s1p1pp/3sp4/2pp1PG2/4P2P1/PPPPSKN1P/1SG6/LN6L w Pp 34", "turn": "w", "answer": {"type": "next_move", "move_jp": "△６二金", "usi": "6a6b", "percent": null, "title": "", "explanation": "△６二金。金を寄せて囲いを引き締める。（資料）", "answer_sfen": "ln5nl/2kgr1gb1/pp1s1p1pp/3sp4/2pp1PG2/4P2P1/PPPPSKN1P/1SG6/LN6L b Pp 35", "candidates": ["6a6b"]}, "situation": "下手（後手）の手番。銀多伝の次の一手を指してください。", "caption": "二枚落ち 銀多伝（33手目まで）"}, {"book": "銀多伝", "problem_no": 18, "chapter": "基本棋譜（36手目まで）", "sfen": "ln5nl/2kgr1gb1/pp1s1p1pp/3sp4/2pp1PGP1/4P4/PPPPSKN1P/1SG6/LN6L w Pp 36", "turn": "w", "answer": {"type": "next_move", "move_jp": "△１二香", "usi": "1a1b", "percent": null, "title": "", "explanation": "△１二香。上手の端攻め（▲２五歩）に備えて香を上げる。（資料）", "answer_sfen": "ln5n1/2kgr1gbl/pp1s1p1pp/3sp4/2pp1PGP1/4P4/PPPPSKN1P/1SG6/LN6L b Pp 37", "candidates": ["1a1b"]}, "situation": "下手（後手）の手番。銀多伝の次の一手を指してください。", "caption": "二枚落ち 銀多伝（35手目まで）"}];
+
+const KAN_NUM=["","一","二","三","四","五","六","七","八","九"];
+const ZEN_NUM=["","１","２","３","４","５","６","７","８","９"];
+const RANK_L="abcdefghi";
+const PIECE_JP={P:"歩",L:"香",N:"桂",S:"銀",G:"金",B:"角",R:"飛",K:"玉",
+ "+P":"と","+L":"成香","+N":"成桂","+S":"成銀","+B":"馬","+R":"龍"};
+const HAND_ORDER=["R","B","G","S","N","L","P"];
+const PROMOTABLE={P:true,L:true,N:true,S:true,B:true,R:true};
+// 盤上だけ 1 文字表記（全/圭/杏）。解答文の棋譜表記は PIECE_JP（成銀/成桂/成香）のまま
+const PIECE_JP_BOARD=Object.assign({},PIECE_JP,{"+L":"杏","+N":"圭","+S":"全"});
+
+function parseSfen(sfen){
+  const [board,turn,hand]=sfen.split(" ");
+  const grid=[];
+  for(const row of board.split("/")){
+    const cells=[];let promoted=false;
+    for(const ch of row){
+      if(ch==="+"){promoted=true;continue;}
+      if(/[0-9]/.test(ch)){for(let i=0;i<+ch;i++)cells.push(null);}
+      else{cells.push((promoted?"+":"")+ch);promoted=false;}
+    }
+    grid.push(cells);
+  }
+  const hands={s:{},g:{}};
+  if(hand&&hand!=="-"){
+    let n="";
+    for(const ch of hand){
+      if(/[0-9]/.test(ch)){n+=ch;continue;}
+      const cnt=n?+n:1;n="";
+      const up=ch.toUpperCase();
+      const side=ch===up?"s":"g";
+      hands[side][up]=(hands[side][up]||0)+cnt;
+    }
+  }
+  return {grid,turn,hands};
+}
+function cloneBoardState(s){return {grid:s.grid.map(r=>r.slice()),hands:{s:{...s.hands.s},g:{...s.hands.g}},turn:s.turn};}
+function cloneState(sfen){const s=parseSfen(sfen);return cloneBoardState(s);}
+function boardToSfen(grid){
+  return grid.map(row=>{
+    let out="",empty=0;
+    for(const cell of row){
+      if(!cell){empty++;continue;}
+      if(empty){out+=String(empty);empty=0;}
+      out+=cell;
+    }
+    if(empty)out+=String(empty);
+    return out;
+  }).join("/");
+}
+function handsToSfen(hands){
+  let out="";
+  for(const p of HAND_ORDER){
+    const s=hands.s[p]||0,g=hands.g[p]||0;
+    if(s)out+=(s>1?String(s):"")+p;
+    if(g)out+=(g>1?String(g):"")+p.toLowerCase();
+  }
+  return out||"-";
+}
+function stateToSfen(state){return boardToSfen(state.grid)+" "+state.turn+" "+handsToSfen(state.hands)+" 1";}
+function sqToRC(sq){const file=+sq[0],rank=RANK_L.indexOf(sq[1]);return {r:rank,c:9-file,file};}
+function rcToSq(r,c){return String(9-c)+RANK_L[r];}
+function rcToLabel(r,c){return ZEN_NUM[9-c]+KAN_NUM[r+1];}
+function sideOf(cell){return cell===cell.toLowerCase()?"g":"s";}
+function sideToMove(state){return state.turn==="b"?"s":"g";}
+function basePieceOf(cell){return cell.replace("+","").toUpperCase();}
+function isPromoted(cell){return cell&&cell[0]==="+";}
+
+/* ---- 合法手判定（駒本来の動き / 二歩・行き所のない駒 / 王手放置）----
+   先手(s)は grid の行番号が減る向きが前進。後手(g)は dr を反転するだけでよい
+   （すべての駒の利きは左右対称なので dc の反転は不要）。
+   打ち歩詰めだけは判定しない。 */
+const STEP_DIRS={
+  P:[[-1,0]],
+  N:[[-2,-1],[-2,1]],
+  S:[[-1,-1],[-1,0],[-1,1],[1,-1],[1,1]],
+  G:[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,0]],
+  K:[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]],
+  "+B":[[-1,0],[1,0],[0,-1],[0,1]],
+  "+R":[[-1,-1],[-1,1],[1,-1],[1,1]]
+};
+const SLIDE_DIRS={
+  L:[[-1,0]],
+  B:[[-1,-1],[-1,1],[1,-1],[1,1]],
+  R:[[-1,0],[1,0],[0,-1],[0,1]],
+  "+B":[[-1,-1],[-1,1],[1,-1],[1,1]],
+  "+R":[[-1,0],[1,0],[0,-1],[0,1]]
+};
+const GOLD_LIKE={"+P":1,"+L":1,"+N":1,"+S":1};
+function moveKindOf(cell){
+  const key=(isPromoted(cell)?"+":"")+basePieceOf(cell);
+  return GOLD_LIKE[key]?"G":key;
+}
+function onBoard(r,c){return r>=0&&r<9&&c>=0&&c<9;}
+function pseudoMovesFrom(state,r,c){
+  const out=[];
+  const cell=state.grid[r][c];
+  if(!cell)return out;
+  const side=sideOf(cell),kind=moveKindOf(cell),sgn=side==="s"?1:-1;
+  const push=(rr,cc)=>{
+    if(!onBoard(rr,cc))return false;
+    const t=state.grid[rr][cc];
+    if(t&&sideOf(t)===side)return false;
+    out.push({r:rr,c:cc});
+    return !t;                       // 駒を取ったらそこで止まる
+  };
+  for(const d of (STEP_DIRS[kind]||[]))push(r+d[0]*sgn,c+d[1]);
+  for(const d of (SLIDE_DIRS[kind]||[])){
+    let rr=r+d[0]*sgn,cc=c+d[1];
+    while(push(rr,cc)){rr+=d[0]*sgn;cc+=d[1];}
+  }
+  return out;
+}
+function kingSquare(state,side){
+  const k=side==="s"?"K":"k";
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++)if(state.grid[r][c]===k)return {r,c};
+  return null;
+}
+function attacksSquare(state,bySide,tr,tc){
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    const cell=state.grid[r][c];
+    if(!cell||sideOf(cell)!==bySide)continue;
+    const mv=pseudoMovesFrom(state,r,c);
+    for(let i=0;i<mv.length;i++)if(mv[i].r===tr&&mv[i].c===tc)return true;
+  }
+  return false;
+}
+// 自玉が盤上に無い局面（部分図）では常に false ＝ 王手放置の判定をしない
+function kingInCheck(state,side){
+  const k=kingSquare(state,side);
+  if(!k)return false;
+  return attacksSquare(state,side==="s"?"g":"s",k.r,k.c);
+}
+function legalMovesFrom(state,r,c){
+  const cell=state.grid[r][c];
+  if(!cell)return [];
+  const side=sideOf(cell);
+  return pseudoMovesFrom(state,r,c).filter(m=>{
+    const nx=cloneBoardState(state);
+    const promote=mustPromoteMove(cell,m)&&!isPromoted(cell);
+    nx.grid[m.r][m.c]=promote?("+"+cell):cell;
+    nx.grid[r][c]=null;
+    return !kingInCheck(nx,side);
+  });
+}
+function isLegalMove(state,from,to){
+  return legalMovesFrom(state,from.r,from.c).some(m=>m.r===to.r&&m.c===to.c);
+}
+// 本に載っている正解手だけは判定を通す（SFEN の読み取り誤りで正解手が指せなくなるのを防ぐ）。
+// 成/不成の違いは無視して 4 文字で比較する。
+function isAnswerAttempt(usi){
+  const a=currentAnswerUsi();
+  return !!a&&!!usi&&a.slice(0,4)===usi.slice(0,4);
+}
+function answerOverridesDrop(sel,to){
+  return isAnswerAttempt(buildDropUsi(sel,to))
+    &&!currentState.grid[to.r][to.c]
+    &&(currentState.hands[sel.side][sel.piece]||0)>0;
+}
+// 打てない理由（打てるなら null）。ctx.inCheck を渡すと自玉の王手判定を使い回す
+function dropIllegalReason(state,side,piece,r,c,ctx){
+  if((state.hands[side][piece]||0)<=0)return "その持ち駒はもうありません。";
+  if(state.grid[r][c])return "そのマスには駒があります。<br>空きマスを選んでください。";
+  const last=side==="s"?0:8,last2=side==="s"?1:7;
+  if((piece==="P"||piece==="L")&&r===last)return "そこに打つと動けなくなります。";
+  if(piece==="N"&&(r===last||r===last2))return "そこに打つと動けなくなります。";
+  if(piece==="P"){
+    const own=side==="s"?"P":"p";
+    for(let rr=0;rr<9;rr++)if(state.grid[rr][c]===own)return "二歩です。<br>別の筋に打ってください。";
+  }
+  // 駒を足すだけの手は自玉の利きを開けないので、既に王手のときだけ調べればよい
+  const inCheck=(ctx&&"inCheck" in ctx)?ctx.inCheck:kingInCheck(state,side);
+  if(inCheck){
+    const nx=cloneBoardState(state);
+    nx.grid[r][c]=side==="s"?piece:piece.toLowerCase();
+    if(kingInCheck(nx,side))return "王手を防げていません。";
+  }
+  return null;
+}
+function dropTargets(state,side,piece){
+  const ctx={inCheck:kingInCheck(state,side)};
+  const out=[];
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    if(!dropIllegalReason(state,side,piece,r,c,ctx))out.push({r,c});
+  }
+  return out;
+}
+// 選択中の駒／持ち駒から行けるマス（盤上に候補マーカーを出す用）
+function candidateSquares(state){
+  if(!selected)return [];
+  if(selected.kind==="hand")return dropTargets(state,selected.side,selected.piece);
+  return legalMovesFrom(state,selected.r,selected.c);
+}
+function boardPieceName(cell){
+  if(!cell)return "駒";
+  return PIECE_JP_BOARD[(isPromoted(cell)?"+":"")+basePieceOf(cell)]||"駒";
+}
+function playIllegalSound(){playErrorSound();}
+
+function renderHand(side,h){
+  let html="";
+  for(const p of HAND_ORDER){
+    const n=h[p]||0;
+    if(!n)continue;
+    const sel=selected&&selected.kind==="hand"&&selected.side===side&&selected.piece===p?" sel":"";
+    html+=`<button class="handbtn ${side==='g'?'g':'s'}${sel}" data-hand-side="${side}" data-hand-piece="${p}"><span>${PIECE_JP[p]}</span><small>${n}</small></button>`;
+  }
+  return html||'<div class="handempty">なし</div>';
+}
+
+function renderBoard(host,state){
+  const {grid,turn,hands}=state;
+  let files='<div class="files">';
+  for(let f=9;f>=1;f--)files+=`<i>${f}</i>`;
+  files+='</div>';
+  const cands=candidateSquares(state);
+  const isCand=(r,c)=>cands.some(m=>m.r===r&&m.c===c);
+  let tbl='<table class="board editable">';
+  for(let r=0;r<9;r++){
+    tbl+='<tr>';
+    for(let f=0;f<9;f++){
+      const p=grid[r][f];
+      const sel=selected&&selected.kind==="board"&&selected.r===r&&selected.c===f?' sel':'';
+      const dst=selected&&moveTarget&&moveTarget.r===r&&moveTarget.c===f?' dst':'';
+      const can=isCand(r,f)?' can':'';
+      if(!p){tbl+=`<td data-r="${r}" data-c="${f}" class="${sel}${dst}${can}"></td>`;continue;}
+      const up=p.replace("+","").toUpperCase();
+      const base=(p[0]==="+"?"+":"")+up;
+      const isGote=p.replace("+","")===p.replace("+","").toLowerCase();
+      const label=PIECE_JP_BOARD[base]||"?";
+      const wide=label.length>1?" wide":"";
+      tbl+=`<td data-r="${r}" data-c="${f}" class="${isGote?'g':'s'}${sel}${dst}${can}"><span class="${wide.trim()}">${label}</span></td>`;
+    }
+    tbl+='</tr>';
+  }
+  tbl+='</table>';
+  let ranks='<div class="ranks">';
+  for(let r=0;r<9;r++)ranks+=`<i>${KAN_NUM[r+1]}</i>`;
+  ranks+='</div>';
+  host.innerHTML='<div class="brd">'+files+'<div class="bmid">'+tbl+ranks+'</div></div>';
+  document.getElementById("senteHandPc").innerHTML=renderHand("s",hands.s);
+  document.getElementById("goteHandPc").innerHTML=renderHand("g",hands.g);
+  document.getElementById("turnLbl").innerHTML="手番 <b>"+(turn==="b"?"先手":"後手")+"</b>";
+  host.querySelectorAll("td[data-r]").forEach(td=>td.addEventListener("click",onBoardCellClick));
+  document.querySelectorAll("[data-hand-side]").forEach(btn=>btn.addEventListener("click",onHandClick));
+}
+
+function usiToJp(state,usi,prevDest){
+  const black=state.turn==="b",mark=black?"▲":"△";
+  let dest,jp,isDrop=usi.includes("*"),promote=usi.endsWith("+");
+  if(isDrop){
+    const piece=usi[0];
+    dest=usi.slice(2,4).replace("+","");
+    const d=sqToRC(dest);
+    jp=mark+ZEN_NUM[d.file]+KAN_NUM[d.r+1]+PIECE_JP[piece]+"打";
+    state.grid[d.r][d.c]=black?piece:piece.toLowerCase();
+    state.hands[black?"s":"g"][piece]--;
+  }else{
+    const from=usi.slice(0,2),to=usi.slice(2,4);
+    const f=sqToRC(from),t=sqToRC(to);
+    let mover=state.grid[f.r][f.c]||"P";
+    const baseUp=mover.replace("+","").toUpperCase();
+    const isSame=prevDest&&prevDest===to;
+    const pieceName=(mover[0]==="+")?PIECE_JP["+"+baseUp]:PIECE_JP[baseUp];
+    const sq=isSame?"同":ZEN_NUM[t.file]+KAN_NUM[t.r+1];
+    jp=mark+sq+pieceName+(promote?"成":"");
+    const cap=state.grid[t.r][t.c];
+    if(cap){
+      const cu=cap.replace("+","").toUpperCase();
+      state.hands[black?"s":"g"][cu]=(state.hands[black?"s":"g"][cu]||0)+1;
+    }
+    let np=mover;
+    if(promote)np=(mover[0]==="+"?mover:"+"+mover);
+    state.grid[t.r][t.c]=np;
+    state.grid[f.r][f.c]=null;
+  }
+  state.turn=black?"w":"b";
+  return {jp,dest:usi.slice(2,4).replace("+","")};
+}
+function renderSeq(sfen,moves){
+  const st=cloneState(sfen);let prev=null;const out=[];
+  for(const m of moves){const r=usiToJp(st,m,prev);out.push(r.jp);prev=r.dest;}
+  return out;
+}
+
+let curIdx=0;
+let initialState=null,currentState=null,selected=null,moveTarget=null,pendingPromotion=null;
+let playMode="answer",answerSolved=false;
+const POSKEY="shogibook_pos_"+BOOK_SLUG;
+
+function currentProblem(){return DATA[curIdx];}
+function currentAnswer(){return currentProblem().answer||null;}
+function currentAnswerUsi(){return (currentAnswer()&&currentAnswer().usi)||"";}
+function hasModeToggle(){return !!document.getElementById("modeGroup");}
+function supportsAutoJudge(p=currentProblem()){
+  return !!(hasModeToggle()&&p&&p.answer&&p.answer.type==="next_move"&&p.answer.usi);
+}
+function effectiveMode(p=currentProblem()){
+  if(!hasModeToggle())return "review";
+  if(playMode==="review")return "review";
+  return supportsAutoJudge(p)?"answer":"review";
+}
+function savePos(){try{localStorage.setItem(POSKEY,curIdx);}catch(e){}}
+function loadPos(){try{const v=+localStorage.getItem(POSKEY);if(v>=0&&v<DATA.length)curIdx=v;}catch(e){}}
+function clearSelection(){selected=null;moveTarget=null;pendingPromotion=null;}
+function setPromotionBox(show){
+  const box=document.getElementById("promoBox");
+  if(box)box.classList.toggle("show",show);
+}
+function showAnswer(force){
+  const ans=document.getElementById("answer");
+  ans.classList.toggle("show",!!force);
+  document.getElementById("showBtn").textContent=ans.classList.contains("show")?"解答を隠す":"解答を見る";
+}
+function syncModeButtons(){
+  const ansBtn=document.getElementById("answerModeBtn");
+  const reviewBtn=document.getElementById("reviewModeBtn");
+  if(!ansBtn||!reviewBtn)return;
+  const judgeable=supportsAutoJudge();
+  ansBtn.disabled=!judgeable;
+  ansBtn.classList.toggle("active",judgeable&&playMode==="answer");
+  reviewBtn.classList.toggle("active",effectiveMode()==="review");
+}
+function resetBoardState(msg){
+  currentState=cloneBoardState(initialState);
+  answerSolved=false;
+  clearSelection();
+  renderBoard(document.getElementById("boardHost"),currentState);
+  syncBoardTools(msg);
+  clearEval();   // 盤が変わったら前の評価値は無効
+}
+function inPromotionZone(side,row){return side==="s"?row<=2:row>=6;}
+function canPromoteMove(mover,from,to){
+  if(!mover||isPromoted(mover))return false;
+  const base=basePieceOf(mover);
+  if(!PROMOTABLE[base])return false;
+  const side=sideOf(mover);
+  return inPromotionZone(side,from.r)||inPromotionZone(side,to.r);
+}
+function mustPromoteMove(mover,to){
+  const base=basePieceOf(mover),side=sideOf(mover);
+  if(side==="s"){
+    if((base==="P"||base==="L")&&to.r===0)return true;
+    if(base==="N"&&to.r<=1)return true;
+  }else{
+    if((base==="P"||base==="L")&&to.r===8)return true;
+    if(base==="N"&&to.r>=7)return true;
+  }
+  return false;
+}
+function buildMoveUsi(from,to,promote){return rcToSq(from.r,from.c)+rcToSq(to.r,to.c)+(promote?"+":"");}
+function buildDropUsi(sel,to){return sel.piece+"*"+rcToSq(to.r,to.c);}
+function playCorrectChime(){
+  try{
+    const Ctx=window.AudioContext||window.webkitAudioContext;
+    if(!Ctx)return;
+    const ctx=new Ctx();
+    const now=ctx.currentTime;
+    [784,1046].forEach((freq,i)=>{
+      const osc=ctx.createOscillator();
+      const gain=ctx.createGain();
+      osc.type="triangle";
+      osc.frequency.value=freq;
+      gain.gain.setValueAtTime(0.0001,now+i*0.16);
+      gain.gain.exponentialRampToValueAtTime(0.12,now+i*0.16+0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001,now+i*0.16+0.15);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now+i*0.16);
+      osc.stop(now+i*0.16+0.16);
+    });
+  }catch(e){}
+}
+function playErrorSound(){
+  try{
+    const Ctx=window.AudioContext||window.webkitAudioContext;
+    if(!Ctx)return;
+    const ctx=new Ctx();
+    const now=ctx.currentTime;
+    const osc=ctx.createOscillator();
+    const gain=ctx.createGain();
+    osc.type="sawtooth";
+    osc.frequency.value=130;
+    gain.gain.setValueAtTime(0.0001,now);
+    gain.gain.exponentialRampToValueAtTime(0.18,now+0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001,now+0.24);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now+0.25);
+  }catch(e){}
+}
+function syncBoardTools(msg){
+  const stat=document.getElementById("toolStatus");
+  const mode=effectiveMode();
+  syncModeButtons();
+  setPromotionBox(!!pendingPromotion);
+  if(msg){stat.innerHTML=msg;return;}
+  if(hasModeToggle()&&playMode==="answer"&&!supportsAutoJudge()){
+    stat.innerHTML="この問題は正解判定が未整備です。<br>検討モードで盤面を動かせます。";
+    return;
+  }
+  if(mode==="answer"&&answerSolved){
+    stat.innerHTML="正解です。<br>解答を表示しました。";
+    return;
+  }
+  if(pendingPromotion){
+    stat.innerHTML=mode==="answer"?"成る/成らないを選ぶと判定します。":"成る/成らないを選んでください。";
+    return;
+  }
+  if(selected){
+    if(selected.kind==="hand"){
+      stat.innerHTML=mode==="answer"
+        ?"打つマスを選んでください。<br>正解なら自動で解答を開きます。"
+        :`${selected.side==="s"?"先手":"後手"}の持ち駒 ${PIECE_JP[selected.piece]} を選択中<br>置きたいマスをタップしてください。`;
+      return;
+    }
+    const p=currentState.grid[selected.r][selected.c]||"";
+    const piece=boardPieceName(p);
+    stat.innerHTML=mode==="answer"
+      ?`${piece} を選択中<br>行き先をタップすると正解判定します。`
+      :`${piece} を選択中<br>${rcToLabel(selected.r,selected.c)} から動かす先をタップしてください。`;
+    return;
+  }
+  stat.innerHTML=mode==="answer"
+    ?"解答モードです。<br>正解手を指すと音を鳴らして解答を表示します。"
+    :"検討モードです。<br>駒を自由に動かして盤面を検討できます。";
+}
+async function copyCurrentSfen(){
+  const sfen=stateToSfen(currentState);
+  try{
+    await navigator.clipboard.writeText(sfen);
+    syncBoardTools("SFEN をコピーしました。<br>そのまま貼り付けできます。");
+  }catch(e){
+    const ta=document.createElement("textarea");
+    ta.value=sfen;document.body.appendChild(ta);ta.select();
+    try{
+      document.execCommand("copy");
+      syncBoardTools("SFEN をコピーしました。<br>そのまま貼り付けできます。");
+    }catch(_e){
+      syncBoardTools("コピーに失敗しました。<br>ブラウザの権限を確認してください。");
+    }
+    ta.remove();
+  }
+}
+// 評価値。EVAL_API が null (=公開版) のときはボタン自体が無いので呼ばれない。
+// 送るのは stateToSfen(currentState) ＝ 今の盤面 (駒を動かした後の局面)。
+// サーバは cp (先手基準) と winner だけを返し、推奨手・PV・詰み手数は返さない。
+async function runEval(){
+  if(!EVAL_API)return;
+  const btn=document.getElementById("evalBtn"),box=document.getElementById("evalBox");
+  btn.disabled=true;
+  box.innerHTML='<div class="lab">評価値</div><div class="val small">計算中… 6秒</div>';
+  try{
+    const res=await fetch(EVAL_API,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({sfen:stateToSfen(currentState)})});
+    const j=await res.json();
+    if(!j.available){
+      box.innerHTML='<div class="lab">評価値</div><div class="val small">—</div>'
+        +'<div class="note">'+esc(j.reason||"エンジンが使えません")+'</div>';
+      return;
+    }
+    if(j.winner){
+      box.innerHTML='<div class="lab">評価値</div>'
+        +'<div class="val small">'+(j.winner==="b"?"先手勝ち":"後手勝ち")+'（詰み）</div>';
+    }else if(j.cp!==null&&j.cp!==undefined){
+      box.innerHTML='<div class="lab">評価値</div>'
+        +'<div class="val">'+(j.cp>0?"+":"")+j.cp+'</div>'
+        +'<div class="note">先手基準</div>';
+    }else{
+      box.innerHTML='<div class="lab">評価値</div><div class="val small">—</div>'
+        +'<div class="note">評価できませんでした</div>';
+    }
+  }catch(e){
+    box.innerHTML='<div class="lab">評価値</div><div class="val small">—</div>'
+      +'<div class="note">'+esc(String(e.message||e))+'</div>';
+  }finally{btn.disabled=false;}
+}
+function clearEval(){
+  const box=document.getElementById("evalBox");
+  if(box)box.innerHTML='<div class="lab">評価値</div><div class="val small">—</div>';
+}
+
+function commitCorrect(commit){
+  answerSolved=true;
+  commit();
+  playCorrectChime();
+  showAnswer(true);
+}
+function judgeAttempt(usi,commit){
+  if(effectiveMode()!=="answer")return false;
+  if(usi===currentAnswerUsi()){
+    commitCorrect(commit);
+  }else{
+    clearSelection();
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools("違います。<br>もう一度どうぞ。");
+  }
+  return true;
+}
+function applyBoardMove(from,to,promote,msg){
+  const mover=currentState.grid[from.r][from.c];
+  if(!mover)return;
+  const target=currentState.grid[to.r][to.c];
+  if(target&&((target===target.toLowerCase())===(mover===mover.toLowerCase()))){
+    selected={kind:"board",r:to.r,c:to.c};
+    moveTarget=null;
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools();
+    return;
+  }
+  if(target){
+    const up=target.replace("+","").toUpperCase();
+    const side=mover===mover.toLowerCase()?"g":"s";
+    currentState.hands[side][up]=(currentState.hands[side][up]||0)+1;
+  }
+  const placed=(promote&&!isPromoted(mover))?("+"+mover):mover;
+  currentState.grid[to.r][to.c]=placed;
+  currentState.grid[from.r][from.c]=null;
+  currentState.turn=(mover===mover.toLowerCase())?"b":"w";
+  clearSelection();
+  renderBoard(document.getElementById("boardHost"),currentState);
+  syncBoardTools(msg||(promote?"成りました。<br>続けて盤面を動かせます。":"動かしました。<br>続けて盤面を動かせます。"));
+}
+function dropHandPiece(sel,to,msg){
+  const count=currentState.hands[sel.side][sel.piece]||0;
+  const reason=dropIllegalReason(currentState,sel.side,sel.piece,to.r,to.c);
+  if(reason&&!answerOverridesDrop(sel,to)){
+    if(count<=0)clearSelection();
+    moveTarget=null;
+    playIllegalSound();
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools(reason);
+    return;
+  }
+  currentState.hands[sel.side][sel.piece]=count-1;
+  if(!currentState.hands[sel.side][sel.piece])delete currentState.hands[sel.side][sel.piece];
+  currentState.grid[to.r][to.c]=sel.side==="s"?sel.piece:sel.piece.toLowerCase();
+  currentState.turn=sel.side==="s"?"w":"b";
+  clearSelection();
+  renderBoard(document.getElementById("boardHost"),currentState);
+  syncBoardTools(msg||"持ち駒を置きました。<br>続けて盤面を動かせます。");
+}
+function movePiece(from,to){
+  const mover=currentState.grid[from.r][from.c];
+  if(!mover)return;
+  if(!isLegalMove(currentState,from,to)&&!isAnswerAttempt(buildMoveUsi(from,to,false))){
+    moveTarget=null;
+    playIllegalSound();
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools(`${boardPieceName(mover)} はそこへは動けません。<br>緑の印のマスへ動かせます。`);
+    return;
+  }
+  if(canPromoteMove(mover,from,to)){
+    if(mustPromoteMove(mover,to)){
+      if(judgeAttempt(buildMoveUsi(from,to,true),()=>applyBoardMove(from,to,true,"正解です。<br>解答を表示しました。")))return;
+      applyBoardMove(from,to,true);
+      return;
+    }
+    pendingPromotion={from:{...from},to:{...to}};
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools();
+    return;
+  }
+  if(judgeAttempt(buildMoveUsi(from,to,false),()=>applyBoardMove(from,to,false,"正解です。<br>解答を表示しました。")))return;
+  applyBoardMove(from,to,false);
+}
+function resolvePromotion(promote){
+  if(!pendingPromotion)return;
+  const mv=pendingPromotion;
+  const usi=buildMoveUsi(mv.from,mv.to,promote);
+  if(judgeAttempt(usi,()=>applyBoardMove(mv.from,mv.to,promote,"正解です。<br>解答を表示しました。")))return;
+  applyBoardMove(mv.from,mv.to,promote);
+}
+function onHandClick(e){
+  if(pendingPromotion){playErrorSound();syncBoardTools("先に 成る / 成らない を選んでください。");return;}
+  if(effectiveMode()==="answer"&&answerSolved){playErrorSound();syncBoardTools("正解済みです。<br>次の問題へ進むか初期配置に戻してください。");return;}
+  const btn=e.currentTarget;
+  const side=btn.dataset.handSide,piece=btn.dataset.handPiece;
+  if(effectiveMode()==="answer"&&side!==sideToMove(currentState)){
+    playErrorSound();
+    syncBoardTools("手番側の持ち駒を選んでください。");
+    return;
+  }
+  if(selected&&selected.kind==="hand"&&selected.side===side&&selected.piece===piece){
+    clearSelection();
+  }else{
+    selected={kind:"hand",side,piece};
+    moveTarget=null;
+  }
+  renderBoard(document.getElementById("boardHost"),currentState);
+  syncBoardTools();
+}
+function onBoardCellClick(e){
+  if(pendingPromotion){playErrorSound();syncBoardTools("先に 成る / 成らない を選んでください。");return;}
+  if(effectiveMode()==="answer"&&answerSolved){playErrorSound();syncBoardTools("正解済みです。<br>次の問題へ進むか初期配置に戻してください。");return;}
+  const td=e.currentTarget;
+  const r=+td.dataset.r,c=+td.dataset.c;
+  const p=currentState.grid[r][c];
+  if(selected&&selected.kind==="hand"){
+    if(p){
+      if(effectiveMode()==="answer"&&sideOf(p)!==sideToMove(currentState)){
+        playErrorSound();
+        syncBoardTools("手番側の駒を選んでください。");
+        return;
+      }
+      selected={kind:"board",r,c};
+      moveTarget=null;
+      renderBoard(document.getElementById("boardHost"),currentState);
+      syncBoardTools();
+      return;
+    }
+    const dropNg=dropIllegalReason(currentState,selected.side,selected.piece,r,c);
+    if(dropNg&&!answerOverridesDrop(selected,{r,c})){
+      moveTarget=null;
+      playIllegalSound();
+      renderBoard(document.getElementById("boardHost"),currentState);
+      syncBoardTools(dropNg);
+      return;
+    }
+    moveTarget={r,c};
+    if(judgeAttempt(buildDropUsi(selected,{r,c}),()=>dropHandPiece(selected,{r,c},"正解です。<br>解答を表示しました。")))return;
+    dropHandPiece(selected,{r,c});
+    return;
+  }
+  if(!selected){
+    if(!p){playErrorSound();syncBoardTools("空きマスです。<br>動かしたい駒を選んでください。");return;}
+    if(effectiveMode()==="answer"&&sideOf(p)!==sideToMove(currentState)){
+      playErrorSound();
+      syncBoardTools("手番側の駒を選んでください。");
+      return;
+    }
+    selected={kind:"board",r,c};
+    moveTarget=null;
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools();
+    return;
+  }
+  if(selected.kind==="board"&&selected.r===r&&selected.c===c){
+    clearSelection();
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools();
+    return;
+  }
+  moveTarget={r,c};
+  if(selected.kind==="board"&&p&&((p===p.toLowerCase())===(currentState.grid[selected.r][selected.c]===currentState.grid[selected.r][selected.c].toLowerCase()))){
+    selected={kind:"board",r,c};
+    moveTarget=null;
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools();
+    return;
+  }
+  if(selected.kind==="board")movePiece(selected,{r,c});
+}
+function buildAnswer(p,a){
+  if(a&&a.image_ans){
+    let s="<img class='ansimg' src='"+a.image_ans+"' alt='解答画像'>";
+    if(a.incomplete)s+="<div class='pending'>一部の解答情報は補完中です。</div>";
+    return s;
+  }
+  return _answerBody(p,a);
+}
+function esc(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function _answerBody(p,a){
+  if(!a)return "<div class='ans-h'>解答データなし</div>";
+  if(a.type==="final_move"){
+    if(a.explanation){
+      let s="<div class='ans-h'>解答</div>";
+      if(a.title)s+="<div class='movebig'>"+esc(a.title)+"</div>";
+      s+="<div class='expl'>"+esc(a.explanation)+"</div>";
+      if(a.captured)s+="<div class='captured'>持ち駒　"+esc(a.captured)+"</div>";
+      return s;
+    }
+    let s="<div class='ans-h'>解答</div>";
+    s+="<div class='movebig'>"+esc(a.move_jp)+" まで</div>";
+    if(a.incomplete)s+="<div class='note'>表記は一部省略しています。</div>";
+    return s;
+  }
+  if(a.type==="single"){
+    const jp=renderSeq(p.sfen,[a.usi])[0];
+    return "<div class='ans-h'>正解</div><div class='movebig'>"+jp+"</div>";
+  }
+  if(a.type==="next_move"){
+    const jp=a.usi ? renderSeq(p.sfen,[a.usi])[0] : (a.move_jp||"");
+    let s="<div class='ans-h'>正解</div>";
+    s+="<div class='movebig'>"+esc(jp||a.move_jp||"")+"</div>";
+    if(a.percent!=null)s+="<div class='note'>正解率 "+esc(String(a.percent))+"%</div>";
+    if(a.title)s+="<div class='captured'>"+esc(a.title)+"</div>";
+    if(a.explanation)s+="<div class='expl'>"+esc(a.explanation)+"</div>";
+    if(a.incomplete)s+="<div class='note'>一部の解答情報は補完中です。</div>";
+    return s;
+  }
+  if(a.type==="choice"){
+    let s="<div class='ans-h'>選択肢</div>";
+    for(const c of a.choices){
+      const ok=c.label===a.correct;
+      s+="<div class='choice"+(ok?" correct":"")+"'><span class='tag'>"+c.label+(ok?" 正解":"")+"</span>";
+      s+="<div class='mv'>"+c.move_jp+"</div>";
+      if(c.explanation)s+="<div class='ex'>"+c.explanation+"</div>";
+      s+="</div>";
+    }
+    return s;
+  }
+  if(a.type==="sequence"){
+    let s="";
+    if(a.kind)s+="<span class='kind'>"+a.kind+"</span>";
+    s+="<div class='ans-h'>正解手順</div>";
+    (a.sequences||[]).forEach((seq,si)=>{
+      const jps=renderSeq(p.sfen,seq);
+      const hi=(a.hisshi_index||[])[si];
+      s+="<div class='seq'>";
+      jps.forEach((mv,k)=>{
+        const isH=(hi!==undefined&&k===hi);
+        s+="<span class='ply"+(isH?" hisshi":"")+"'>"+(k+1)+". "+mv+"</span>";
+      });
+      s+="</div>";
+    });
+    if(a.wrong_sequences&&a.wrong_sequences.length){
+      s+="<div class='wrongseq'><div class='ans-h'>誤答例</div>";
+      a.wrong_sequences.forEach(seq=>{
+        const jps=renderSeq(p.sfen,seq);
+        s+="<div class='seq' style='opacity:.75'>"+jps.map((m,i)=>"<span class='ply'>"+(i+1)+". "+m+"</span>").join("")+"</div>";
+      });
+      s+="</div>";
+    }
+    return s;
+  }
+  return "<div class='ans-h'>未対応の解答形式です</div>";
+}
+function render(){
+  const p=currentProblem();
+  document.getElementById("curNo").textContent=p.problem_no;
+  document.getElementById("qmeta").textContent=p.label||p.chapter||"";
+  const sit=document.getElementById("situation");
+  if(p.situation){sit.style.display="block";sit.textContent=p.situation;}else sit.style.display="none";
+  initialState=parseSfen(p.sfen);
+  currentState=cloneBoardState(initialState);
+  answerSolved=false;
+  clearSelection();
+  renderBoard(document.getElementById("boardHost"),currentState);
+  document.getElementById("answer").innerHTML=buildAnswer(p,p.answer);
+  showAnswer(false);
+  syncBoardTools();
+  clearEval();
+  document.getElementById("jumpInp").value=p.problem_no;
+  savePos();
+}
+function go(n){curIdx=Math.max(0,Math.min(n,DATA.length-1));render();}
+
+document.getElementById("prevBtn").onclick=()=>go(curIdx-1);
+document.getElementById("nextBtn").onclick=()=>go(curIdx+1);
+document.getElementById("showBtn").onclick=()=>{
+  const ans=document.getElementById("answer");
+  showAnswer(!ans.classList.contains("show"));
+};
+if(document.getElementById("answerModeBtn"))document.getElementById("answerModeBtn").onclick=()=>{
+  if(!supportsAutoJudge())return;
+  playMode="answer";
+  resetBoardState();
+  showAnswer(false);
+};
+if(document.getElementById("reviewModeBtn"))document.getElementById("reviewModeBtn").onclick=()=>{
+  playMode="review";
+  resetBoardState();
+  showAnswer(false);
+};
+document.getElementById("resetBtn").onclick=()=>resetBoardState();
+document.getElementById("copySfenBtn").onclick=()=>copyCurrentSfen();
+if(document.getElementById("evalBtn"))document.getElementById("evalBtn").onclick=()=>runEval();
+document.getElementById("promoteBtn").onclick=()=>resolvePromotion(true);
+document.getElementById("stayBtn").onclick=()=>resolvePromotion(false);
+document.getElementById("jumpBtn").onclick=()=>{
+  const v=+document.getElementById("jumpInp").value;
+  const i=DATA.findIndex(p=>p.problem_no===v);
+  if(i>=0)go(i);
+};
+document.getElementById("jumpInp").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("jumpBtn").click();});
+let tx=0,ty=0;
+document.addEventListener("touchstart",e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
+document.addEventListener("touchend",e=>{
+  const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;
+  if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.6){if(dx<0)go(curIdx+1);else go(curIdx-1);}
+},{passive:true});
+function sizeBoard(){
+  const vv=window.visualViewport;
+  const w=(vv&&vv.width)||window.innerWidth;
+  const h=(vv&&vv.height)||window.innerHeight;
+  const twoCol=w>820;
+  const availH=(twoCol?h:h*0.60)-120;
+  const byH=availH/9.23;
+  const availW=(twoCol?w*0.50:w*0.96)-120;
+  const byW=availW/9.7;
+  const cell=Math.max(22,Math.min(80,Math.floor(Math.min(byH,byW))));
+  document.documentElement.style.setProperty("--cell",cell+"px");
+  document.documentElement.style.setProperty("--bw",(cell*10)+"px");
+}
+window.addEventListener("resize",sizeBoard);
+window.addEventListener("orientationchange",()=>setTimeout(sizeBoard,80));
+if(window.visualViewport)window.visualViewport.addEventListener("resize",sizeBoard);
+document.getElementById("total").textContent=DATA.length;
+loadPos();sizeBoard();render();setTimeout(sizeBoard,60);
+
+</script></body></html>
