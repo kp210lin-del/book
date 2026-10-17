@@ -213,6 +213,7 @@ button.big:active{filter:brightness(.9)}
       <div id="boardHost"></div>
       <div class="boardtools">
         
+        <div class="modegroup" id="modeGroup"><button class="toolbtn" id="answerModeBtn">解答モード</button><button class="toolbtn" id="reviewModeBtn">検討モード</button></div>
         <button class="toolbtn" id="resetBtn">初期配置</button>
         <button class="toolbtn" id="copySfenBtn">SFENコピー</button>
         <div class="promobox" id="promoBox">
@@ -556,7 +557,7 @@ function currentAnswer(){return currentProblem().answer||null;}
 function currentAnswerUsi(){return (currentAnswer()&&currentAnswer().usi)||"";}
 function hasModeToggle(){return !!document.getElementById("modeGroup");}
 function supportsAutoJudge(p=currentProblem()){
-  return !!(hasModeToggle()&&p&&p.answer&&p.answer.type==="next_move"&&p.answer.usi);
+  return !!(hasModeToggle()&&p&&p.answer&&(p.answer.type==="next_move"||p.answer.type==="single")&&p.answer.usi);
 }
 function effectiveMode(p=currentProblem()){
   if(!hasModeToggle())return "review";
@@ -709,15 +710,25 @@ async function copyCurrentSfen(){
     ta.remove();
   }
 }
+let advanceTimer=null;
 function commitCorrect(commit){
   answerSolved=true;
   commit();
   playCorrectChime();
   showAnswer(true);
+  clearTimeout(advanceTimer);
+  if(curIdx<DATA.length-1){
+    syncBoardTools("正解です！<br>まもなく次の問題へ進みます。");
+    const at=curIdx;
+    advanceTimer=setTimeout(()=>{if(curIdx===at&&answerSolved)go(curIdx+1);},2200);
+  }else{
+    syncBoardTools("正解です！<br>最後の問題です。");
+  }
 }
 function judgeAttempt(usi,commit){
   if(effectiveMode()!=="answer")return false;
-  if(usi===currentAnswerUsi()){
+  const cand=(currentAnswer()&&currentAnswer().candidates)||[];
+  if(usi===currentAnswerUsi()||cand.includes(usi)){
     commitCorrect(commit);
   }else{
     clearSelection();
@@ -982,7 +993,7 @@ function render(){
   document.getElementById("jumpInp").value=p.problem_no;
   savePos();
 }
-function go(n){curIdx=Math.max(0,Math.min(n,DATA.length-1));render();}
+function go(n){clearTimeout(advanceTimer);curIdx=Math.max(0,Math.min(n,DATA.length-1));render();}
 
 document.getElementById("prevBtn").onclick=()=>go(curIdx-1);
 document.getElementById("nextBtn").onclick=()=>go(curIdx+1);
