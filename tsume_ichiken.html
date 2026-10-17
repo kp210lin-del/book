@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>将之詰将棋</title>
+<style>
+:root{
+  --bg:#1f2430; --panel:#2a3140; --line:#3a4150; --ink:#eef2f7;
+  --sub:#9aa7bd; --accent:#e0853a; --ok:#46b46b; --bad:#d9534f;
+  --board:#e8c479; --grid:#7a5a22;
+  --sidew:290px;
+  /* 盤は画面の高さと残り幅のうち窄い方に合わせて最大化（持駒2段+座標ぶんを引く） */
+  --cell:clamp(44px, min(calc((100dvh - 237px) / 9), calc((100vw - var(--sidew) - 108px - 110px) / 9.7)), 120px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}  /* ダブルタップ拡大を止める（ピンチは可） */
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);overflow:hidden;
+  font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+  -webkit-text-size-adjust:100%;overscroll-behavior:none}
+
+.wrap{display:flex;gap:14px;padding:10px;align-items:stretch;max-width:1600px;margin:0 auto;
+  height:100dvh;max-height:100dvh;overflow:hidden}
+.left{flex:0 0 var(--sidew);min-width:0;height:100%;overflow-y:auto;padding-right:4px}
+.right{flex:1 1 auto;min-width:0;display:flex;align-items:center;justify-content:center}
+
+.topbar{display:none}
+.meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-bottom:8px;
+  padding-bottom:8px;border-bottom:1px solid #333}
+.meta .back{font-size:15px;padding:8px 12px;border-radius:10px;background:#2a3140;
+  border:1px solid #000;color:var(--ink);font-weight:700}
+.meta .bktitle{font-size:19px;font-weight:700}
+.meta .bktitle small{font-size:14px;color:var(--sub);font-weight:600;margin-left:6px}
+.meta .counter{font-size:15px;color:var(--sub);white-space:nowrap}
+.meta .counter b{color:var(--ink);font-size:20px}
+.meta .turn{font-size:15px;color:var(--sub)}
+.meta .turn b{color:var(--accent)}
+
+.kind{display:inline-block;font-size:13px;padding:3px 10px;border-radius:20px;
+  background:var(--accent);color:#1b1b1b;font-weight:700;margin-bottom:8px}
+.situation{background:var(--panel);border:1px solid #000;border-radius:12px;
+  padding:10px 12px;font-size:16px;line-height:1.5;margin-bottom:8px}
+.btnrow{display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+button.big{flex:1 1 auto;font-size:18px;font-weight:700;padding:12px;border-radius:12px;
+  border:none;background:var(--accent);color:#1b1b1b;min-height:48px}
+button.big:active{filter:brightness(.9)}
+button.big.ghost{background:#39414f;color:var(--ink);border:1px solid #000}
+
+.progress{background:var(--panel);border:1px solid #000;border-radius:12px;padding:10px 12px;
+  font-size:16px;line-height:1.7;margin-bottom:8px;min-height:52px}
+.progress .ply{display:inline-block;padding:2px 9px;margin:2px;border-radius:8px;background:#39414f;
+  font-family:"Hiragino Mincho ProN","Yu Mincho",serif;font-size:18px}
+.progress .ply.g{color:#f0b4b4}
+.progress .hint{color:var(--sub);font-size:14px}
+.verdict{font-weight:700;font-size:17px;min-height:26px;margin-bottom:8px}
+.verdict.ok{color:var(--ok)} .verdict.ng{color:var(--bad)} .verdict.info{color:var(--sub);font-weight:400}
+
+.answer{display:none;background:var(--panel);border:1px solid #000;border-radius:12px;
+  padding:14px;font-size:17px;line-height:1.6}
+.answer.show{display:block}
+.ans-h{font-size:14px;color:var(--sub);margin-bottom:8px}
+.seq{font-size:19px;line-height:1.9;font-family:"Hiragino Mincho ProN",serif}
+.seq .ply{display:inline-block;padding:2px 8px;margin:2px;border-radius:8px;background:#39414f}
+.seq .ply.g{color:#f0b4b4}
+.note{margin-top:10px;font-size:13px;color:var(--sub)}
+
+.boardbox{display:flex;flex-direction:column;align-items:center;gap:5px}
+.boardrow{display:flex;align-items:flex-start;justify-content:center;gap:10px;width:100%}
+.boardwrap{position:relative}
+.boardtools{display:flex;flex-direction:column;gap:8px;width:108px}
+.toolbtn{width:100%;padding:10px 8px;border-radius:10px;border:1px solid #000;
+  background:#39414f;color:var(--ink);font-size:15px;font-weight:700;min-height:44px}
+.toolbtn:disabled{opacity:.45;cursor:default}
+.jumpbox{display:flex;flex-direction:column;gap:6px}
+.jumpbox input{width:100%;font-size:15px;padding:6px;border-radius:8px;
+  border:1px solid #000;background:#2a3140;color:var(--ink);text-align:center}
+
+table.board{table-layout:fixed;border-collapse:collapse;background:var(--board);
+  box-shadow:0 6px 20px rgba(0,0,0,.45);border:3px solid var(--grid)}
+table.board td{width:var(--cell);height:var(--cell);max-width:var(--cell);overflow:hidden;
+  border:1px solid var(--grid);text-align:center;vertical-align:middle;padding:0;
+  font-size:calc(var(--cell)*.8);line-height:1;font-weight:600;cursor:pointer;
+  font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
+table.board td.sel{background:rgba(224,133,58,.28)}
+table.board td.dst{box-shadow:inset 0 0 0 3px rgba(70,180,107,.8)}
+table.board td.last{background:rgba(70,180,107,.16)}
+td.s{color:#16407a} td.g{color:#a32a2a}
+td.g span{display:inline-block;transform:rotate(180deg)}
+
+.brd{display:inline-block}
+.files{display:flex;padding-left:3px}
+.files i{width:var(--cell);text-align:center;font-style:normal;font-weight:700;
+  font-size:calc(var(--cell)*.23);color:var(--sub);font-family:sans-serif;padding-bottom:3px}
+.bmid{display:flex;align-items:flex-start}
+.ranks{display:flex;flex-direction:column;padding-top:3px}
+.ranks i{height:var(--cell);display:flex;align-items:center;justify-content:center;
+  width:calc(var(--cell)*.62);font-style:normal;font-weight:700;
+  font-size:calc(var(--cell)*.23);color:var(--sub);font-family:sans-serif}
+
+.hands{display:flex;flex-direction:column;gap:4px;width:100%;max-width:var(--bw)}
+.hand{display:flex;align-items:flex-start;gap:8px;background:var(--panel);
+  border:1px solid #000;border-radius:10px;padding:8px 10px;font-size:17px;min-height:62px}
+.hand .lab{color:var(--sub);font-size:13px;flex:0 0 auto;padding-top:5px}
+.hand .pc{display:flex;flex-wrap:wrap;gap:8px;font-family:"Hiragino Mincho ProN",serif}
+.handbtn{min-width:52px;min-height:46px;padding:4px 10px;border-radius:10px;border:1px solid #000;
+  background:#485164;color:var(--ink);font-size:28px;line-height:1;
+  font-family:"Hiragino Mincho ProN",serif}
+.handbtn small{font-size:14px;margin-left:2px}
+.handbtn.g span{display:inline-block;transform:rotate(180deg)}
+.handbtn.sel{background:var(--accent);color:#1b1b1b}
+.handempty{font-size:15px;color:var(--sub);padding-top:7px}
+
+.promobox{display:none;flex-direction:column;gap:10px;position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);z-index:20;background:rgba(20,24,32,.95);
+  border:2px solid var(--accent);border-radius:14px;padding:18px 22px;
+  box-shadow:0 8px 30px rgba(0,0,0,.55);min-width:160px}
+.promobox.show{display:flex}
+.promolabel{font-size:15px;text-align:center;font-weight:700}
+.promobtn{width:100%;padding:12px 8px;border-radius:10px;border:1px solid #000;
+  background:#5d6a82;color:var(--ink);font-size:17px;font-weight:700;min-height:48px}
+
+.sheet{display:none;position:fixed;inset:0;z-index:40;background:rgba(10,12,16,.72)}
+.sheet.show{display:flex;align-items:center;justify-content:center}
+.sheetbox{background:var(--panel);border:1px solid #000;border-radius:14px;padding:16px;
+  width:min(92vw,420px);max-height:80vh;overflow-y:auto}
+.sheetbox h3{margin:0 0 10px;font-size:16px;color:var(--sub);font-weight:700}
+.listitem{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  padding:10px 12px;border-radius:10px;background:#39414f;margin-bottom:8px;cursor:pointer}
+.listitem.cur{outline:2px solid var(--accent)}
+.listitem .n{font-weight:700}
+.listitem .m{font-size:13px;color:var(--sub)}
+.listitem .done{color:var(--ok);font-weight:700}
+
+.okoverlay{display:none;position:fixed;inset:0;z-index:60;background:rgba(10,12,16,.55);
+  align-items:center;justify-content:center}
+.okoverlay.show{display:flex}
+.okbox{background:var(--panel);border:3px solid var(--ok);border-radius:18px;
+  padding:26px 44px;text-align:center;animation:okpop .25s ease-out}
+.okmark{font-size:44px;font-weight:800;color:var(--ok)}
+.oksub{margin-top:8px;font-size:15px;color:var(--sub)}
+@keyframes okpop{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+.intro{position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;
+  pointer-events:none;opacity:0;transition:opacity .25s;font-weight:800;letter-spacing:.08em;
+  font-size:calc(var(--cell)*.95);text-shadow:0 2px 10px rgba(0,0,0,.45)}
+.intro.show{opacity:1}
+.intro.tsume{background:rgba(214,78,128,.82);color:#fff0f6}
+.intro.yose{background:rgba(52,140,86,.82);color:#effff4}
+.shake{animation:shake .32s}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-9px)}
+  40%{transform:translateX(9px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
+.sheetbox.wide{width:min(96vw,1100px);max-height:88vh}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.ghead{grid-column:1/-1;font-size:14px;font-weight:700;color:var(--sub);
+  border-bottom:1px solid var(--line);padding:4px 2px 2px;margin-top:4px}
+.listhead{font-size:13px;font-weight:700;color:var(--sub);margin:10px 0 6px}
+.gitem{background:#39414f;border-radius:10px;padding:8px;cursor:pointer;text-align:center}
+.gitem.cur{outline:2px solid var(--accent)}
+.gitem .gh{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px}
+.gitem .gh .n{font-weight:700}
+.gitem .gh .m{color:var(--sub)}
+.gitem .done{color:var(--ok);font-weight:700}
+table.mini{table-layout:fixed;border-collapse:collapse;background:var(--board);
+  border:2px solid var(--grid);margin:0 auto}
+table.mini td{width:22px;height:22px;border:1px solid var(--grid);padding:0;text-align:center;
+  vertical-align:middle;font-size:15px;line-height:1;font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
+table.mini td.g span{display:inline-block;transform:rotate(180deg)}
+.gitem .gh2{font-size:12px;color:var(--sub);margin-top:5px;text-align:left;
+  font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
+.gitem .gh2 b{color:var(--ink)}
+
+@media (max-width:820px){
+  :root{--cell:38px}
+  .wrap{flex-direction:column;align-items:stretch;gap:6px}
+  .right{order:1;width:100%;flex:0 0 auto}
+  .left{order:2;width:100%;flex:1 1 auto;min-height:0;height:auto;overflow-y:auto}
+  .boardtools{width:96px}
+  .toolbtn{font-size:14px;min-height:40px;padding:8px 6px}
+}
+
+/* 縦向き（iPad 縦など）: 盤を横幅いっぱいに、持駒を大きく。操作ボタンは盤の下に横並び */
+@media (orientation:portrait){
+  /* 盤・持駒・操作ボタンで 1 画面。問題文やボタン類（.left）は盤の下へ回し、ページ全体を縦スクロールで見る */
+  :root{--cell:clamp(36px, min(calc((100vw - 24px) / 9.8), calc((100dvh - 235px) / 12.4)), 112px)}
+  /* 画面上端には題名と「第 n 問 / 全問数」だけ出す */
+  .topbar{display:flex;order:0;align-items:baseline;justify-content:space-between;gap:12px;padding:2px 6px 0}
+  .topbar .bktitle{font-size:19px;font-weight:700}
+  .topbar .bktitle small{font-size:14px;color:var(--sub);font-weight:600;margin-left:6px}
+  .topbar .counter{font-size:15px;color:var(--sub);white-space:nowrap}
+  .topbar .counter b{color:var(--ink);font-size:20px}
+  html,body{height:auto}
+  body{overflow-y:auto;overflow-x:hidden}
+  .wrap{flex-direction:column;align-items:stretch;gap:8px;padding:8px;height:auto;max-height:none;overflow:visible}
+  .right{order:1;width:100%;flex:0 0 auto;align-items:flex-start}
+  .left{order:2;width:100%;flex:0 0 auto;min-height:0;height:auto;overflow:visible;padding:4px 0 40px}
+  .boardbox{width:100%;gap:6px}
+  .boardrow{display:contents}
+  .hands:first-child{order:1}
+  .boardwrap{order:2}
+  .hands:last-child{order:3}
+  .boardtools{order:4}
+  .hands{max-width:calc(var(--cell)*9.7)}
+  .hand{min-height:calc(var(--cell)*1.3);padding:6px 10px;align-items:center}
+  .hand .lab{font-size:calc(var(--cell)*.2);padding-top:0}
+  .handbtn{min-width:calc(var(--cell)*1.15);min-height:calc(var(--cell)*1.15);
+    font-size:calc(var(--cell)*.8);padding:2px 10px}
+  .handbtn small{font-size:calc(var(--cell)*.38)}
+  .handempty{font-size:calc(var(--cell)*.3);padding-top:0}
+  .boardtools{flex-direction:row;flex-wrap:wrap;width:100%;max-width:calc(var(--cell)*9.7);gap:6px}
+  .boardtools .toolbtn{flex:1 1 auto;width:auto;font-size:15px;min-height:44px}
+  .jumpbox{flex-direction:row;flex:1 1 150px}
+}
+/* 横向き（iPad 横など）: 問題文・ボタン類は盤の下へ回し、持駒は盤の左右に置いて盤を高さいっぱいに */
+@media (orientation:landscape) and (min-width:821px){
+  :root{--cell:clamp(44px, min(calc((100dvh - 120px) / 9), calc((100vw - 460px) / 9.7)), 120px)}
+  .topbar{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:0 6px}
+  .topbar .bktitle{font-size:19px;font-weight:700}
+  .topbar .bktitle small{font-size:14px;color:var(--sub);font-weight:600;margin-left:6px}
+  .topbar .counter{font-size:15px;color:var(--sub);white-space:nowrap}
+  .topbar .counter b{color:var(--ink);font-size:20px}
+  html,body{height:auto}
+  body{overflow-y:auto;overflow-x:hidden}
+  .wrap{flex-direction:column;align-items:stretch;gap:6px;padding:8px;height:auto;max-height:none;overflow:visible}
+  .topbar{order:0}
+  .right{order:1;width:100%;flex:0 0 auto;align-items:flex-start}
+  .left{order:2;width:100%;flex:0 0 auto;height:auto;overflow:visible;padding:8px 0 40px}
+  .boardbox{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+    grid-template-areas:"gh bd tl" "gh bd sh";grid-template-rows:auto 1fr;column-gap:14px;row-gap:8px;align-items:start}
+  .boardrow{display:contents}
+  .boardwrap{grid-area:bd}
+  .hands:first-child{grid-area:gh;justify-self:end;max-width:none;width:min(100%,calc(var(--cell)*2.6))}
+  .hands:last-child{grid-area:sh;align-self:end;justify-self:start;max-width:none;width:min(100%,calc(var(--cell)*2.6))}
+  .boardtools{grid-area:tl;width:min(100%,calc(var(--cell)*2.2))}
+  .hand{flex-direction:column;align-items:stretch;min-height:calc(var(--cell)*1.3);padding:6px 8px;gap:4px}
+  .hand .lab{padding-top:0}
+  .handbtn{min-width:calc(var(--cell)*.95);min-height:calc(var(--cell)*.95);
+    font-size:calc(var(--cell)*.62);padding:2px 6px}
+  .handbtn small{font-size:calc(var(--cell)*.3)}
+}
+</style></head>
+<body>
+
+<div class="wrap">
+  <div class="topbar"><span class="bktitle">将之詰将棋<small>› 第2章 一間龍</small></span>
+    <span class="counter">第 <b id="topNo">1</b> 問 / <span id="topTotal">0</span></span></div>
+  <div class="left">
+    <div class="meta">
+      <button class="back" id="listBtn">☰ 一覧</button>
+      <button class="back" id="galBtn">▦ 全問</button>
+      <a class="back" href="index.html">📚 本棚</a><div class="bktitle">将之詰将棋<small>› 第2章 一間龍</small></div>
+      <div class="counter">第 <b id="curNo">1</b> 問 / <span id="total">0</span></div>
+      <div class="turn">手番 <b>先手</b></div>
+    </div>
+    <div><span class="kind" id="kindLbl">1手詰</span></div>
+    <div class="situation" id="situation"></div>
+    <div class="verdict info" id="verdict"></div>
+    <div class="progress" id="progress"></div>
+    <div class="btnrow">
+      <button class="big" id="showBtn">解答を見る</button>
+      <button class="big ghost" id="hintBtn">ヒント</button>
+    </div>
+    <div class="answer" id="answer"></div>
+  </div>
+
+  <div class="right"><div class="boardbox">
+    <div class="hands"><div class="hand"><span class="lab">後手 持駒</span>
+      <span class="pc" id="goteHandPc">なし</span></div></div>
+    <div class="boardrow">
+      <div class="boardwrap">
+        <div id="boardHost"></div>
+        <div class="intro" id="intro"></div>
+        <div class="promobox" id="promoBox">
+          <div class="promolabel">成りますか？</div>
+          <button class="promobtn" id="promoteBtn">成る</button>
+          <button class="promobtn" id="stayBtn">成らず</button>
+        </div>
+      </div>
+      <div class="boardtools">
+        <button class="toolbtn" id="resetBtn">初期配置</button>
+        <button class="toolbtn" id="undoBtn">一手戻る</button>
+        <button class="toolbtn" id="prevBtn">◀ 前の問題</button>
+        <button class="toolbtn" id="nextBtn">次の問題 ▶</button>
+        <div class="jumpbox">
+          <input type="number" id="jumpInp" min="1" placeholder="問題番号">
+          <button class="toolbtn" id="jumpBtn">移動</button>
+        </div>
+      </div>
+    </div>
+    <div class="hands"><div class="hand"><span class="lab">先手 持駒</span>
+      <span class="pc" id="senteHandPc">なし</span></div></div>
+  </div></div>
+</div>
+
+<div class="okoverlay" id="okOverlay"><div class="okbox">
+  <div class="okmark">◯ 正解！</div><div class="oksub" id="okSub"></div>
+</div></div>
+
+<div class="sheet" id="sheet"><div class="sheetbox">
+  <h3>問題一覧</h3><div id="listHost"></div>
+</div></div>
+
+<div class="sheet" id="galSheet"><div class="sheetbox wide">
+  <h3>全問（盤面つき）</h3><div class="gallery" id="galHost"></div>
+</div></div>
+
+<script>
+const DATA = [{"no": 1, "group": 1, "mate_len": 1, "tesuji": false, "sfen": "6+Rgk/9/9/9/9/9/9/9/9 b Gr2b2g4s4n4l18p 1", "pv": ["G*2b"], "pvJa": ["▲２二金打"], "tree": [{"sfen": "6+Rgk/9/9/9/9/9/9/9/9 b Gr2b2g4s4n4l18p 1", "remaining": 1, "moves": {"G*2b": {"ja": "▲２二金打", "reply": null, "replyJa": null, "next": null, "sfen": "6+Rgk/7G1/9/9/9/9/9/9/9 w r2b2g4s4n4l18p 2"}}}]}, {"no": 2, "group": 2, "mate_len": 1, "tesuji": false, "sfen": "lkg+R5/p8/9/P8/9/9/9/9/9 b Gr2b2g4s4n3l16p 1", "pv": ["G*7b"], "pvJa": ["▲７二金打"], "tree": [{"sfen": "lkg+R5/p8/9/P8/9/9/9/9/9 b Gr2b2g4s4n3l16p 1", "remaining": 1, "moves": {"G*7b": {"ja": "▲７二金打", "reply": null, "replyJa": null, "next": null, "sfen": "lkg+R5/p1G6/9/P8/9/9/9/9/9 w r2b2g4s4n3l16p 2"}}}]}, {"no": 3, "group": 3, "mate_len": 3, "tesuji": true, "sfen": "1kg+R5/p8/9/P8/9/9/9/9/9 b Gr2b2g4s4n4l16p 1", "pv": ["G*7b", "8a9a", "6a7a"], "pvJa": ["▲７二金打", "△９一玉", "▲７一龍"], "tree": [{"sfen": "1kg+R5/p8/9/P8/9/9/9/9/9 b Gr2b2g4s4n4l16p 1", "remaining": 3, "moves": {"G*7b": {"ja": "▲７二金打", "reply": "8a9a", "replyJa": "△９一玉", "next": 1, "sfen": null}}}, {"sfen": "k1g+R5/p1G6/9/P8/9/9/9/9/9 b r2b2g4s4n4l16p 3", "remaining": 1, "moves": {"6a7a": {"ja": "▲７一龍", "reply": null, "replyJa": null, "next": null, "sfen": "k1+R6/p1G6/9/P8/9/9/9/9/9 w Gr2b2g4s4n4l16p 4"}}}]}, {"no": 4, "group": 4, "mate_len": 5, "tesuji": false, "sfen": "1kg+R5/p8/1pp6/P8/9/9/9/9/9 b Sr2b3g3s4n4l14p 1", "pv": ["S*7b", "8a9a", "6a7a", "N*8a", "G*8b"], "pvJa": ["▲７二銀打", "△９一玉", "▲７一龍", "△８一桂打", "▲８二金打"], "tree": [{"sfen": "1kg+R5/p8/1pp6/P8/9/9/9/9/9 b Sr2b3g3s4n4l14p 1", "remaining": 5, "moves": {"S*7b": {"ja": "▲７二銀打", "reply": "8a9a", "replyJa": "△９一玉", "next": 1, "sfen": null}}}, {"sfen": "k1g+R5/p1S6/1pp6/P8/9/9/9/9/9 b r2b3g3s4n4l14p 3", "remaining": 3, "moves": {"6a7a": {"ja": "▲７一龍", "reply": "B*8a", "replyJa": "△８一角打", "next": 2, "sfen": null}}}, {"sfen": "kb+R6/p1S6/1pp6/P8/9/9/9/9/9 b Grb3g3s4n4l14p 5", "remaining": 1, "moves": {"7b8a+": {"ja": "▲８一銀成", "reply": null, "replyJa": null, "next": null, "sfen": "k+S+R6/p8/1pp6/P8/9/9/9/9/9 w BGrb3g3s4n4l14p 6"}, "7a8a": {"ja": "▲８一龍", "reply": null, "replyJa": null, "next": null, "sfen": "k+R7/p1S6/1pp6/P8/9/9/9/9/9 w BGrb3g3s4n4l14p 6"}, "G*8b": {"ja": "▲８二金打", "reply": null, "replyJa": null, "next": null, "sfen": "kb+R6/pGS6/1pp6/P8/9/9/9/9/9 w rb3g3s4n4l14p 6"}}}]}, {"no": 5, "group": 5, "mate_len": 3, "tesuji": true, "sfen": "1kg+R5/9/ppp6/9/9/9/9/9/9 b Sr2b3g3s4n4l15p 1", "pv": ["S*7b", "8a9b", "6a7a"], "pvJa": ["▲７二銀打", "△９二玉", "▲７一龍"], "tree": [{"sfen": "1kg+R5/9/ppp6/9/9/9/9/9/9 b Sr2b3g3s4n4l15p 1", "remaining": 3, "moves": {"S*7b": {"ja": "▲７二銀打", "reply": "8a9b", "replyJa": "△９二玉", "next": 1, "sfen": null}}}, {"sfen": "2g+R5/k1S6/ppp6/9/9/9/9/9/9 b r2b3g3s4n4l15p 3", "remaining": 1, "moves": {"6a7a": {"ja": "▲７一龍", "reply": null, "replyJa": null, "next": null, "sfen": "2+R6/k1S6/ppp6/9/9/9/9/9/9 w Gr2b3g3s4n4l15p 4"}}}]}, {"no": 6, "group": 5, "mate_len": 3, "tesuji": true, "sfen": "1kl+R5/9/ppp6/9/9/9/9/9/9 b Sr2b4g3s4n3l15p 1", "pv": ["S*7b", "8a8b", "6a7a"], "pvJa": ["▲７二銀打", "△８二玉", "▲７一龍"], "tree": [{"sfen": "1kl+R5/9/ppp6/9/9/9/9/9/9 b Sr2b4g3s4n3l15p 1", "remaining": 3, "moves": {"S*7b": {"ja": "▲７二銀打", "reply": "8a8b", "replyJa": "△８二玉", "next": 1, "sfen": null}}}, {"sfen": "2l+R5/1kS6/ppp6/9/9/9/9/9/9 b r2b4g3s4n3l15p 3", "remaining": 1, "moves": {"6a7a": {"ja": "▲７一龍", "reply": null, "replyJa": null, "next": null, "sfen": "2+R6/1kS6/ppp6/9/9/9/9/9/9 w Lr2b4g3s4n3l15p 4"}}}]}, {"no": 7, "group": 5, "mate_len": 3, "tesuji": true, "sfen": "5+Rlk1/9/ppp3p2/7pp/9/9/9/9/9 b Sr2b4g3s4n3l12p 1", "pv": ["S*3b", "2a2b", "4a3a"], "pvJa": ["▲３二銀打", "△２二玉", "▲３一龍"], "tree": [{"sfen": "5+Rlk1/9/ppp3p2/7pp/9/9/9/9/9 b Sr2b4g3s4n3l12p 1", "remaining": 3, "moves": {"S*3b": {"ja": "▲３二銀打", "reply": "2a2b", "replyJa": "△２二玉", "next": 1, "sfen": null}}}, {"sfen": "5+Rl2/6Sk1/ppp3p2/7pp/9/9/9/9/9 b r2b4g3s4n3l12p 3", "remaining": 1, "moves": {"4a3a": {"ja": "▲３一龍", "reply": null, "replyJa": null, "next": null, "sfen": "6+R2/6Sk1/ppp3p2/7pp/9/9/9/9/9 w Lr2b4g3s4n3l12p 4"}}}]}, {"no": 8, "group": 5, "mate_len": 1, "tesuji": false, "sfen": "5R1l1/6S1k/ppp3ppp/9/9/9/9/9/9 b r2b4g3s4n3l12p 1", "pv": ["4a2a+"], "pvJa": ["▲２一飛成"], "tree": [{"sfen": "5R1l1/6S1k/ppp3ppp/9/9/9/9/9/9 b r2b4g3s4n3l12p 1", "remaining": 1, "moves": {"4a2a+": {"ja": "▲２一飛成", "reply": null, "replyJa": null, "next": null, "sfen": "7+R1/6S1k/ppp3ppp/9/9/9/9/9/9 w Lr2b4g3s4n3l12p 2"}}}]}, {"no": 9, "group": 5, "mate_len": 7, "tesuji": true, "sfen": "5+R1gk/8l/ppp3ppp/9/9/9/9/9/9 b 3Grb4s4n3l12p 1", "pv": ["G*3b", "S*3a", "3b2a", "1a2a", "G*3b", "2a1a", "4a3a"], "pvJa": ["▲３二金打", "△３一銀打", "▲２一金", "△２一玉", "▲３二金打", "△１一玉", "▲３一龍"], "tree": [{"sfen": "5+R1gk/8l/ppp3ppp/9/9/9/9/9/9 b 3Grb4s4n3l12p 1", "remaining": 7, "moves": {"G*3b": {"ja": "▲３二金打", "reply": "S*3a", "replyJa": "△３一銀打", "next": 1, "sfen": null}}}, {"sfen": "5+Rsgk/6G1l/ppp3ppp/9/9/9/9/9/9 b 2Grb3s4n3l12p 3", "remaining": 5, "moves": {"3b2a": {"ja": "▲２一金", "reply": "1a2a", "replyJa": "△２一玉", "next": 2, "sfen": null}}}, {"sfen": "5+Rsk1/8l/ppp3ppp/9/9/9/9/9/9 b 3Grbg3s4n3l12p 5", "remaining": 3, "moves": {"G*3b": {"ja": "▲３二金打", "reply": "2a1a", "replyJa": "△１一玉", "next": 3, "sfen": null}}}, {"sfen": "5+Rs1k/6G1l/ppp3ppp/9/9/9/9/9/9 b 2Grbg3s4n3l12p 7", "remaining": 1, "moves": {"4a3a": {"ja": "▲３一龍", "reply": null, "replyJa": null, "next": null, "sfen": "6+R1k/6G1l/ppp3ppp/9/9/9/9/9/9 w 2GSrbg3s4n3l12p 8"}}}]}, {"no": 10, "group": 5, "mate_len": 9, "tesuji": false, "sfen": "GGGl1+R1gk/BBRp4l/pppn3pp/9/9/9/9/9/9 b N4s2n2l12p 1", "pv": ["N*3c", "S*3b", "3c2a+", "3b2a", "G*3b", "S*3a", "4a3a", "S*2b", "3a2a"], "pvJa": ["▲３三桂打", "△３二銀打", "▲２一桂成", "△２一銀", "▲３二金打", "△３一銀打", "▲３一龍", "△２二銀打", "▲２一龍"], "tree": [{"sfen": "GGGl1+R1gk/BBRp4l/pppn3pp/9/9/9/9/9/9 b N4s2n2l12p 1", "remaining": 9, "moves": {"N*3c": {"ja": "▲３三桂打", "reply": "S*3b", "replyJa": "△３二銀打", "next": 1, "sfen": null}}}, {"sfen": "GGGl1+R1gk/BBRp2s1l/pppn2Npp/9/9/9/9/9/9 b 3s2n2l12p 3", "remaining": 7, "moves": {"3c2a+": {"ja": "▲２一桂成", "reply": "3b2a", "replyJa": "△２一銀", "next": 2, "sfen": null}}}, {"sfen": "GGGl1+R1sk/BBRp4l/pppn3pp/9/9/9/9/9/9 b G3s3n2l12p 5", "remaining": 5, "moves": {"G*3b": {"ja": "▲３二金打", "reply": "S*3a", "replyJa": "△３一銀打", "next": 3, "sfen": null}}}, {"sfen": "GGGl1+Rssk/BBRp2G1l/pppn3pp/9/9/9/9/9/9 b 2s3n2l12p 7", "remaining": 3, "moves": {"4a3a": {"ja": "▲３一龍", "reply": "S*2b", "replyJa": "△２二銀打", "next": 4, "sfen": null}}}, {"sfen": "GGGl2+Rsk/BBRp2Gsl/pppn3pp/9/9/9/9/9/9 b Ss3n2l12p 9", "remaining": 1, "moves": {"3a2a": {"ja": "▲２一龍", "reply": null, "replyJa": null, "next": null, "sfen": "GGGl3+Rk/BBRp2Gsl/pppn3pp/9/9/9/9/9/9 w 2Ss3n2l12p 10"}}}]}, {"no": 11, "group": 5, "mate_len": 3, "tesuji": true, "sfen": "7nl/5+Rgk1/5pppp/9/9/9/9/9/9 b Sr2b3g3s3n3l14p 1", "pv": ["S*3a", "2b1b", "4b3b"], "pvJa": ["▲３一銀打", "△１二玉", "▲３二龍"], "tree": [{"sfen": "7nl/5+Rgk1/5pppp/9/9/9/9/9/9 b Sr2b3g3s3n3l14p 1", "remaining": 3, "moves": {"S*3a": {"ja": "▲３一銀打", "reply": "2b1b", "replyJa": "△１二玉", "next": 1, "sfen": null}}}, {"sfen": "6Snl/5+Rg1k/5pppp/9/9/9/9/9/9 b r2b3g3s3n3l14p 3", "remaining": 1, "moves": {"4b3b": {"ja": "▲３二龍", "reply": null, "replyJa": null, "next": null, "sfen": "6Snl/6+R1k/5pppp/9/9/9/9/9/9 w Gr2b3g3s3n3l14p 4"}}}]}, {"no": 12, "group": 5, "mate_len": 3, "tesuji": false, "sfen": "7nl/5p1k1/5Sppp/9/9/9/9/9/9 b 2G2r2b2g3s3n3l14p 1", "pv": ["G*3b", "2b1b", "G*2b"], "pvJa": ["▲３二金打", "△１二玉", "▲２二金打"], "tree": [{"sfen": "7nl/5p1k1/5Sppp/9/9/9/9/9/9 b 2G2r2b2g3s3n3l14p 1", "remaining": 3, "moves": {"G*3b": {"ja": "▲３二金打", "reply": "2b1b", "replyJa": "△１二玉", "next": 1, "sfen": null}}}, {"sfen": "7nl/5pG1k/5Sppp/9/9/9/9/9/9 b G2r2b2g3s3n3l14p 3", "remaining": 1, "moves": {"G*2b": {"ja": "▲２二金打", "reply": null, "replyJa": null, "next": null, "sfen": "7nl/5pGGk/5Sppp/9/9/9/9/9/9 w 2r2b2g3s3n3l14p 4"}}}]}, {"no": 13, "group": 5, "mate_len": 5, "tesuji": false, "sfen": "5p1nl/4+Rg1k1/5Sppp/9/9/9/9/9/9 b Gr2b2g3s3n3l14p 1", "pv": ["5b4b", "4a4b", "G*3b", "2b1b", "G*2b"], "pvJa": ["▲４二龍", "△４二歩", "▲３二金打", "△１二玉", "▲２二金打"], "tree": [{"sfen": "5p1nl/4+Rg1k1/5Sppp/9/9/9/9/9/9 b Gr2b2g3s3n3l14p 1", "remaining": 5, "moves": {"5b4b": {"ja": "▲４二龍", "reply": "4a4b", "replyJa": "△４二歩", "next": 1, "sfen": null}}}, {"sfen": "7nl/5p1k1/5Sppp/9/9/9/9/9/9 b 2G2r2b2g3s3n3l14p 3", "remaining": 3, "moves": {"G*3b": {"ja": "▲３二金打", "reply": "2b1b", "replyJa": "△１二玉", "next": 2, "sfen": null}}}, {"sfen": "7nl/5pG1k/5Sppp/9/9/9/9/9/9 b G2r2b2g3s3n3l14p 5", "remaining": 1, "moves": {"G*2b": {"ja": "▲２二金打", "reply": null, "replyJa": null, "next": null, "sfen": "7nl/5pGGk/5Sppp/9/9/9/9/9/9 w 2r2b2g3s3n3l14p 6"}}}]}, {"no": 14, "group": 5, "mate_len": 7, "tesuji": false, "sfen": "5p1nl/4+Rgk2/6ppp/9/9/9/9/9/9 b 2Gr2bg4s3n3l14p 1", "pv": ["G*4c", "3b2b", "5b4b", "4a4b", "G*3b", "2b1b", "G*2b"], "pvJa": ["▲４三金打", "△２二玉", "▲４二龍", "△４二歩", "▲３二金打", "△１二玉", "▲２二金打"], "tree": [{"sfen": "5p1nl/4+Rgk2/6ppp/9/9/9/9/9/9 b 2Gr2bg4s3n3l14p 1", "remaining": 7, "moves": {"G*4c": {"ja": "▲４三金打", "reply": "3b2b", "replyJa": "△２二玉", "next": 1, "sfen": null}}}, {"sfen": "5p1nl/4+Rg1k1/5Gppp/9/9/9/9/9/9 b Gr2bg4s3n3l14p 3", "remaining": 5, "moves": {"5b4b": {"ja": "▲４二龍", "reply": "4a4b", "replyJa": "△４二歩", "next": 2, "sfen": null}}}, {"sfen": "7nl/5p1k1/5Gppp/9/9/9/9/9/9 b 2G2r2bg4s3n3l14p 5", "remaining": 3, "moves": {"G*3b": {"ja": "▲３二金打", "reply": "2b1b", "replyJa": "△１二玉", "next": 3, "sfen": null}}}, {"sfen": "7nl/5pG1k/5Gppp/9/9/9/9/9/9 b G2r2bg4s3n3l14p 7", "remaining": 1, "moves": {"G*2b": {"ja": "▲２二金打", "reply": null, "replyJa": null, "next": null, "sfen": "7nl/5pGGk/5Gppp/9/9/9/9/9/9 w 2r2bg4s3n3l14p 8"}}}]}];
+const $ = (id) => document.getElementById(id);
+
+const KANJI = {p:"歩",l:"香",n:"桂",s:"銀",g:"金",b:"角",r:"飛",k:"玉",
+  "+p":"と","+l":"杏","+n":"圭","+s":"全","+b":"馬","+r":"龍"};
+const HAND_ORDER = ["R","B","G","S","N","L","P"];
+const FILE_CH = "987654321", RANK_CH = "abcdefghi";
+const idxToUsi = (i) => FILE_CH[i % 9] + RANK_CH[(i / 9) | 0];
+
+/* ── 状態 ── */
+const S = {
+  qi: 0,            // 問題 index
+  node: 0,          // 解答ツリーの現在ノード
+  board: null,      // 表示中の盤 {grid, sente, gote}
+  played: [],       // 表示用の指し手（日本語）
+  sel: null,        // {type:"cell"|"hand", idx|piece}
+  done: new Set(JSON.parse(localStorage.getItem("tsume_ichiken_done") || "[]")),
+  pending: null,    // 成り確認待ち {from,to}
+};
+
+/* ── SFEN → 盤 ── */
+function parseSfen(sfen) {
+  const [bd, , hand] = sfen.split(" ");
+  const grid = [];
+  for (const rowStr of bd.split("/")) {
+    const row = [];
+    let promo = false;
+    for (const ch of rowStr) {
+      if (ch === "+") { promo = true; continue; }
+      if (/\d/.test(ch)) { for (let i = 0; i < +ch; i++) row.push(""); continue; }
+      row.push((promo ? "+" : "") + ch); promo = false;
+    }
+    grid.push(row);
+  }
+  const sente = {}, gote = {};
+  if (hand !== "-") {
+    for (const m of hand.matchAll(/(\d*)([A-Za-z])/g)) {
+      const n = m[1] ? +m[1] : 1, pc = m[2];
+      const t = pc === pc.toUpperCase() ? sente : gote;
+      t[pc.toUpperCase()] = (t[pc.toUpperCase()] || 0) + n;
+    }
+  }
+  return { grid, sente, gote };
+}
+
+/* ── 描画 ── */
+function renderBoard() {
+  const { grid } = S.board;
+  const lastSq = lastMoveSquares();
+  let html = '<div class="brd"><div class="files">';
+  for (const f of "987654321") html += `<i>${f}</i>`;
+  html += '</div><div class="bmid"><table class="board"><tbody>';
+  for (let r = 0; r < 9; r++) {
+    html += "<tr>";
+    for (let f = 0; f < 9; f++) {
+      const idx = f + r * 9, cell = grid[r][f];
+      const isGote = cell && cell.replace("+", "") === cell.replace("+", "").toLowerCase();
+      const cls = [cell ? (isGote ? "g" : "s") : ""];
+      if (S.sel && S.sel.type === "cell" && S.sel.idx === idx) cls.push("sel");
+      if (S.dst && S.dst.has(idx)) cls.push("dst");
+      if (lastSq.includes(idx)) cls.push("last");
+      const ch = cell ? KANJI[cell.toLowerCase()] || "?" : "";
+      html += `<td class="${cls.join(" ")}" data-i="${idx}">` +
+              (ch ? `<span>${ch}</span>` : "") + "</td>";
+    }
+    html += "</tr>";
+  }
+  html += '</tbody></table><div class="ranks">';
+  for (const k of "一二三四五六七八九") html += `<i>${k}</i>`;
+  html += "</div></div></div>";
+  $("boardHost").innerHTML = html;
+  for (const td of document.querySelectorAll("table.board td")) {
+    td.addEventListener("click", () => onCell(+td.dataset.i));
+  }
+}
+
+function lastMoveSquares() {
+  if (!S.lastUsi) return [];
+  const u = S.lastUsi, out = [];
+  const toIdx = (sq) => FILE_CH.indexOf(sq[0]) + RANK_CH.indexOf(sq[1]) * 9;
+  if (u.includes("*")) out.push(toIdx(u.slice(2, 4)));
+  else { out.push(toIdx(u.slice(0, 2))); out.push(toIdx(u.slice(2, 4))); }
+  return out;
+}
+
+function renderHands() {
+  for (const side of ["sente", "gote"]) {
+    const host = $(side + "HandPc");
+    const hand = S.board[side];
+    let html = "";
+    for (const p of HAND_ORDER) {
+      const n = hand[p] || 0;
+      if (!n) continue;
+      const selected = S.sel && S.sel.type === "hand" && S.sel.piece === p && side === "sente";
+      html += `<button class="handbtn ${side === "gote" ? "g" : ""} ${selected ? "sel" : ""}" ` +
+              `data-p="${p}" data-side="${side}"><span>${KANJI[p.toLowerCase()]}</span>` +
+              (n > 1 ? `<small>${n}</small>` : "") + "</button>";
+    }
+    host.innerHTML = html || '<span class="handempty">なし</span>';
+    for (const b of host.querySelectorAll(".handbtn")) {
+      if (b.dataset.side === "sente") b.addEventListener("click", () => onHand(b.dataset.p));
+    }
+  }
+}
+
+function renderProgress() {
+  const q = DATA[S.qi];
+  if (!S.played.length) {
+    $("progress").innerHTML = '<span class="hint">盤の駒か持駒を選び、着手してください。</span>';
+    return;
+  }
+  $("progress").innerHTML = S.played
+    .map((m, i) => `<span class="ply ${i % 2 ? "g" : ""}">${m}</span>`).join("");
+}
+
+function render() {
+  const q = DATA[S.qi];
+  renderBoard(); renderHands(); renderProgress();
+  $("curNo").textContent = q.no;
+  $("total").textContent = DATA.length;
+  $("topNo").textContent = q.no; $("topTotal").textContent = DATA.length;
+  $("kindLbl").textContent = kindText(q);
+  const node = q.tree[S.node];
+  const rest = node ? node.remaining : 0;
+  $("situation").innerHTML = S.node === -1
+    ? (q.tesuji ? "手順どおりです。" : "詰み上がりです。")
+    : q.tesuji
+    ? `先手の手番です。正しい手順で<b>寄せて</b>ください（<b>${q.mate_len}手</b>）。`
+    : `先手（攻方）の手番です。<b>${q.mate_len}手</b>で詰ませてください。` +
+      (rest > 0 && rest !== q.mate_len ? ` 残り <b>${rest}</b> 手。` : "");
+  $("jumpInp").value = "";
+  renderList();
+}
+
+const groupHead = (i, cls) =>
+  (DATA[i].group != null && (i === 0 || DATA[i - 1].group !== DATA[i].group))
+    ? `<div class="${cls}">グループ ${DATA[i].group}</div>` : "";
+
+function renderList() {
+  $("listHost").innerHTML = DATA.map((q, i) =>
+    groupHead(i, "listhead") + `<div class="listitem ${i === S.qi ? "cur" : ""}" data-i="${i}">` +
+    `<span class="n">第${q.no}問</span>` +
+    `<span class="m">${kindText(q)} ${S.done.has(q.no) ? '<span class="done">✓</span>' : ""}</span>` +
+    "</div>").join("");
+  for (const el of $("listHost").querySelectorAll(".listitem")) {
+    el.addEventListener("click", () => { load(+el.dataset.i); $("sheet").classList.remove("show"); });
+  }
+}
+
+function handText(h) {
+  return HAND_ORDER.filter((p) => h[p]).map((p) => KANJI[p.toLowerCase()] + (h[p] > 1 ? h[p] : "")).join(" ") || "なし";
+}
+
+function renderGallery() {
+  $("galHost").innerHTML = DATA.map((q, i) => {
+    const { grid, sente } = parseSfen(q.sfen);
+    let t = '<table class="mini"><tbody>';
+    for (const row of grid) {
+      t += "<tr>";
+      for (const cell of row) {
+        const isGote = cell && cell.replace("+", "") === cell.replace("+", "").toLowerCase();
+        t += `<td class="${cell ? (isGote ? "g" : "s") : ""}">` +
+             (cell ? `<span>${KANJI[cell.toLowerCase()] || "?"}</span>` : "") + "</td>";
+      }
+      t += "</tr>";
+    }
+    t += "</tbody></table>";
+    return groupHead(i, "ghead") + `<div class="gitem ${i === S.qi ? "cur" : ""}" data-i="${i}">` +
+      `<div class="gh"><span class="n">第${q.no}問</span>` +
+      `<span class="m">${kindText(q)} ${S.done.has(q.no) ? '<span class="done">✓</span>' : ""}</span></div>` +
+      t + `<div class="gh2">先手持駒: <b>${handText(sente)}</b></div></div>`;
+  }).join("");
+  for (const el of $("galHost").querySelectorAll(".gitem")) {
+    el.addEventListener("click", () => { load(+el.dataset.i); $("galSheet").classList.remove("show"); });
+  }
+}
+
+const kindText = (q) => q.tesuji ? `寄せ（${q.mate_len}手）` : `${q.mate_len}手詰`;
+
+/* 問題の開始前に 1 秒だけ盤の上に出す: 詰み=ピンク / 寄せ=緑 */
+let introTimer = null;
+function showIntro(q) {
+  const el = $("intro");
+  el.className = "intro " + (q.tesuji ? "yose" : "tsume") + " show";
+  el.textContent = q.tesuji ? "寄せてください" : "詰ましてください";
+  clearTimeout(introTimer);
+  introTimer = setTimeout(() => { el.className = "intro " + (q.tesuji ? "yose" : "tsume"); }, 1000);
+}
+
+function say(text, kind) {
+  const v = $("verdict");
+  v.textContent = text || "";
+  v.className = "verdict " + (kind || "info");
+}
+
+/* ── 音（外部音源なし） ── */
+let ac = null;
+function tone(f, d, type, g, delay) {
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    if (ac.state === "suspended") ac.resume();
+    const t0 = ac.currentTime + (delay || 0);
+    const o = ac.createOscillator(), gn = ac.createGain();
+    o.type = type || "triangle"; o.frequency.value = f;
+    gn.gain.setValueAtTime(g == null ? .08 : g, t0);
+    gn.gain.exponentialRampToValueAtTime(.0001, t0 + d);
+    o.connect(gn); gn.connect(ac.destination); o.start(t0); o.stop(t0 + d);
+  } catch (e) {}
+}
+const sPick = () => tone(660, .05, "triangle", .05);
+const sPlace = () => tone(320, .09, "triangle", .09);
+const sErr = () => { tone(150, .16, "sawtooth", .07); tone(150, .2, "sawtooth", .07, .2); };   // ぶぶー
+const sPico = () => { tone(1319, .09, "square", .05); tone(1760, .16, "square", .05, .09); };  // ぴこん
+/* 自分の正解手: 1 手ごとに音階（ドレミ…）で 1 つずつ高くなる */
+const SCALE = [523.25, 587.33, 659.25, 698.46, 783.99, 880, 987.77, 1046.5, 1174.66, 1318.5];
+const sOk = (k) => {
+  const f = SCALE[Math.min(k, SCALE.length - 1)];
+  tone(f, .28, "sine", .14); tone(f * 2, .16, "sine", .03);
+};
+/* 相手（玉方）の応手: 駒を打つ「カチ」 */
+function sClick() {
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    if (ac.state === "suspended") ac.resume();
+    const n = Math.floor(ac.sampleRate * .04), buf = ac.createBuffer(1, n, ac.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3);
+    const src = ac.createBufferSource(), bp = ac.createBiquadFilter(), gn = ac.createGain();
+    src.buffer = buf; bp.type = "bandpass"; bp.frequency.value = 1600; bp.Q.value = 1.2; gn.gain.value = 1.4;
+    src.connect(bp); bp.connect(gn); gn.connect(ac.destination); src.start();
+  } catch (e) {}
+  tone(240, .07, "triangle", .14);
+}
+/* 最後まで解けたとき: ピンポーン */
+const sPinpon = () => {
+  tone(1318.5, .35, "sine", .16); tone(2637, .2, "sine", .03);
+  tone(1046.5, .9, "sine", .16, .38); tone(2093, .5, "sine", .03, .38);
+};
+/* 先手の 1 手を盤に反映（表示用。応手の前に自分の手だけ見せるため） */
+function applyUsi(b, usi) {
+  const g = b.grid.map((r) => r.slice()), sente = { ...b.sente };
+  const sq = (s) => [FILE_CH.indexOf(s[0]), RANK_CH.indexOf(s[1])];
+  if (usi[1] === "*") {
+    const [f, r] = sq(usi.slice(2, 4));
+    g[r][f] = usi[0];
+    sente[usi[0]] = (sente[usi[0]] || 1) - 1;
+    if (!sente[usi[0]]) delete sente[usi[0]];
+  } else {
+    const [f0, r0] = sq(usi.slice(0, 2)), [f1, r1] = sq(usi.slice(2, 4));
+    const cap = g[r1][f1];
+    let pc = g[r0][f0];
+    g[r0][f0] = "";
+    g[r1][f1] = usi.endsWith("+") ? "+" + pc : pc;
+    if (cap) { const base = cap.replace("+", "").toUpperCase(); sente[base] = (sente[base] || 0) + 1; }
+  }
+  return { grid: g, sente, gote: b.gote };
+}
+
+/* ── 操作 ── */
+function currentMoves() {
+  const node = DATA[S.qi].tree[S.node];
+  return node ? node.moves : {};
+}
+
+function onHand(p) {
+  if (S.busy) return;
+  if (S.sel && S.sel.type === "hand" && S.sel.piece === p) { S.sel = null; S.dst = null; }
+  else {
+    S.sel = { type: "hand", piece: p };
+    S.dst = null;          // 正解の移動先は見せない（間違えたらぶぶー、が本筋）
+    sPick();
+  }
+  render();
+}
+
+function onCell(idx) {
+  if (S.pending || S.busy) return;
+  const { grid } = S.board;
+  const r = (idx / 9) | 0, f = idx % 9, cell = grid[r][f];
+  const isGote = cell && cell.replace("+", "") === cell.replace("+", "").toLowerCase();
+
+  if (S.sel) {
+    const to = idxToUsi(idx);
+    if (S.sel.type === "hand") { submit(`${S.sel.piece}*${to}`); return; }
+    const from = idxToUsi(S.sel.idx);
+    const plain = from + to, prom = plain + "+";
+    const moves = currentMoves();
+    if (moves[plain] && moves[prom]) { askPromote(plain); return; }
+    if (moves[prom] && !moves[plain]) { submit(prom); return; }
+    submit(plain);
+    return;
+  }
+  if (cell && !isGote) {
+    S.sel = { type: "cell", idx };
+    S.dst = null;
+    sPick();
+  }
+  render();
+}
+
+function askPromote(plain) {
+  S.pending = plain;
+  $("promoBox").classList.add("show");
+}
+$("promoteBtn").addEventListener("click", () => {
+  const p = S.pending; S.pending = null;
+  $("promoBox").classList.remove("show"); submit(p + "+");
+});
+$("stayBtn").addEventListener("click", () => {
+  const p = S.pending; S.pending = null;
+  $("promoBox").classList.remove("show"); submit(p);
+});
+
+function submit(usi) {
+  const moves = currentMoves();
+  S.sel = null; S.dst = null;
+  const m = moves[usi];
+  if (!m) {
+    sErr();
+    say(DATA[S.qi].tesuji ? "その手ではありません。" : "その手では詰みません。", "ng");
+    render();
+    const bh = $("boardHost");
+    bh.classList.remove("shake"); void bh.offsetWidth; bh.classList.add("shake");
+    return;
+  }
+  const step = S.played.length >> 1;     // これまでに指した自分の手数（音の高さに使う）
+  S.played.push(m.ja);
+  S.lastUsi = usi;
+  if (m.next === null) {                 // 詰み上がり
+    S.board = parseSfen(m.sfen);
+    S.node = -1;
+    sOk(step);
+    setTimeout(sPinpon, 350);
+    say(DATA[S.qi].tesuji ? "正解です！" : "詰み！正解です。", "ok");
+    S.done.add(DATA[S.qi].no);
+    localStorage.setItem("tsume_ichiken_done", JSON.stringify([...S.done]));
+    revealAnswer();
+    render();
+    showCorrect();
+    return;
+  }
+  // 自分の手だけ先に盤へ出し、0.5 秒後に玉方の応手（駒音）を出す
+  S.board = applyUsi(S.board, usi);
+  S.busy = true;
+  sOk(step);
+  say("正解！", "ok");
+  render();
+  clearTimeout(replyTimer);
+  replyTimer = setTimeout(() => {
+    S.busy = false;
+    S.played.push(m.replyJa);
+    S.node = m.next;
+    S.board = parseSfen(DATA[S.qi].tree[S.node].sfen);
+    S.lastUsi = m.reply;
+    sClick();
+    say("正解。玉方が応じました。", "ok");
+    render();
+  }, 500);
+}
+let replyTimer = null;
+
+function revealAnswer() {
+  const q = DATA[S.qi];
+  $("answer").className = "answer show";
+  $("answer").innerHTML =
+    '<div class="ans-h">正解手順</div><div class="seq">' +
+    q.pvJa.map((m, i) => `<span class="ply ${i % 2 ? "g" : ""}">${m}</span>`).join("") +
+    '</div><div class="note">' + (q.tesuji ? 'この手順だけを正解としています。' : '同じ手数で詰む別解も正解として受け付けます。') +
+    'ここに出しているのは代表的な一手順です。</div>';
+}
+
+/* 正解画面: 2 秒見せて次の問題へ（最終問題では止まる） */
+let nextTimer = null;
+function showCorrect() {
+  const last = S.qi === DATA.length - 1;
+  $("okSub").textContent = last ? "全問終了です" : "少し待つと次の問題へ進みます";
+  $("okOverlay").classList.add("show");
+  clearTimeout(nextTimer);
+  if (!last) nextTimer = setTimeout(() => load(S.qi + 1), 2600);
+}
+function hideCorrect() {
+  clearTimeout(nextTimer);
+  $("okOverlay").classList.remove("show");
+}
+$("okOverlay").addEventListener("click", hideCorrect);
+
+/* ── 問題の読み込み ── */
+function load(i) {
+  hideCorrect();
+  clearTimeout(replyTimer); S.busy = false;
+  S.qi = (i + DATA.length) % DATA.length;
+  const q = DATA[S.qi];
+  S.node = 0;
+  S.board = parseSfen(q.sfen);
+  S.played = [];
+  S.sel = null; S.dst = null; S.lastUsi = null; S.pending = null;
+  $("promoBox").classList.remove("show");
+  $("answer").className = "answer";
+  say("", "info");
+  render();
+  showIntro(q);
+}
+
+/* ── ボタン ── */
+$("resetBtn").addEventListener("click", () => load(S.qi));
+$("undoBtn").addEventListener("click", () => {
+  if (!S.played.length) return;
+  const target = Math.max(0, (S.played.length - (S.played.length % 2 === 0 ? 2 : 1)) / 2);
+  const q = DATA[S.qi];
+  load(S.qi);
+  clearTimeout(introTimer); $("intro").className = "intro";   // 一手戻るでは案内を出さない
+  for (let k = 0; k < target; k++) {   // 先頭から模範手順で指し直す
+    const node = q.tree[S.node];
+    const usi = q.pv[k * 2];
+    if (!node || !node.moves[usi]) break;
+    submitSilent(usi);
+  }
+  say("一手戻しました。", "info");
+});
+function submitSilent(usi) {
+  const m = currentMoves()[usi];
+  if (!m) return;
+  S.played.push(m.ja);
+  if (m.next === null) { S.board = parseSfen(m.sfen); S.node = -1; S.lastUsi = usi; return; }
+  S.played.push(m.replyJa);
+  S.node = m.next;
+  S.board = parseSfen(DATA[S.qi].tree[S.node].sfen);
+  S.lastUsi = m.reply;
+}
+$("prevBtn").addEventListener("click", () => load(S.qi - 1));
+$("nextBtn").addEventListener("click", () => load(S.qi + 1));
+$("jumpBtn").addEventListener("click", () => {
+  const n = parseInt($("jumpInp").value, 10);
+  if (n >= 1 && n <= DATA.length) load(n - 1);
+});
+$("showBtn").addEventListener("click", revealAnswer);
+$("hintBtn").addEventListener("click", () => {
+  const moves = currentMoves();
+  const keys = Object.keys(moves);
+  if (!keys.length) { say("ヒントはありません。", "info"); return; }
+  say("ヒント: " + moves[keys[0]].ja + (keys.length > 1 ? `（ほかに別解 ${keys.length - 1} 通り）` : ""), "info");
+});
+$("listBtn").addEventListener("click", () => $("sheet").classList.add("show"));
+$("galBtn").addEventListener("click", () => { renderGallery(); $("galSheet").classList.add("show"); });
+$("galSheet").addEventListener("click", (e) => {
+  if (e.target === $("galSheet")) $("galSheet").classList.remove("show");
+});
+$("sheet").addEventListener("click", (e) => {
+  if (e.target === $("sheet")) $("sheet").classList.remove("show");
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowLeft") load(S.qi - 1);
+  if (e.key === "ArrowRight") load(S.qi + 1);
+});
+
+load(0);
+</script>
+</body></html>
