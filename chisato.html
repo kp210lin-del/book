@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ja"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="robots" content="noindex,nofollow">
+<title>千怜の将棋FB</title>
+<style>
+:root{
+  --bg:#1f2430; --panel:#2a3140; --ink:#eef2f7; --sub:#9aa7bd; --accent:#e0853a;
+  --board:#e8c479; --grid:#7a5a22; --hl:#f3d9a0;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);
+  font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+  -webkit-text-size-adjust:100%;overscroll-behavior:none}
+a{color:inherit;text-decoration:none}
+.top{display:flex;align-items:center;gap:10px;padding:10px 12px;max-width:640px;margin:0 auto;flex-wrap:wrap}
+.top a{padding:8px 12px;border-radius:10px;background:var(--panel);font-size:15px}
+.top h1{margin:0;font-size:19px;flex:1}
+.counter{font-size:15px;color:var(--sub)}
+.counter b{color:var(--ink);font-size:20px}
+.info{max-width:640px;margin:0 auto;padding:0 14px 6px;color:var(--sub);font-size:15px;line-height:1.6}
+.info b{color:var(--accent)}
+.stage{max-width:640px;margin:0 auto;padding:0 8px}
+.hand{display:flex;align-items:center;gap:6px;min-height:40px;padding:4px 6px;background:var(--panel);
+  border-radius:10px;margin:6px 0;flex-wrap:wrap}
+.hand .lbl{font-size:13px;color:var(--sub);margin-right:4px}
+.hp{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:36px;
+  background:var(--board);color:#222;border-radius:5px;font-size:21px;font-weight:700;position:relative;padding:0 4px}
+.hp small{font-size:13px;margin-left:1px}
+.hand.up .hp{transform:rotate(180deg)}
+#board{display:grid;grid-template-columns:repeat(9,1fr);border:2px solid var(--grid);background:var(--board);
+  width:100%;aspect-ratio:9/10;user-select:none}
+.cell{border:.5px solid var(--grid);display:flex;align-items:center;justify-content:center;
+  font-weight:700;color:#1d1608;line-height:1;overflow:hidden}
+.cell.up span{transform:rotate(180deg)}
+.cell.pro span{color:#b3261e}
+.coord{display:flex;justify-content:space-between;font-size:11px;color:var(--sub);padding:0 3px}
+.nav{display:flex;gap:8px;max-width:640px;margin:10px auto;padding:0 8px}
+.nav button{flex:1;padding:14px 8px;border-radius:12px;border:1px solid #000;background:#39414f;
+  color:var(--ink);font-size:17px;font-weight:700;min-height:50px}
+.nav button.accent{background:var(--accent);color:#1b1b1b}
+.nav button:disabled{opacity:.4}
+.tools{display:flex;gap:8px;max-width:640px;margin:0 auto 30px;padding:0 8px}
+.tools button,.tools select{flex:1;padding:10px 6px;border-radius:10px;border:1px solid #000;
+  background:var(--panel);color:var(--ink);font-size:14px;min-height:44px}
+</style></head><body>
+<div class="top">
+  <a href="index.html">◀ 本棚</a>
+  <h1>千怜の将棋FB</h1>
+  <div class="counter"><b id="cur">1</b> / <span id="tot"></span></div>
+</div>
+<div class="info" id="info"></div>
+<div class="stage">
+  <div class="hand up" id="handTop"></div>
+  <div class="coord" id="coordTop"></div>
+  <div id="board"></div>
+  <div class="hand" id="handBot"></div>
+</div>
+<div class="nav">
+  <button id="prev">◀ 前</button>
+  <button id="next" class="accent">次 ▶</button>
+</div>
+<div class="tools">
+  <button id="flip">盤を反転</button>
+  <button id="copy">SFENコピー</button>
+  <select id="jump" aria-label="問題へ移動"></select>
+</div>
+<script>
+const DATA = [{"no": 1, "sfen": "ln1g3nl/1ks1g2r1/pppppsbpp/6p2/5S3/2P4P1/PP1PP1P1P/1BKS1R3/LNG2G1NL w Pp 26", "info": "25手目 ▲同銀 のあと。後手番。"}, {"no": 2, "sfen": "ln1g4l/1ks2r3/pppppgnpp/6S2/9/2P4P1/PP1PP1P1P/1GKS1R3/LN3G1NL w BSPb2p 34", "info": "33手目 ▲3四銀 のあと。後手番。"}, {"no": 3, "sfen": "lng5l/2ks2g2/ppppp2pp/5Np2/3PP4/2P3PP1/PPS1+r3P/1KG6/LNR4NL w BSbgs2p 52", "info": "51手目 ▲44桂打 のあと。後手番。"}, {"no": 4, "sfen": "5g1nl/4g1sk1/2+B1pp1p1/2prsbp1p/1pP2N3/l2pSPP1P/1PN1PG1P1/3R2SK1/5G2L w Nl3p 52", "info": "51手目 ▲73角成 のあと。後手番。"}, {"no": 5, "sfen": "5g1nl/4g1sk1/2+Bp+Np1p1/2p2bp1p/1pPNs4/l3SPP1P/1P2PG1P1/3+p2SK1/2r2G2L w RPnl2p 62", "info": "61手目 ▲53桂成 のあと。後手番。"}, {"no": 6, "sfen": "lng5l/2ks2g2/1ppppr1p1/p5p1p/5s3/P1P3P1P/1PBPP2P1/1SK1GR3/LNG4NL w Nbs2p 40", "info": "39手目 ▲77角打 のあと。後手番。"}, {"no": 7, "sfen": "ln1g5/1ks1g4/1pppps1r1/p5p1L/5p2P/2P2PP2/PPNPPS1LG/LK7/2SG4R w BNbn3p 60", "info": "59手目 ▲27香打 のあと。後手番。"}, {"no": 8, "sfen": "lng5l/2ks1rg2/1pppp1npp/p3spp2/9/P1P1SPPP1/1PSPP1N1P/2G2R3/LNK2G2L w Bb 30", "info": "29手目 ▲79玉 のあと。後手番。"}, {"no": 9, "sfen": "lng5l/2ks1rg2/1pppp3p/p5pp1/5s3/P1PP1PPP1/1PS1PS1bP/2G2R3/LNK2G2L w BNnp 40", "info": "39手目 ▲46歩打 のあと。後手番。"}, {"no": 10, "sfen": "1r2kg1nl/3g2sb1/2ns1ppp1/2ppp3p/Bp7/2PP4P/1P1SPPPP1/1R2G1SK1/1N3G1NL b LPlp 37", "info": "36手目 △62金 のあと。先手番。"}, {"no": 11, "sfen": "lnsg1g1nl/1k5r1/pppppsbp1/5pp1p/6PP1/2P2S2P/PP1PPP3/1BK4R1/LNSG1G1NL w - 22", "info": "21手目 ▲35歩 のあと。後手番。"}, {"no": 12, "sfen": "ln3g1nl/1r2g1k2/3pppspp/psp3p2/1p7/P1PP5/1PNSPPPPP/2GR1SK2/L4G1NL b Bb 27", "info": "26手目 △94歩 のあと。先手番。"}, {"no": 13, "sfen": "l6nl/3r1kg2/1Bngppspp/ppp1s1p2/3p5/P1P1S4/1PN1PPPPP/2GR1SK2/L5GNL b pb 35", "info": "34手目 △65歩 のあと。先手番。"}, {"no": 14, "sfen": "l2+R1ngnl/4+Ss1k1/5p1pp/pp2p1p2/2P6/P8/1P2PPPPP/2G2SK2/L5GNL b G3Pr2bns 67", "info": "66手目 △41桂打 のあと。先手番。"}, {"no": 15, "sfen": "lng5l/2ks2+n2/ppppp2pp/6p2/3PP4/2P3PP1/PPS5P/1KGS+s+r3/LNR4NL w 2B2g2p 62", "info": "61手目 ▲78金打 のあと。後手番。"}, {"no": 16, "sfen": "ln1+P4l/6g1k/1Sp1ppns1/pP4ppp/1BPS5/Pp6P/3pPPPP1/1+n2+bS1K1/+r5GNL b RGgl 79", "info": "78手目 △58馬 のあと。先手番。"}, {"no": 17, "sfen": "ln1+P4l/2R3g1k/1Sp1ppns1/pP4ppp/1BPS5/Pp6P/3pPPPP1/1+n3s1K1/4+r1GNL b B2gl 85", "info": "84手目 △48銀打 のあと。先手番。"}, {"no": 18, "sfen": "ln1+P4l/6g1k/1Sp1ppns1/pP4ppp/1BPS5/Pp6P/3pPPPP1/1+n5K1/4+r1GNL b RB2gsl 83", "info": "82手目 △同龍 のあと。先手番。"}, {"no": 19, "sfen": "l2g1g2l/1r4ks1/2np1pnp1/p1pspbp1p/1p7/PRPP1P2P/N1BSPGPP1/6SK1/L4G1NL b P 37", "info": "36手目 △85歩打 のあと。先手番。"}, {"no": 20, "sfen": "l5snl/4g1k2/4pp1pp/p2P2p2/2p6/PP3S3/2NG1P1PP/2G4R1/+b3K1SNL w BPrnl4p 68", "info": "67手目 ▲93金 のあと。後手番。"}, {"no": 21, "sfen": "6snl/4g1k2/l3pp1pp/p2P2p2/2S6/PP3S3/2NG1P1PP/2G4R1/+b3K1SNL w B2Prgnl4p 70", "info": "69手目 ▲75銀 のあと。後手番。"}, {"no": 22, "sfen": "l4g1nl/3rg1sk1/1pn1pp1pp/p1p1sb3/3p2p2/P1PPP4/1P1SSP1PP/1BGG2R2/LNK4NL w P 40", "info": "39手目 ▲68金 のあと。後手番。"}, {"no": 23, "sfen": "l4g2l/3r2sk1/1p2gpnpp/p1p1p1S2/3P2P2/P1P1P4/1P1SgP1PP/3G2R2/LNK4NL w BSNPbp 72", "info": "71手目 ▲65歩 のあと。後手番。"}, {"no": 24, "sfen": "l6nl/1R4g2/3skpspp/pP1pp1p2/2g6/PppP5/2NSPPPPP/3G1SK2/LR3G1NL b N2bp 67", "info": "66手目 △53玉 のあと。先手番。"}, {"no": 25, "sfen": "l4gsnl/3rg1k2/1pn1ppbpp/p1pps1p2/2P6/PP1PPB3/2SG1P1PP/2G4R1/LN2K1SNL w P 32", "info": "31手目 ▲46角 のあと。後手番。"}, {"no": 26, "sfen": "l2g3n1/1ks1gr2l/1pnpp3p/p1p1sPp2/7PP/P1P1P1P+s1/1P1P1R3/1KS1G4/LN1G4L b BN2Pb 53", "info": "52手目 △26銀成 のあと。先手番。"}];
+const KANJI = {K:"玉",R:"飛",B:"角",G:"金",S:"銀",N:"桂",L:"香",P:"歩",
+  "+R":"龍","+B":"馬","+S":"全","+N":"圭","+L":"杏","+P":"と"};
+const HAND_ORDER = ["R","B","G","S","N","L","P"];
+const KEY = "chisato-fb-idx";
+let idx = 0, flipped = false;
+try { const v = parseInt(localStorage.getItem(KEY), 10); if (v >= 0 && v < DATA.length) idx = v; } catch (e) {}
+
+const hashNo = parseInt(location.hash.slice(1), 10);
+if (hashNo >= 1 && hashNo <= DATA.length) idx = hashNo - 1;
+
+function parseSfen(sfen) {
+  const [bd, turn, hand] = sfen.split(" ");
+  const rows = bd.split("/").map(r => {
+    const out = [];
+    for (let i = 0; i < r.length; i++) {
+      const c = r[i];
+      if (/\d/.test(c)) { for (let k = 0; k < +c; k++) out.push(null); }
+      else if (c === "+") { out.push({p: "+" + r[i + 1].toUpperCase(), up: r[i + 1] === r[i + 1].toLowerCase()}); i++; }
+      else out.push({p: c.toUpperCase(), up: c === c.toLowerCase()});
+    }
+    return out;
+  });
+  const hands = {b: {}, w: {}};
+  if (hand !== "-") {
+    const re = /(\d*)([A-Za-z])/g; let m;
+    while ((m = re.exec(hand))) {
+      const side = m[2] === m[2].toUpperCase() ? "b" : "w";
+      hands[side][m[2].toUpperCase()] = m[1] ? +m[1] : 1;
+    }
+  }
+  return {rows, turn, hands};
+}
+
+function kanji(piece, up) {
+  if (piece === "K") return up ? "王" : "玉";
+  return KANJI[piece];
+}
+
+function renderHand(el, h) {
+  el.innerHTML = "";
+  const lbl = document.createElement("span");
+  lbl.className = "lbl";
+  lbl.textContent = el.dataset.label;
+  el.appendChild(lbl);
+  let any = false;
+  HAND_ORDER.forEach(p => {
+    if (!h[p]) return;
+    any = true;
+    const s = document.createElement("span");
+    s.className = "hp";
+    s.innerHTML = KANJI[p] + (h[p] > 1 ? "<small>" + h[p] + "</small>" : "");
+    el.appendChild(s);
+  });
+  if (!any) { const n = document.createElement("span"); n.className = "lbl"; n.textContent = "なし"; el.appendChild(n); }
+}
+
+function render() {
+  const d = DATA[idx], s = parseSfen(d.sfen);
+  document.getElementById("cur").textContent = idx + 1;
+  document.getElementById("info").innerHTML = d.info.replace(/(先手番|後手番)/, "<b>$1</b>");
+  const b = document.getElementById("board");
+  b.innerHTML = "";
+  const w = b.clientWidth || 360;
+  const fs = Math.floor(w / 9 * 0.62);
+  for (let r = 0; r < 9; r++) for (let f = 0; f < 9; f++) {
+    const rr = flipped ? 8 - r : r, ff = flipped ? 8 - f : f;
+    const c = s.rows[rr][ff];
+    const cell = document.createElement("div");
+    cell.className = "cell";
+    cell.style.fontSize = fs + "px";
+    if (c) {
+      const up = flipped ? !c.up : c.up;
+      if (up) cell.classList.add("up");
+      if (c.p[0] === "+") cell.classList.add("pro");
+      const sp = document.createElement("span");
+      sp.textContent = kanji(c.p, c.up);
+      cell.appendChild(sp);
+    }
+    b.appendChild(cell);
+  }
+  const files = [9,8,7,6,5,4,3,2,1];
+  const co = document.getElementById("coordTop");
+  co.innerHTML = (flipped ? files.slice().reverse() : files).map(n => "<span>" + n + "</span>").join("");
+  const topSide = flipped ? "b" : "w", botSide = flipped ? "w" : "b";
+  const ht = document.getElementById("handTop"), hb = document.getElementById("handBot");
+  ht.dataset.label = topSide === "b" ? "先手 持駒" : "後手 持駒";
+  hb.dataset.label = botSide === "b" ? "先手 持駒" : "後手 持駒";
+  renderHand(ht, s.hands[topSide]); renderHand(hb, s.hands[botSide]);
+  ht.classList.toggle("up", true);
+  document.getElementById("prev").disabled = idx === 0;
+  document.getElementById("next").disabled = idx === DATA.length - 1;
+  document.getElementById("jump").value = String(idx);
+  try { localStorage.setItem(KEY, String(idx)); } catch (e) {}
+}
+
+function go(n) { if (n < 0 || n >= DATA.length) return; idx = n; render(); }
+document.getElementById("tot").textContent = DATA.length;
+const jump = document.getElementById("jump");
+DATA.forEach((d, i) => { const o = document.createElement("option"); o.value = i; o.textContent = "第" + d.no + "問"; jump.appendChild(o); });
+jump.onchange = () => go(+jump.value);
+document.getElementById("prev").onclick = () => go(idx - 1);
+document.getElementById("next").onclick = () => go(idx + 1);
+document.getElementById("flip").onclick = () => { flipped = !flipped; render(); };
+document.getElementById("copy").onclick = () => {
+  const t = DATA[idx].sfen;
+  if (navigator.clipboard) navigator.clipboard.writeText(t).catch(() => {});
+  const btn = document.getElementById("copy"); btn.textContent = "コピーしました";
+  setTimeout(() => btn.textContent = "SFENコピー", 1200);
+};
+let sx = null;
+document.addEventListener("touchstart", e => { sx = e.touches[0].clientX; }, {passive: true});
+document.addEventListener("touchend", e => {
+  if (sx === null) return;
+  const dx = e.changedTouches[0].clientX - sx; sx = null;
+  if (Math.abs(dx) > 70) go(idx + (dx < 0 ? 1 : -1));
+}, {passive: true});
+document.addEventListener("keydown", e => { if (e.key === "ArrowRight") go(idx + 1); if (e.key === "ArrowLeft") go(idx - 1); });
+window.addEventListener("resize", render);
+render();
+</script>
+</body></html>
