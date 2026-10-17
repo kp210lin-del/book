@@ -23,6 +23,7 @@ body{background:var(--bg);color:var(--ink);overflow:hidden;
 .left{flex:0 0 var(--sidew);min-width:0;height:100%;overflow-y:auto;padding-right:4px}
 .right{flex:1 1 auto;min-width:0;display:flex;align-items:center;justify-content:center}
 
+.topbar{display:none}
 .meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-bottom:8px;
   padding-bottom:8px;border-bottom:1px solid #333}
 .meta .back{font-size:15px;padding:8px 12px;border-radius:10px;background:#2a3140;
@@ -168,10 +169,45 @@ table.mini td.g span{display:inline-block;transform:rotate(180deg)}
   .boardtools{width:96px}
   .toolbtn{font-size:14px;min-height:40px;padding:8px 6px}
 }
+
+/* 縦向き（iPad 縦など）: 盤を横幅いっぱいに、持駒を大きく。操作ボタンは盤の下に横並び */
+@media (orientation:portrait){
+  /* 盤・持駒・操作ボタンで 1 画面。問題文やボタン類（.left）は盤の下へ回し、ページ全体を縦スクロールで見る */
+  :root{--cell:clamp(36px, min(calc((100vw - 24px) / 9.8), calc((100dvh - 235px) / 12.4)), 112px)}
+  /* 画面上端には題名と「第 n 問 / 全問数」だけ出す */
+  .topbar{display:flex;order:0;align-items:baseline;justify-content:space-between;gap:12px;padding:2px 6px 0}
+  .topbar .bktitle{font-size:19px;font-weight:700}
+  .topbar .bktitle small{font-size:14px;color:var(--sub);font-weight:600;margin-left:6px}
+  .topbar .counter{font-size:15px;color:var(--sub);white-space:nowrap}
+  .topbar .counter b{color:var(--ink);font-size:20px}
+  html,body{height:auto}
+  body{overflow-y:auto;overflow-x:hidden}
+  .wrap{flex-direction:column;align-items:stretch;gap:8px;padding:8px;height:auto;max-height:none;overflow:visible}
+  .right{order:1;width:100%;flex:0 0 auto;align-items:flex-start}
+  .left{order:2;width:100%;flex:0 0 auto;min-height:0;height:auto;overflow:visible;padding:4px 0 40px}
+  .boardbox{width:100%;gap:6px}
+  .boardrow{display:contents}
+  .hands:first-child{order:1}
+  .boardwrap{order:2}
+  .hands:last-child{order:3}
+  .boardtools{order:4}
+  .hands{max-width:calc(var(--cell)*9.7)}
+  .hand{min-height:calc(var(--cell)*1.3);padding:6px 10px;align-items:center}
+  .hand .lab{font-size:calc(var(--cell)*.2);padding-top:0}
+  .handbtn{min-width:calc(var(--cell)*1.15);min-height:calc(var(--cell)*1.15);
+    font-size:calc(var(--cell)*.8);padding:2px 10px}
+  .handbtn small{font-size:calc(var(--cell)*.38)}
+  .handempty{font-size:calc(var(--cell)*.3);padding-top:0}
+  .boardtools{flex-direction:row;flex-wrap:wrap;width:100%;max-width:calc(var(--cell)*9.7);gap:6px}
+  .boardtools .toolbtn{flex:1 1 auto;width:auto;font-size:15px;min-height:44px}
+  .jumpbox{flex-direction:row;flex:1 1 150px}
+}
 </style></head>
 <body>
 
 <div class="wrap">
+  <div class="topbar"><span class="bktitle">将之詰将棋<small>› 頭金の詰み</small></span>
+    <span class="counter">第 <b id="topNo">1</b> 問 / <span id="topTotal">0</span></span></div>
   <div class="left">
     <div class="meta">
       <button class="back" id="listBtn">☰ 一覧</button>
@@ -352,6 +388,7 @@ function render() {
   renderBoard(); renderHands(); renderProgress();
   $("curNo").textContent = q.no;
   $("total").textContent = DATA.length;
+  $("topNo").textContent = q.no; $("topTotal").textContent = DATA.length;
   $("kindLbl").textContent = q.mate_len + "手詰";
   const node = q.tree[S.node];
   const rest = node ? node.remaining : 0;
@@ -417,6 +454,7 @@ let ac = null;
 function tone(f, d, type, g, delay) {
   try {
     ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    if (ac.state === "suspended") ac.resume();
     const t0 = ac.currentTime + (delay || 0);
     const o = ac.createOscillator(), gn = ac.createGain();
     o.type = type || "triangle"; o.frequency.value = f;
@@ -429,6 +467,50 @@ const sPick = () => tone(660, .05, "triangle", .05);
 const sPlace = () => tone(320, .09, "triangle", .09);
 const sErr = () => { tone(150, .16, "sawtooth", .07); tone(150, .2, "sawtooth", .07, .2); };   // ぶぶー
 const sPico = () => { tone(1319, .09, "square", .05); tone(1760, .16, "square", .05, .09); };  // ぴこん
+/* 自分の正解手: 1 手ごとに音階（ドレミ…）で 1 つずつ高くなる */
+const SCALE = [523.25, 587.33, 659.25, 698.46, 783.99, 880, 987.77, 1046.5, 1174.66, 1318.5];
+const sOk = (k) => {
+  const f = SCALE[Math.min(k, SCALE.length - 1)];
+  tone(f, .28, "sine", .14); tone(f * 2, .16, "sine", .03);
+};
+/* 相手（玉方）の応手: 駒を打つ「カチ」 */
+function sClick() {
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    if (ac.state === "suspended") ac.resume();
+    const n = Math.floor(ac.sampleRate * .04), buf = ac.createBuffer(1, n, ac.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3);
+    const src = ac.createBufferSource(), bp = ac.createBiquadFilter(), gn = ac.createGain();
+    src.buffer = buf; bp.type = "bandpass"; bp.frequency.value = 1600; bp.Q.value = 1.2; gn.gain.value = 1.4;
+    src.connect(bp); bp.connect(gn); gn.connect(ac.destination); src.start();
+  } catch (e) {}
+  tone(240, .07, "triangle", .14);
+}
+/* 最後まで解けたとき: ピンポーン */
+const sPinpon = () => {
+  tone(1318.5, .35, "sine", .16); tone(2637, .2, "sine", .03);
+  tone(1046.5, .9, "sine", .16, .38); tone(2093, .5, "sine", .03, .38);
+};
+/* 先手の 1 手を盤に反映（表示用。応手の前に自分の手だけ見せるため） */
+function applyUsi(b, usi) {
+  const g = b.grid.map((r) => r.slice()), sente = { ...b.sente };
+  const sq = (s) => [FILE_CH.indexOf(s[0]), RANK_CH.indexOf(s[1])];
+  if (usi[1] === "*") {
+    const [f, r] = sq(usi.slice(2, 4));
+    g[r][f] = usi[0];
+    sente[usi[0]] = (sente[usi[0]] || 1) - 1;
+    if (!sente[usi[0]]) delete sente[usi[0]];
+  } else {
+    const [f0, r0] = sq(usi.slice(0, 2)), [f1, r1] = sq(usi.slice(2, 4));
+    const cap = g[r1][f1];
+    let pc = g[r0][f0];
+    g[r0][f0] = "";
+    g[r1][f1] = usi.endsWith("+") ? "+" + pc : pc;
+    if (cap) { const base = cap.replace("+", "").toUpperCase(); sente[base] = (sente[base] || 0) + 1; }
+  }
+  return { grid: g, sente, gote: b.gote };
+}
 
 /* ── 操作 ── */
 function currentMoves() {
@@ -437,6 +519,7 @@ function currentMoves() {
 }
 
 function onHand(p) {
+  if (S.busy) return;
   if (S.sel && S.sel.type === "hand" && S.sel.piece === p) { S.sel = null; S.dst = null; }
   else {
     S.sel = { type: "hand", piece: p };
@@ -447,7 +530,7 @@ function onHand(p) {
 }
 
 function onCell(idx) {
-  if (S.pending) return;
+  if (S.pending || S.busy) return;
   const { grid } = S.board;
   const r = (idx / 9) | 0, f = idx % 9, cell = grid[r][f];
   const isGote = cell && cell.replace("+", "") === cell.replace("+", "").toLowerCase();
@@ -496,12 +579,14 @@ function submit(usi) {
     bh.classList.remove("shake"); void bh.offsetWidth; bh.classList.add("shake");
     return;
   }
+  const step = S.played.length >> 1;     // これまでに指した自分の手数（音の高さに使う）
   S.played.push(m.ja);
   S.lastUsi = usi;
   if (m.next === null) {                 // 詰み上がり
     S.board = parseSfen(m.sfen);
     S.node = -1;
-    sPico();
+    sOk(step);
+    setTimeout(sPinpon, 350);
     say("詰み！正解です。", "ok");
     S.done.add(DATA[S.qi].no);
     localStorage.setItem("tsume_done", JSON.stringify([...S.done]));
@@ -510,14 +595,25 @@ function submit(usi) {
     showCorrect();
     return;
   }
-  S.played.push(m.replyJa);
-  S.node = m.next;
-  S.board = parseSfen(DATA[S.qi].tree[S.node].sfen);
-  S.lastUsi = m.reply;
-  sPico();
-  say("正解。玉方が応じました。", "ok");
+  // 自分の手だけ先に盤へ出し、0.5 秒後に玉方の応手（駒音）を出す
+  S.board = applyUsi(S.board, usi);
+  S.busy = true;
+  sOk(step);
+  say("正解！", "ok");
   render();
+  clearTimeout(replyTimer);
+  replyTimer = setTimeout(() => {
+    S.busy = false;
+    S.played.push(m.replyJa);
+    S.node = m.next;
+    S.board = parseSfen(DATA[S.qi].tree[S.node].sfen);
+    S.lastUsi = m.reply;
+    sClick();
+    say("正解。玉方が応じました。", "ok");
+    render();
+  }, 500);
 }
+let replyTimer = null;
 
 function revealAnswer() {
   const q = DATA[S.qi];
@@ -533,10 +629,10 @@ function revealAnswer() {
 let nextTimer = null;
 function showCorrect() {
   const last = S.qi === DATA.length - 1;
-  $("okSub").textContent = last ? "全問終了です" : "2秒後に次の問題へ進みます";
+  $("okSub").textContent = last ? "全問終了です" : "少し待つと次の問題へ進みます";
   $("okOverlay").classList.add("show");
   clearTimeout(nextTimer);
-  if (!last) nextTimer = setTimeout(() => load(S.qi + 1), 2000);
+  if (!last) nextTimer = setTimeout(() => load(S.qi + 1), 2600);
 }
 function hideCorrect() {
   clearTimeout(nextTimer);
@@ -547,6 +643,7 @@ $("okOverlay").addEventListener("click", hideCorrect);
 /* ── 問題の読み込み ── */
 function load(i) {
   hideCorrect();
+  clearTimeout(replyTimer); S.busy = false;
   S.qi = (i + DATA.length) % DATA.length;
   const q = DATA[S.qi];
   S.node = 0;
