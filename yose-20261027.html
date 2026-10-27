@@ -1070,11 +1070,13 @@ if(window.visualViewport)window.visualViewport.addEventListener("resize",sizeBoa
 /* ===== 挑戦モード（CHALLENGE が null でない本だけ。ランダム出題） =====
    先頭 hard_from 問は easy の Lv から簡単な順、残りは hard の Lv から出す。
    盤上で本の正解手順どおりに指し、必至点（hisshi_index）に着くか手順を指し切れば正解。
-   本の手順と違う手を1回指したら不正解。後手の応手は自動で指す。 */
+   本の手順と違う手を1回指したら不正解。ただし、指した後の局面が本のどれかの手順の
+   同じ手数目の局面と同じなら（例: 106 の ▲5二金左）正解として、その手順に乗り換える。
+   後手の応手は自動で指す。 */
 const CH_REPLY_DELAY_MS=450;
 const CH_BEST_KEY="shogibook_challenge_best_"+BOOK_SLUG;
 let ch=null;          // {list:[DATA index], res:[null|"ok"|"ng"|"pass"], pos, t0, back}
-let chSeqs=[],chPly=0,chBusy=false,chToken=0,chPassArmed=false;
+let chSeqs=[],chAll=[],chPly=0,chBusy=false,chToken=0,chPassArmed=false;
 
 function levelOf(i){return (CHALLENGE&&CHALLENGE.levels[DATA[i].problem_no])||0;}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
@@ -1088,10 +1090,27 @@ function chPick(){
 }
 function chResetProblem(){
   const a=currentAnswer()||{},hi=a.hisshi_index||[];
-  chSeqs=(a.sequences||[]).map((s,i)=>{const c=s.slice();c.hisshi=hi[i]!=null?hi[i]:null;return c;}).filter(s=>s.length);
+  chAll=(a.sequences||[]).map((s,i)=>{const c=s.slice();c.hisshi=hi[i]!=null?hi[i]:null;return c;}).filter(s=>s.length);
+  chSeqs=chAll.slice();
   chPly=0;chBusy=false;chPassArmed=false;chToken++;
 }
 function chExpected(){const set=new Set();for(const s of chSeqs)if(s.length>chPly)set.add(s[chPly]);return set;}
+function chStateKey(st){
+  const h=side=>Object.keys(st.hands[side]).filter(k=>st.hands[side][k]>0).sort().map(k=>k+st.hands[side][k]).join("");
+  return boardToSfen(st.grid)+" "+st.turn+" "+h("s")+"/"+h("g");
+}
+// usi を指した後の局面が、本の手順の chPly+1 手目の局面と同じになる手順を返す
+function chTransposed(usi){
+  const after=cloneBoardState(currentState);
+  usiToJp(after,usi,null);
+  const key=chStateKey(after);
+  return chAll.filter(s=>{
+    if(s.length<=chPly)return false;
+    const st=cloneBoardState(initialState);
+    for(let k=0;k<=chPly;k++)usiToJp(st,s[k],null);
+    return chStateKey(st)===key;
+  });
+}
 function chReached(){
   return chSeqs.some(s=>s.length===chPly)||chSeqs.some(s=>s.hisshi!=null&&s.hisshi===chPly-1);
 }
@@ -1159,13 +1178,14 @@ function chFinish(r){
 }
 function chJudge(usi,commit){
   if(chBusy)return true;
-  if(!chExpected().has(usi)){chFinish("ng");return true;}
+  const alt=chExpected().has(usi)?null:chTransposed(usi);
+  if(alt&&!alt.length){chFinish("ng");return true;}
   commit();
   syncBoardTools();
-  chSeqs=chSeqs.filter(s=>s[chPly]===usi);chPly++;
+  chSeqs=alt||chSeqs.filter(s=>s[chPly]===usi);chPly++;
   if(chReached()){chFinish("ok");return true;}
   chBusy=true;
-  chSetStatus("その調子です。相手の応手を待ってください…");
+  chSetStatus(alt?"本の別の手順と同じ局面になりました。<br>相手の応手を待ってください…":"その調子です。相手の応手を待ってください…");
   const token=chToken,reply=chSeqs[0][chPly];
   setTimeout(()=>{
     if(token!==chToken||!chAnswering())return;
