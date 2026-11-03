@@ -1122,7 +1122,13 @@ function rpStopTimers(){
   if(rp.timer){clearTimeout(rp.timer);rp.timer=null;}
   rp.active=false;rp.paused=false;rp.hl=null;rp.onEnd=null;
 }
-function rpErr(){if(typeof playErrorSound==="function")playErrorSound();}
+function rpErr(){
+  if(typeof playIllegalSound==="function")playIllegalSound();
+  else if(typeof playErrorSound==="function")playErrorSound();
+}
+// 着手音（公開版の playMoveClick。無い版では鳴らさない）。iPad は押下の操作中に AudioContext を起こしておく
+function rpClick(){try{if(typeof playMoveClick==="function")playMoveClick();}catch(e){}}
+function rpUnlockAudio(){try{if(typeof getMoveAudioContext==="function")getMoveAudioContext(true);}catch(e){}}
 function rpKey(st){return JSON.stringify([st.grid,st.turn,st.hands]);}
 function rpClearEval(){if(typeof clearEval==="function")clearEval();}
 function rpBuild(p){
@@ -1174,11 +1180,13 @@ function rpSchedule(){
   rp.timer=setTimeout(()=>{
     if(g!==rp.gen||!rp.active||rp.paused)return;     // 古い世代・停止中は何もしない
     rpShow(rp.ply+1);
+    rpClick();
     syncBoardTools("解答を再生中… "+rp.ply+" / "+rp.jps.length+" 手");
     rpSchedule();
   },REPLAY_MS);
 }
 function rpStart(fromSolved){
+  rpUnlockAudio();
   const p=currentProblem();
   if(!rpLine(p))return;
   const onEnd=rp.onEnd;
@@ -1195,6 +1203,7 @@ function rpStart(fromSolved){
 }
 function rpRestart(){
   if(!rp.opened)return;
+  rpUnlockAudio();
   const onEnd=rp.onEnd;
   rpStopTimers();rp.onEnd=onEnd;
   rp.active=true;answerSolved=false;
@@ -1204,6 +1213,7 @@ function rpRestart(){
 }
 function rpTogglePause(){
   if(!rp.opened||!rp.active)return;
+  rpUnlockAudio();
   if(rp.paused){
     rp.paused=false;rpCtl();
     syncBoardTools("解答を再生中… "+rp.ply+" / "+rp.jps.length+" 手");
