@@ -208,7 +208,8 @@ table.board td.hint{animation:glow 1s infinite alternate}
   <button id="resBtn"></button><button class="ghost" id="resBtn2"></button></div></div>
 
 <script>
-const D = [{"id": "tsugi-001", "tesuji": "桂馬の両取り", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "9/4g1s2/9/9/9/9/9/9/9 b BSNLPsp 1", "answer": "N*4d", "alts": [], "line": ["N*4d"], "explanation": ""}, {"id": "tsugi-002", "tesuji": "桂馬の両取り", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "9/2s1g4/9/9/9/9/9/9/9 b BSNLPsp 1", "answer": "N*6d", "alts": [], "line": ["N*6d"], "explanation": ""}, {"id": "tsugi-003", "tesuji": "桂馬の両取り", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "6g2/1r1gp2s1/2p6/3B5/9/9/9/9/9 b SNLPp 1", "answer": "N*7d", "alts": [], "line": ["N*7d", "7c7d", "6d8b+"], "explanation": ""}, {"id": "tsugi-004", "tesuji": "桂馬の両取り", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "2g6/1s2pg1r1/6p2/5B3/9/9/9/9/9 b SNLPp 1", "answer": "N*3d", "alts": [], "line": ["N*3d", "3c3d", "4d2b+"], "explanation": ""}, {"id": "tsugi-005", "tesuji": "角の両取り", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "3s2g2/1r2p4/9/9/9/9/9/9/9 b BSNLPg 1", "answer": "B*6d", "alts": [], "line": ["B*6d", "8b6b", "6d3a+"], "explanation": ""}, {"id": "tsugi-006", "tesuji": "角の両取り", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "2g2s3/4p2r1/9/9/9/9/9/9/9 b BSNLPg 1", "answer": "B*4d", "alts": [], "line": ["B*4d", "2b4b", "4d7a+"], "explanation": ""}, {"id": "tsugi-007", "tesuji": "王手飛車", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "4k4/1r7/9/9/9/9/9/9/9 b BP2gsp 1", "answer": "B*7c", "alts": [], "line": ["B*7c", "8b6b", "P*6c"], "explanation": ""}, {"id": "tsugi-008", "tesuji": "王手飛車", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "4k4/7r1/9/9/9/9/9/9/9 b BP2gsp 1", "answer": "B*3c", "alts": [], "line": ["B*3c", "2b4b", "P*4c"], "explanation": ""}, {"id": "tsugi-009", "tesuji": "王手飛車", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "9/1r5k1/9/9/9/9/9/9/9 b BSNLP2gsp 1", "answer": "B*5e", "alts": [], "line": ["B*5e", "2b1b", "5e8b+"], "explanation": ""}, {"id": "tsugi-010", "tesuji": "王手飛車", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "9/1k5r1/9/9/9/9/9/9/9 b BSNLP2gsp 1", "answer": "B*5e", "alts": [], "line": ["B*5e", "8b9b", "5e2b+"], "explanation": ""}, {"id": "tsugi-011", "tesuji": "十字飛車", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "1n3g3/6s2/p1p6/7g1/9/9/9/9/9 b RSNLPbp 1", "answer": "R*8d", "alts": [], "line": ["R*8d", "2d2c", "8d8a+"], "explanation": ""}, {"id": "tsugi-012", "tesuji": "十字飛車", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "3g3n1/2s6/6p1p/1g7/9/9/9/9/9 b RSNLPbp 1", "answer": "R*2d", "alts": [], "line": ["R*2d", "8d8c", "2d2a+"], "explanation": ""}, {"id": "tsugi-013", "tesuji": "割り打ちの銀", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "9/4g1g2/5p3/9/9/9/9/9/9 b BSNLPs 1", "answer": "S*4a", "alts": [], "line": ["S*4a", "5b6b", "4a3b+"], "explanation": ""}, {"id": "tsugi-014", "tesuji": "割り打ちの銀", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "9/2g1g4/3p5/9/9/9/9/9/9 b BSNLPs 1", "answer": "S*6a", "alts": [], "line": ["S*6a", "5b4b", "6a7b+"], "explanation": ""}, {"id": "tsugi-015", "tesuji": "割り打ちの銀", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "9/4rpg2/9/9/9/9/9/9/9 b BSNLPg 1", "answer": "S*4a", "alts": [], "line": ["S*4a", "5b6b", "4a3b+"], "explanation": ""}, {"id": "tsugi-016", "tesuji": "割り打ちの銀", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "9/2gpr4/9/9/9/9/9/9/9 b BSNLPg 1", "answer": "S*6a", "alts": [], "line": ["S*6a", "5b4b", "6a7b+"], "explanation": ""}, {"id": "tsugi-017", "tesuji": "割り打ちの銀", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "4r4/9/6g2/9/9/9/9/9/9 b BSNLPgsp 1", "answer": "S*4b", "alts": [], "line": ["S*4b", "5a6a", "4b3c+"], "explanation": ""}, {"id": "tsugi-018", "tesuji": "割り打ちの銀", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "4r4/9/2g6/9/9/9/9/9/9 b BSNLPgsp 1", "answer": "S*6b", "alts": [], "line": ["S*6b", "5a4a", "6b7c+"], "explanation": ""}, {"id": "tsugi-019", "tesuji": "香車の田楽刺し", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "9/4r4/4b4/9/3g5/9/9/9/9 b SNLPgsp 1", "answer": "L*5d", "alts": [], "line": ["L*5d", "5c6d", "5d5b+"], "explanation": ""}, {"id": "tsugi-020", "tesuji": "香車の田楽刺し", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "9/4r4/4b4/9/5g3/9/9/9/9 b SNLPgsp 1", "answer": "L*5d", "alts": [], "line": ["L*5d", "5c4d", "5d5b+"], "explanation": ""}, {"id": "tsugi-021", "tesuji": "香車の田楽刺し", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "4k4/4r4/9/4P4/9/9/9/9/9 b SNLb2gsp 1", "answer": "L*5c", "alts": [], "line": ["L*5c"], "explanation": ""}];
+const D = [{"id": "tsugi-001", "tesuji": "桂馬の両取り", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "9/4g1s2/9/9/9/9/9/9/9 b BSNLPsp 1", "answer": "N*4d", "alts": [], "line": ["N*4d"], "explanation": ""}, {"id": "tsugi-002", "tesuji": "桂馬の両取り", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "9/2s1g4/9/9/9/9/9/9/9 b BSNLPsp 1", "answer": "N*6d", "alts": [], "line": ["N*6d"], "explanation": ""}, {"id": "tsugi-003", "tesuji": "桂馬の両取り", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "6g2/1r1gp2s1/2p6/3B5/9/9/9/9/9 b NLPp 1", "answer": "N*7d", "alts": [], "line": ["N*7d", "7c7d", "6d8b+"], "explanation": ""}, {"id": "tsugi-004", "tesuji": "桂馬の両取り", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "2g6/1s2pg1r1/6p2/5B3/9/9/9/9/9 b NLPp 1", "answer": "N*3d", "alts": [], "line": ["N*3d", "3c3d", "4d2b+"], "explanation": ""}, {"id": "tsugi-005", "tesuji": "角の両取り", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "3s2g2/1r2p4/9/9/9/9/9/9/9 b BSNLPg 1", "answer": "B*6d", "alts": [], "line": ["B*6d", "8b6b", "6d3a+"], "explanation": ""}, {"id": "tsugi-006", "tesuji": "角の両取り", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "2g2s3/4p2r1/9/9/9/9/9/9/9 b BSNLPg 1", "answer": "B*4d", "alts": [], "line": ["B*4d", "2b4b", "4d7a+"], "explanation": ""}, {"id": "tsugi-007", "tesuji": "王手飛車", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "4k4/1r7/9/9/9/9/9/9/9 b BP2gsp 1", "answer": "B*7c", "alts": [], "line": ["B*7c", "8b6b", "P*6c"], "explanation": ""}, {"id": "tsugi-008", "tesuji": "王手飛車", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "4k4/7r1/9/9/9/9/9/9/9 b BP2gsp 1", "answer": "B*3c", "alts": [], "line": ["B*3c", "2b4b", "P*4c"], "explanation": ""}, {"id": "tsugi-009", "tesuji": "王手飛車", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "9/1r5k1/9/9/9/9/9/9/9 b BSNLP2gsp 1", "answer": "B*5e", "alts": [], "line": ["B*5e", "2b1b", "5e8b+"], "explanation": ""}, {"id": "tsugi-010", "tesuji": "王手飛車", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "9/1k5r1/9/9/9/9/9/9/9 b BSNLP2gsp 1", "answer": "B*5e", "alts": [], "line": ["B*5e", "8b9b", "5e2b+"], "explanation": ""}, {"id": "tsugi-011", "tesuji": "十字飛車", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "1n3g3/6s2/p1p6/7g1/9/9/9/9/9 b RSNLPbp 1", "answer": "R*8d", "alts": [], "line": ["R*8d", "2d2c", "8d8a+"], "explanation": ""}, {"id": "tsugi-012", "tesuji": "十字飛車", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "3g3n1/2s6/6p1p/1g7/9/9/9/9/9 b RSNLPbp 1", "answer": "R*2d", "alts": [], "line": ["R*2d", "8d8c", "2d2a+"], "explanation": ""}, {"id": "tsugi-013", "tesuji": "割り打ちの銀", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "9/4g1g2/5p3/9/9/9/9/9/9 b BSNLPs 1", "answer": "S*4a", "alts": [], "line": ["S*4a", "5b6b", "4a3b+"], "explanation": ""}, {"id": "tsugi-014", "tesuji": "割り打ちの銀", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "9/2g1g4/3p5/9/9/9/9/9/9 b BSNLPs 1", "answer": "S*6a", "alts": [], "line": ["S*6a", "5b4b", "6a7b+"], "explanation": ""}, {"id": "tsugi-015", "tesuji": "割り打ちの銀", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "9/4rpg2/9/9/9/9/9/9/9 b BSNLPg 1", "answer": "S*4a", "alts": [], "line": ["S*4a", "5b6b", "4a3b+"], "explanation": ""}, {"id": "tsugi-016", "tesuji": "割り打ちの銀", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "9/2gpr4/9/9/9/9/9/9/9 b BSNLPg 1", "answer": "S*6a", "alts": [], "line": ["S*6a", "5b4b", "6a7b+"], "explanation": ""}, {"id": "tsugi-017", "tesuji": "割り打ちの銀", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "4r4/9/6g2/9/9/9/9/9/9 b BSNLPgsp 1", "answer": "S*4b", "alts": [], "line": ["S*4b", "5a6a", "4b3c+"], "explanation": ""}, {"id": "tsugi-018", "tesuji": "割り打ちの銀", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "4r4/9/2g6/9/9/9/9/9/9 b BSNLPgsp 1", "answer": "S*6b", "alts": [], "line": ["S*6b", "5a4a", "6b7c+"], "explanation": ""}, {"id": "tsugi-019", "tesuji": "香車の田楽刺し", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "9/4r4/4b4/9/3g5/9/9/9/9 b SNLPgsp 1", "answer": "L*5d", "alts": [], "line": ["L*5d", "5c6d", "5d5b+"], "explanation": ""}, {"id": "tsugi-020", "tesuji": "香車の田楽刺し", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "9/4r4/4b4/9/5g3/9/9/9/9 b SNLPgsp 1", "answer": "L*5d", "alts": [], "line": ["L*5d", "5c4d", "5d5b+"], "explanation": ""}, {"id": "tsugi-021", "tesuji": "香車の田楽刺し", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "4k4/4r4/9/4P4/9/9/9/9/9 b SNLb2gsp 1", "answer": "L*5c", "alts": [], "line": ["L*5c"], "explanation": ""}];
+const PR = D.map((_, i) => i).filter((i) => !D[i].mirror);   // 練習に出す問題（左右反転は試験モードだけ）
 const EXAM_N = Math.min(5, D.length);
 const HINT_MS = 20000;
 const $ = (id) => document.getElementById(id);
@@ -454,7 +455,7 @@ function load(qi) {
   G.hintCells = null; G.hintHand = null; G.hinted = false; G.missed = false;
   const p = D[qi];
   $("tagbox").className = "tagbox";
-  $("badge").textContent = G.mode === "exam" ? `試験 ${G.exam.k + 1} / ${EXAM_N}` : `第 ${qi + 1} 問 / ${D.length}`;
+  $("badge").textContent = G.mode === "exam" ? `試験 ${G.exam.k + 1} / ${EXAM_N}` : `第 ${PR.indexOf(qi) + 1} 問 / ${PR.length}`;
   $("qtext").innerHTML = `<b>${G.st.turn === "b" ? "先手" : "後手"}</b>の次の一手は？<br>盤か持駒をタップして指してください。`;
   say(G.mode === "exam" ? "試験中: 1問でも間違えたらやり直しです。" : "");
   $("hintBtn").disabled = G.mode === "exam"; $("ansBtn").disabled = G.mode === "exam";
@@ -466,7 +467,7 @@ function load(qi) {
   updateTop();
 }
 function updateTop() {
-  const left = D.length - done.size;
+  const left = PR.filter((i) => !done.has(D[i].id)).length;
   const eb = $("examBtn");
   if (G.mode === "exam") { eb.textContent = "練習に戻る"; eb.disabled = false; }
   else if (left > 0) { eb.textContent = `🔒 試験モード（あと${left}問）`; eb.disabled = true; }
@@ -556,7 +557,12 @@ function correct(u, noCredit) {
     updateTop();
     if (G.mode === "exam" && !noCredit) G.replayTimer = setTimeout(examAdvance, 1300);
   };
-  G.replayTimer = setTimeout(step, noCredit ? 600 : 1300);
+  // 技名の演出（#flash の flashout）が完全に終わってから再生を始める
+  let started = false;
+  const start = () => { if (started) return; started = true; $("flash").removeEventListener("animationend", onEnd); clearTimeout(G.replayTimer); G.replayTimer = setTimeout(step, 400); };
+  const onEnd = (e) => { if (e.animationName === "flashout") start(); };
+  if (noCredit) G.replayTimer = setTimeout(step, 600);
+  else { $("flash").addEventListener("animationend", onEnd); G.replayTimer = setTimeout(start, 3200); }   // 保険（イベントが来ない場合）
 }
 function showTag(p, lineEls, credit) {
   $("tagbox").className = "tagbox show";
@@ -577,9 +583,10 @@ function wrong(u) {
 /* ── 練習 ── */
 function go(d) {
   if (G.mode !== "practice") return;
-  load((G.qi + d + D.length) % D.length);
+  const pos = PR.indexOf(G.qi);
+  load(PR[(pos + d + PR.length) % PR.length]);
 }
-function firstUndone() { const i = D.findIndex((p) => !done.has(p.id)); return i < 0 ? 0 : i; }
+function firstUndone() { const i = PR.find((j) => !done.has(D[j].id)); return i === undefined ? PR[0] : i; }
 
 /* ── 試験 ── */
 function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
@@ -624,9 +631,10 @@ function backToPractice() { hideResult(); G.mode = "practice"; G.exam = null; lo
 /* ── 一覧 ── */
 function openList() {
   let h = "", cat = null;
-  D.forEach((p, i) => {
+  PR.forEach((i, n) => {
+    const p = D[i];
     if (p.category !== cat) { cat = p.category; h += `<div class="lgrp">${cat}</div>`; }
-    h += `<div class="litem${i === G.qi ? " cur" : ""}" data-i="${i}"><span>第${i + 1}問 ${done.has(p.id) ? p.tesuji : "？"}${p.mirror ? "（反転）" : ""}</span><span class="ok">${done.has(p.id) ? "✓" : ""}</span></div>`;
+    h += `<div class="litem${i === G.qi ? " cur" : ""}" data-i="${i}"><span>第${n + 1}問 ${done.has(p.id) ? p.tesuji : "？"}</span><span class="ok">${done.has(p.id) ? "✓" : ""}</span></div>`;
   });
   $("listHost").innerHTML = h;
   $("listHost").onclick = (e) => { const it = e.target.closest(".litem"); if (it) { $("sheet").classList.remove("show"); if (G.mode === "practice") load(+it.dataset.i); } };
@@ -709,7 +717,8 @@ function selftest() {
 G.mode = "practice";
 load(firstUndone());
 if (SELFTEST) selftest();
+const qm = location.search.match(/[?&]q=(\d+)/); if (qm) load(+qm[1]);
 if (/[?&]hint/.test(location.search)) showHint();
-if (/[?&]solve/.test(location.search)) { const u = D[G.qi].answer; if (u[1] === "*") { tapHand(u[0], G.st.turn); tapCell(sqIdx(u.slice(2, 4))); } }
+if (/[?&]solve/.test(location.search)) { const u = D[G.qi].answer; if (u[1] === "*") { tapHand(u[0], G.st.turn); tapCell(sqIdx(u.slice(2, 4))); } else { tapCell(sqIdx(u.slice(0, 2))); tapCell(sqIdx(u.slice(2, 4))); } }
 </script>
 </body></html>
