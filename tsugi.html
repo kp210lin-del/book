@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>将之次の一手</title>
+<style>
+:root{
+  --bg:#1f2430; --panel:#2a3140; --line:#3a4150; --ink:#eef2f7;
+  --sub:#9aa7bd; --accent:#e0853a; --ok:#46b46b; --bad:#d9534f;
+  --board:#e8c479; --grid:#7a5a22;
+  --cell:clamp(38px, min(calc((100vw - 24px) / 9.8), calc((100dvh - 250px) / 10.6)), 92px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+html,body{margin:0;min-height:100%}
+body{background:var(--bg);color:var(--ink);overflow-x:hidden;
+  font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+  -webkit-text-size-adjust:100%;overscroll-behavior:none}
+button{font-family:inherit}
+.wrap{max-width:1100px;margin:0 auto;padding:8px}
+.top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.top .back,.top button{font-size:14px;padding:8px 12px;border-radius:10px;background:#2a3140;
+  border:1px solid #000;color:var(--ink);font-weight:700;text-decoration:none;min-height:40px}
+.top .title{font-size:19px;font-weight:700;margin-right:auto}
+.top .title small{font-size:13px;color:var(--sub);font-weight:600;margin-left:6px}
+.top button:disabled{opacity:.45}
+.top button.exam{background:#7a3d8c}
+.stage{display:flex;flex-direction:column;gap:10px;align-items:center}
+.boardcol{order:-1;display:flex;flex-direction:column;align-items:center;gap:5px;position:relative}
+.info{width:100%;max-width:640px}
+@media (min-width:900px) and (orientation:landscape){
+  .stage{flex-direction:row;align-items:flex-start;justify-content:center;gap:18px}
+  .info{flex:0 1 380px;order:-2}
+  .boardcol{order:0}
+  :root{--cell:clamp(44px, min(calc((100vw - 520px) / 9.8), calc((100dvh - 190px) / 10.6)), 92px)}
+}
+.badge{display:inline-block;font-size:13px;padding:3px 10px;border-radius:20px;background:#39414f;
+  color:var(--sub);font-weight:700;margin-bottom:6px}
+.qtext{background:var(--panel);border:1px solid #000;border-radius:12px;padding:10px 12px;
+  font-size:17px;line-height:1.5;margin-bottom:8px}
+.qtext b{color:var(--accent)}
+.verdict{font-weight:700;font-size:17px;min-height:26px;margin-bottom:6px}
+.verdict.ok{color:var(--ok)} .verdict.ng{color:var(--bad)} .verdict.info{color:var(--sub);font-weight:400}
+.tagbox{display:none;background:var(--panel);border:2px solid var(--ok);border-radius:14px;
+  padding:12px 14px;margin-bottom:8px}
+.tagbox.show{display:block}
+.tagbox .cat{font-size:13px;color:var(--sub)}
+.tagbox{border-image:linear-gradient(135deg,#ffe58a,#e09a1a,#ffe58a) 1;border-width:2px;
+  background:linear-gradient(135deg,#2a2314,#2a3140 60%)}
+.tagbox .tag small{font-size:15px;color:#d8c690;font-weight:600;-webkit-text-fill-color:#d8c690;letter-spacing:.1em}
+.tagbox .tag{font-family:"Hiragino Mincho ProN","Yu Mincho",serif;font-size:34px;font-weight:900;line-height:1.3;letter-spacing:.04em;
+  background:linear-gradient(180deg,#fffbe0 0%,#ffd75e 48%,#e09a1a 58%,#ffe58a 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 2px 0 rgba(90,50,0,.8)) drop-shadow(0 0 8px rgba(255,190,50,.5))}
+.tagbox .ln{margin-top:6px;font-size:18px;font-family:"Hiragino Mincho ProN","Yu Mincho",serif;line-height:1.8}
+.tagbox .ln span{display:inline-block;padding:1px 8px;margin:2px;border-radius:8px;background:#39414f}
+.tagbox .ln span.g{color:#f0b4b4}
+.tagbox .ex{margin-top:6px;font-size:15px;line-height:1.6;color:var(--ink)}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.btnrow button{flex:1 1 auto;font-size:16px;font-weight:700;padding:11px;border-radius:12px;border:none;
+  background:#39414f;color:var(--ink);min-height:46px}
+.btnrow button.pri{background:var(--accent);color:#1b1b1b}
+.btnrow button:disabled{opacity:.4}
+
+.hands{width:calc(var(--cell)*9.7)}
+.hand{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid #000;
+  border-radius:10px;padding:5px 8px;min-height:calc(var(--cell)*1.15)}
+.hand .lab{color:var(--sub);font-size:calc(var(--cell)*.2);flex:0 0 auto}
+.hand .pc{display:flex;flex-wrap:wrap;gap:6px;font-family:"Hiragino Mincho ProN",serif}
+.handbtn{min-width:calc(var(--cell)*.95);min-height:calc(var(--cell)*.95);padding:2px 8px;border-radius:10px;
+  border:1px solid #000;background:#485164;color:var(--ink);font-size:calc(var(--cell)*.62);line-height:1;
+  font-family:"Hiragino Mincho ProN",serif}
+.handbtn small{font-size:calc(var(--cell)*.3);margin-left:2px}
+.handbtn.g span{display:inline-block;transform:rotate(180deg)}
+.handbtn.sel{background:var(--accent);color:#1b1b1b}
+.handbtn.hint{animation:glow 1s infinite alternate}
+.handbtn:disabled{opacity:.7}
+.handempty{font-size:calc(var(--cell)*.25);color:var(--sub)}
+
+.brd{display:inline-block}
+.files{display:flex;padding-left:3px}
+.files i{width:var(--cell);text-align:center;font-style:normal;font-weight:700;
+  font-size:calc(var(--cell)*.23);color:var(--sub);font-family:sans-serif;padding-bottom:2px}
+.bmid{display:flex;align-items:flex-start}
+.ranks{display:flex;flex-direction:column;padding-top:3px;order:2}
+.ranks i{height:var(--cell);display:flex;align-items:center;justify-content:center;
+  width:calc(var(--cell)*.62);font-style:normal;font-weight:700;
+  font-size:calc(var(--cell)*.23);color:var(--sub);font-family:sans-serif}
+.boardwrap{position:relative;order:1}
+table.board{table-layout:fixed;border-collapse:collapse;background:var(--board);
+  box-shadow:0 6px 20px rgba(0,0,0,.45);border:3px solid var(--grid)}
+table.board td{width:var(--cell);height:var(--cell);max-width:var(--cell);overflow:hidden;
+  border:1px solid var(--grid);text-align:center;vertical-align:middle;padding:0;
+  font-size:calc(var(--cell)*.78);line-height:1;font-weight:600;cursor:pointer;position:relative;
+  font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
+td.s{color:#16407a} td.g{color:#a32a2a} td.pr{color:#b0302a}
+td.g span{display:inline-block;transform:rotate(180deg)}
+table.board td.sel{background:rgba(224,133,58,.35)}
+table.board td.last{background:rgba(70,180,107,.2)}
+table.board td.can::after{content:"";position:absolute;left:50%;top:50%;width:26%;height:26%;
+  transform:translate(-50%,-50%);border-radius:50%;background:rgba(70,180,107,.65);pointer-events:none}
+table.board td.can:has(span)::after{width:80%;height:80%;border-radius:6px;background:transparent;
+  border:3px solid rgba(70,180,107,.85)}
+table.board td.hint{animation:glow 1s infinite alternate}
+@keyframes glow{from{box-shadow:inset 0 0 0 3px rgba(255,214,64,.4),0 0 4px rgba(255,214,64,.3);background-color:rgba(255,214,64,.18)}
+  to{box-shadow:inset 0 0 0 4px rgba(255,214,64,1),0 0 14px rgba(255,214,64,.9);background-color:rgba(255,214,64,.55)}}
+.shake{animation:shake .32s}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-9px)}
+  40%{transform:translateX(9px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
+
+.promobox{display:none;flex-direction:column;gap:10px;position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);z-index:20;background:rgba(20,24,32,.95);
+  border:2px solid var(--accent);border-radius:14px;padding:18px 22px;min-width:160px}
+.promobox.show{display:flex}
+.promobox .lb{font-size:15px;text-align:center;font-weight:700}
+.promobox button{padding:12px 8px;border-radius:10px;border:1px solid #000;background:#5d6a82;
+  color:var(--ink);font-size:17px;font-weight:700;min-height:48px}
+.flash{display:none;position:absolute;inset:0;z-index:15;align-items:center;justify-content:center;
+  flex-direction:column;pointer-events:none;text-align:center;overflow:hidden;
+  background:radial-gradient(ellipse at center,rgba(40,24,6,.9) 0%,rgba(14,10,6,.86) 70%)}
+.flash::before,.flash::after{content:"";position:absolute;left:-10%;right:-10%;height:3px;
+  background:linear-gradient(90deg,transparent,#ffd966 20%,#fff3b0 50%,#ffd966 80%,transparent);
+  box-shadow:0 0 12px #ffcc33}
+.flash::before{top:30%;transform:translateX(-100%);animation:sweep .5s .05s ease-out forwards}
+.flash::after{bottom:30%;transform:translateX(100%);animation:sweepr .5s .05s ease-out forwards}
+.flash.show{display:flex;animation:flashout 2.4s forwards}
+.flash .m{font-size:calc(var(--cell)*.42);font-weight:700;color:#ffe9a8;letter-spacing:.5em;margin-bottom:calc(var(--cell)*.1);
+  font-family:"Hiragino Mincho ProN","Yu Mincho",serif;opacity:0;animation:fadein .3s .35s forwards}
+.flash .t{font-family:"Hiragino Mincho ProN","Yu Mincho","MS PMincho",serif;font-weight:900;
+  font-size:calc(var(--cell)*1.05);letter-spacing:.06em;padding:0 10px;line-height:1.25;
+  background:linear-gradient(180deg,#fffbe0 0%,#ffd75e 45%,#e09a1a 55%,#ffe58a 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 3px 0 rgba(90,50,0,.9)) drop-shadow(0 0 14px rgba(255,190,50,.75));
+  animation:slam .45s .1s cubic-bezier(.2,1.4,.4,1) both}
+.flash .sub{margin-top:calc(var(--cell)*.14);font-size:calc(var(--cell)*.3);color:#ffd9a0;letter-spacing:.3em;
+  font-family:"Hiragino Mincho ProN","Yu Mincho",serif;opacity:0;animation:fadein .3s .6s forwards}
+@keyframes slam{0%{opacity:0;transform:scale(2.2) rotate(-4deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes sweep{to{transform:translateX(0)}}
+@keyframes sweepr{to{transform:translateX(0)}}
+@keyframes fadein{to{opacity:1}}
+@keyframes flashout{0%{opacity:0}8%{opacity:1}78%{opacity:1}100%{opacity:0}}
+
+.sheet{display:none;position:fixed;inset:0;z-index:40;background:rgba(10,12,16,.72);align-items:center;justify-content:center}
+.sheet.show{display:flex}
+.sheetbox{background:var(--panel);border:1px solid #000;border-radius:14px;padding:16px;
+  width:min(92vw,440px);max-height:82vh;overflow-y:auto;text-align:center}
+.sheetbox h3{margin:0 0 10px;font-size:18px}
+.sheetbox p{margin:6px 0 14px;font-size:16px;line-height:1.6;color:var(--sub)}
+.sheetbox .big{font-size:44px;font-weight:800;margin:4px 0}
+.sheetbox button{width:100%;padding:12px;border-radius:12px;border:none;background:var(--accent);
+  color:#1b1b1b;font-size:17px;font-weight:700;margin-top:8px;min-height:48px}
+.sheetbox button.ghost{background:#39414f;color:var(--ink)}
+.sheetbox.left{text-align:left}
+.lgrp{font-size:13px;font-weight:700;color:var(--sub);margin:10px 0 6px}
+.litem{display:flex;justify-content:space-between;padding:10px 12px;border-radius:10px;background:#39414f;
+  margin-bottom:6px;cursor:pointer;font-size:15px}
+.litem.cur{outline:2px solid var(--accent)}
+.litem .ok{color:var(--ok);font-weight:700}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a class="back" href="index.html">📚 本棚</a>
+    <div class="title">将之次の一手<small id="modeLbl"></small></div>
+    <button id="listBtn">☰ 一覧</button>
+    <button id="examBtn" class="exam">試験モード</button>
+  </div>
+  <div class="stage">
+    <div class="info">
+      <span class="badge" id="badge"></span>
+      <div class="qtext" id="qtext"></div>
+      <div class="verdict info" id="verdict"></div>
+      <div class="tagbox" id="tagbox">
+        <div class="cat" id="tagCat"></div><div class="tag" id="tagName"></div>
+        <div class="ln" id="tagLine"></div><div class="ex" id="tagEx"></div>
+      </div>
+      <div class="btnrow">
+        <button id="hintBtn">💡 ヒント</button>
+        <button id="ansBtn">答えを見る</button>
+      </div>
+      <div class="btnrow">
+        <button id="prevBtn">◀ 前の問題</button>
+        <button id="nextBtn" class="pri">次の問題 ▶</button>
+      </div>
+    </div>
+    <div class="boardcol">
+      <div class="hands"><div class="hand"><span class="lab">後手</span><span class="pc" id="wHand"></span></div></div>
+      <div class="brd">
+        <div class="files" id="files"></div>
+        <div class="bmid">
+          <div class="boardwrap">
+            <div id="boardHost"></div>
+            <div class="flash" id="flash"><div class="m">正　解</div><div class="t" id="flashTag"></div><div class="sub" id="flashSub"></div></div>
+            <div class="promobox" id="promo"><div class="lb">成りますか？</div>
+              <button id="yesPromo">成る</button><button id="noPromo">成らず</button></div>
+          </div>
+          <div class="ranks" id="ranks"></div>
+        </div>
+      </div>
+      <div class="hands"><div class="hand"><span class="lab">先手</span><span class="pc" id="bHand"></span></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="sheet" id="sheet"><div class="sheetbox left"><h3>問題一覧</h3><div id="listHost"></div>
+  <button class="ghost" id="closeList">閉じる</button></div></div>
+<div class="sheet" id="result"><div class="sheetbox"><div class="big" id="resMark"></div>
+  <h3 id="resTitle"></h3><p id="resText"></p>
+  <button id="resBtn"></button><button class="ghost" id="resBtn2"></button></div></div>
+
+<script>
+const D = [{"id": "tsugi-001", "tesuji": "桂馬の両取り", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "9/4g1s2/9/9/9/9/9/9/9 b BSNLPsp 1", "answer": "N*4d", "alts": [], "line": ["N*4d"], "explanation": ""}, {"id": "tsugi-002", "tesuji": "桂馬の両取り", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "9/2s1g4/9/9/9/9/9/9/9 b BSNLPsp 1", "answer": "N*6d", "alts": [], "line": ["N*6d"], "explanation": ""}, {"id": "tsugi-003", "tesuji": "桂馬の両取り", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "6g2/1r1gp2s1/2p6/3B5/9/9/9/9/9 b SNLPp 1", "answer": "N*7d", "alts": [], "line": ["N*7d", "7c7d", "6d8b+"], "explanation": ""}, {"id": "tsugi-004", "tesuji": "桂馬の両取り", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "2g6/1s2pg1r1/6p2/5B3/9/9/9/9/9 b SNLPp 1", "answer": "N*3d", "alts": [], "line": ["N*3d", "3c3d", "4d2b+"], "explanation": ""}, {"id": "tsugi-005", "tesuji": "角の両取り", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "3s2g2/1r2p4/9/9/9/9/9/9/9 b BSNLPg 1", "answer": "B*6d", "alts": [], "line": ["B*6d", "8b6b", "6d3a+"], "explanation": ""}, {"id": "tsugi-006", "tesuji": "角の両取り", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "2g2s3/4p2r1/9/9/9/9/9/9/9 b BSNLPg 1", "answer": "B*4d", "alts": [], "line": ["B*4d", "2b4b", "4d7a+"], "explanation": ""}, {"id": "tsugi-007", "tesuji": "王手飛車", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "4k4/1r7/9/9/9/9/9/9/9 b BP2gsp 1", "answer": "B*7c", "alts": [], "line": ["B*7c", "8b6b", "P*6c"], "explanation": ""}, {"id": "tsugi-008", "tesuji": "王手飛車", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "4k4/7r1/9/9/9/9/9/9/9 b BP2gsp 1", "answer": "B*3c", "alts": [], "line": ["B*3c", "2b4b", "P*4c"], "explanation": ""}, {"id": "tsugi-009", "tesuji": "王手飛車", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "9/1r5k1/9/9/9/9/9/9/9 b BSNLP2gsp 1", "answer": "B*5e", "alts": [], "line": ["B*5e", "2b1b", "5e8b+"], "explanation": ""}, {"id": "tsugi-010", "tesuji": "王手飛車", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "9/1k5r1/9/9/9/9/9/9/9 b BSNLP2gsp 1", "answer": "B*5e", "alts": [], "line": ["B*5e", "8b9b", "5e2b+"], "explanation": ""}, {"id": "tsugi-011", "tesuji": "十字飛車", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "1n3g3/6s2/p1p6/7g1/9/9/9/9/9 b RSNLPbp 1", "answer": "R*8d", "alts": [], "line": ["R*8d", "2d2c", "8d8a+"], "explanation": ""}, {"id": "tsugi-012", "tesuji": "十字飛車", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "3g3n1/2s6/6p1p/1g7/9/9/9/9/9 b RSNLPbp 1", "answer": "R*2d", "alts": [], "line": ["R*2d", "8d8c", "2d2a+"], "explanation": ""}, {"id": "tsugi-013", "tesuji": "割り打ちの銀", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "9/4g1g2/5p3/9/9/9/9/9/9 b BSNLPs 1", "answer": "S*4a", "alts": [], "line": ["S*4a", "5b6b", "4a3b+"], "explanation": ""}, {"id": "tsugi-014", "tesuji": "割り打ちの銀", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "9/2g1g4/3p5/9/9/9/9/9/9 b BSNLPs 1", "answer": "S*6a", "alts": [], "line": ["S*6a", "5b4b", "6a7b+"], "explanation": ""}, {"id": "tsugi-015", "tesuji": "割り打ちの銀", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "9/4rpg2/9/9/9/9/9/9/9 b BSNLPg 1", "answer": "S*4a", "alts": [], "line": ["S*4a", "5b6b", "4a3b+"], "explanation": ""}, {"id": "tsugi-016", "tesuji": "割り打ちの銀", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "9/2gpr4/9/9/9/9/9/9/9 b BSNLPg 1", "answer": "S*6a", "alts": [], "line": ["S*6a", "5b4b", "6a7b+"], "explanation": ""}, {"id": "tsugi-017", "tesuji": "割り打ちの銀", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "4r4/9/6g2/9/9/9/9/9/9 b BSNLPgsp 1", "answer": "S*4b", "alts": [], "line": ["S*4b", "5a6a", "4b3c+"], "explanation": ""}, {"id": "tsugi-018", "tesuji": "割り打ちの銀", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "4r4/9/2g6/9/9/9/9/9/9 b BSNLPgsp 1", "answer": "S*6b", "alts": [], "line": ["S*6b", "5a4a", "6b7c+"], "explanation": ""}, {"id": "tsugi-019", "tesuji": "香車の田楽刺し", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "9/4r4/4b4/9/3g5/9/9/9/9 b SNLPgsp 1", "answer": "L*5d", "alts": [], "line": ["L*5d", "5c6d", "5d5b+"], "explanation": ""}, {"id": "tsugi-020", "tesuji": "香車の田楽刺し", "category": "駒得をする手筋", "cshort": "駒得", "mirror": true, "sfen": "9/4r4/4b4/9/5g3/9/9/9/9 b SNLPgsp 1", "answer": "L*5d", "alts": [], "line": ["L*5d", "5c4d", "5d5b+"], "explanation": ""}, {"id": "tsugi-021", "tesuji": "香車の田楽刺し", "category": "駒得をする手筋", "cshort": "駒得", "mirror": false, "sfen": "4k4/4r4/9/4P4/9/9/9/9/9 b SNLb2gsp 1", "answer": "L*5c", "alts": [], "line": ["L*5c"], "explanation": ""}];
+const EXAM_N = Math.min(5, D.length);
+const HINT_MS = 20000;
+const $ = (id) => document.getElementById(id);
+const KANJI = {p:"歩",l:"香",n:"桂",s:"銀",g:"金",b:"角",r:"飛",k:"玉"};
+const PRKANJI = {p:"と",l:"杏",n:"圭",s:"全",b:"馬",r:"龍"};
+const HAND_ORDER = ["R","B","G","S","N","L","P"];
+const RANKJ = "一二三四五六七八九";
+const RANK_CH = "abcdefghi";
+const SELFTEST = /[?&]selftest/.test(location.search);
+
+/* ── 状態 ── */
+const doneKey = "tsugi_done", examKey = "tsugi_exam_clear";
+let done = new Set(JSON.parse(localStorage.getItem(doneKey) || "[]"));
+const G = { qi: 0, st: null, sel: null, locked: false, mode: "practice", exam: null,
+  hintTimer: null, replayTimer: null, hinted: false, missed: false, pendingPromo: null };
+
+/* ── SFEN ── */
+function parse(sfen) {
+  const [bd, turn, hd] = sfen.split(" ");
+  const g = [];
+  for (const row of bd.split("/")) {
+    for (let k = 0; k < row.length; k++) {
+      let ch = row[k];
+      if (/\d/.test(ch)) { for (let n = 0; n < +ch; n++) g.push(null); continue; }
+      let pr = false;
+      if (ch === "+") { pr = true; ch = row[++k]; }
+      g.push({ k: ch.toLowerCase(), c: ch === ch.toUpperCase() ? "b" : "w", pr });
+    }
+  }
+  const hand = { b: {}, w: {} };
+  if (hd && hd !== "-") {
+    const re = /(\d*)([A-Za-z])/g; let m;
+    while ((m = re.exec(hd))) {
+      const side = m[2] === m[2].toUpperCase() ? "b" : "w";
+      const K = m[2].toUpperCase();
+      hand[side][K] = (hand[side][K] || 0) + (m[1] ? +m[1] : 1);
+    }
+  }
+  return { g, hand, turn, last: null };
+}
+const clone = (st) => JSON.parse(JSON.stringify(st));
+const sqName = (i) => (9 - (i % 9)) + RANK_CH[(i / 9) | 0];
+const sqIdx = (s) => ((RANK_CH.indexOf(s[1])) * 9) + (9 - +s[0]);
+
+function applyUsi(st, u) {
+  const me = st.turn;
+  if (u[1] === "*") {
+    const K = u[0];
+    st.hand[me][K]--;
+    st.g[sqIdx(u.slice(2, 4))] = { k: K.toLowerCase(), c: me, pr: false };
+    st.last = sqIdx(u.slice(2, 4));
+  } else {
+    const from = sqIdx(u.slice(0, 2)), to = sqIdx(u.slice(2, 4));
+    const cap = st.g[to];
+    if (cap) st.hand[me][cap.k.toUpperCase()] = (st.hand[me][cap.k.toUpperCase()] || 0) + 1;
+    const pc = st.g[from];
+    st.g[from] = null;
+    st.g[to] = { k: pc.k, c: pc.c, pr: pc.pr || u.endsWith("+") };
+    st.last = to;
+  }
+  st.turn = me === "b" ? "w" : "b";
+}
+
+/* ── 動き（王手・二歩の判定はしない。画面操作の入力補助用） ── */
+function stepsOf(pc) {
+  const f = pc.c === "b" ? -1 : 1;
+  const gold = [[0,f],[-1,f],[1,f],[-1,0],[1,0],[0,-f]];
+  const king = [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]];
+  if (pc.pr && pc.k !== "b" && pc.k !== "r") return { steps: gold, slides: [] };
+  switch (pc.k) {
+    case "k": return { steps: king, slides: [] };
+    case "g": return { steps: gold, slides: [] };
+    case "s": return { steps: [[0,f],[-1,f],[1,f],[-1,-f],[1,-f]], slides: [] };
+    case "n": return { steps: [[-1,2*f],[1,2*f]], slides: [] };
+    case "p": return { steps: [[0,f]], slides: [] };
+    case "l": return { steps: [], slides: [[0,f]] };
+    case "b": return { steps: pc.pr ? [[0,-1],[0,1],[-1,0],[1,0]] : [], slides: [[-1,-1],[1,-1],[-1,1],[1,1]] };
+    case "r": return { steps: pc.pr ? [[-1,-1],[1,-1],[-1,1],[1,1]] : [], slides: [[0,-1],[0,1],[-1,0],[1,0]] };
+  }
+  return { steps: [], slides: [] };
+}
+function targets(st, i) {
+  const pc = st.g[i]; if (!pc) return [];
+  const x = i % 9, y = (i / 9) | 0, out = [];
+  const { steps, slides } = stepsOf(pc);
+  const ok = (nx, ny) => nx >= 0 && nx < 9 && ny >= 0 && ny < 9;
+  for (const [dx, dy] of steps) {
+    const nx = x + dx, ny = y + dy;
+    if (ok(nx, ny) && !(st.g[ny*9+nx] && st.g[ny*9+nx].c === pc.c)) out.push(ny*9+nx);
+  }
+  for (const [dx, dy] of slides) {
+    let nx = x + dx, ny = y + dy;
+    while (ok(nx, ny)) {
+      const t = st.g[ny*9+nx];
+      if (t) { if (t.c !== pc.c) out.push(ny*9+nx); break; }
+      out.push(ny*9+nx); nx += dx; ny += dy;
+    }
+  }
+  return out;
+}
+function dropTargets(st, K) {
+  const me = st.turn, out = [];
+  for (let i = 0; i < 81; i++) {
+    if (st.g[i]) continue;
+    const y = (i / 9) | 0, x = i % 9;
+    const last = me === "b" ? 0 : 8, last2 = me === "b" ? 1 : 7;
+    if ((K === "P" || K === "L") && y === last) continue;
+    if (K === "N" && (y === last || y === last2)) continue;
+    if (K === "P") {
+      let dup = false;
+      for (let r = 0; r < 9; r++) { const q = st.g[r*9+x]; if (q && q.k === "p" && !q.pr && q.c === me) dup = true; }
+      if (dup) continue;
+    }
+    out.push(i);
+  }
+  return out;
+}
+const inZone = (me, i) => { const y = (i / 9) | 0; return me === "b" ? y <= 2 : y >= 6; };
+function promoteState(st, from, to) {            // "none" | "ask" | "force"
+  const pc = st.g[from];
+  if (pc.pr || pc.k === "g" || pc.k === "k") return "none";
+  if (!(inZone(pc.c, from) || inZone(pc.c, to))) return "none";
+  const y = (to / 9) | 0, last = pc.c === "b" ? 0 : 8, last2 = pc.c === "b" ? 1 : 7;
+  if ((pc.k === "p" || pc.k === "l") && y === last) return "force";
+  if (pc.k === "n" && (y === last || y === last2)) return "force";
+  return "ask";
+}
+
+/* ── 日本語の手表記（表示用） ── */
+function moveJa(st, u, prevDest) {
+  const me = st.turn;
+  const dest = sqIdx(u.slice(u[1] === "*" ? 2 : 2, u[1] === "*" ? 4 : 4));
+  const dName = (dest % 9 === dest % 9) ? "１２３４５６７８９"[8 - (dest % 9)] + RANKJ[(dest / 9) | 0] : "";
+  const same = prevDest === dest ? "同" : dName;
+  const mark = me === "b" ? "▲" : "△";
+  if (u[1] === "*") return mark + dName + KANJI[u[0].toLowerCase()] + "打";
+  const pc = st.g[sqIdx(u.slice(0, 2))];
+  const nm = pc.pr ? PRKANJI[pc.k] : KANJI[pc.k];
+  return mark + same + nm + (u.endsWith("+") ? "成" : "");
+}
+
+/* ── 描画 ── */
+function renderBoard() {
+  const st = G.st, p = D[G.qi];
+  let h = '<table class="board" id="bt">';
+  for (let r = 0; r < 9; r++) {
+    h += "<tr>";
+    for (let c = 0; c < 9; c++) {
+      const i = r * 9 + c, pc = st.g[i];
+      let cls = pc ? (pc.c === "b" ? "s" : "g") : "";
+      if (pc && pc.pr) cls += " pr";
+      if (st.last === i) cls += " last";
+      if (G.sel && G.sel.kind === "cell" && G.sel.i === i) cls += " sel";
+      if (G.sel && G.sel.t && G.sel.t.includes(i)) cls += " can";
+      if (G.hintCells && G.hintCells.includes(i)) cls += " hint";
+      h += `<td data-i="${i}" class="${cls}">${pc ? "<span>" + (pc.pr ? PRKANJI[pc.k] : KANJI[pc.k]) + "</span>" : ""}</td>`;
+    }
+    h += "</tr>";
+  }
+  $("boardHost").innerHTML = h + "</table>";
+  $("bt").onclick = (e) => { const td = e.target.closest("td"); if (td) tapCell(+td.dataset.i); };
+  $("files").innerHTML = [9,8,7,6,5,4,3,2,1].map((n) => `<i>${n}</i>`).join("");
+  $("ranks").innerHTML = [...RANKJ].map((n) => `<i>${n}</i>`).join("");
+  renderHand("b"); renderHand("w");
+}
+function renderHand(side) {
+  const hd = G.st.hand[side], el = $(side + "Hand");
+  const items = HAND_ORDER.filter((K) => hd[K] > 0);
+  if (!items.length) { el.innerHTML = '<span class="handempty">なし</span>'; return; }
+  el.innerHTML = "";
+  for (const K of items) {
+    const b = document.createElement("button");
+    b.className = "handbtn" + (side === "w" ? " g" : "") +
+      (G.sel && G.sel.kind === "hand" && G.sel.K === K && side === G.st.turn ? " sel" : "") +
+      (G.hintHand === K && side === G.st.turn ? " hint" : "");
+    b.innerHTML = `<span>${KANJI[K.toLowerCase()]}</span>` + (hd[K] > 1 ? `<small>${hd[K]}</small>` : "");
+    b.onclick = () => tapHand(K, side);
+    el.appendChild(b);
+  }
+}
+
+/* ── 音 ── */
+let AC = null;
+function tone(f, d, type, g, delay) {
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    const t = AC.currentTime + (delay || 0), o = AC.createOscillator(), v = AC.createGain();
+    o.type = type || "sine"; o.frequency.value = f;
+    v.gain.setValueAtTime(g || .15, t); v.gain.exponentialRampToValueAtTime(.0001, t + d);
+    o.connect(v); v.connect(AC.destination); o.start(t); o.stop(t + d);
+  } catch (e) {}
+}
+function ctx() { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === "suspended") AC.resume(); return AC; }
+function noise(dur, freq, q, g, delay, type) {       // ノイズを帯域フィルタに通した打撃音
+  try {
+    const c = ctx(), t = c.currentTime + (delay || 0), n = Math.floor(c.sampleRate * dur);
+    const buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3);
+    const src = c.createBufferSource(), f = c.createBiquadFilter(), v = c.createGain();
+    src.buffer = buf; f.type = type || "bandpass"; f.frequency.value = freq; f.Q.value = q || 1;
+    v.gain.value = g || .3; src.connect(f); f.connect(v); v.connect(c.destination); src.start(t);
+  } catch (e) {}
+}
+function thump(f0, f1, dur, g, delay) {               // 太鼓のように音程が落ちる低音
+  try {
+    const c = ctx(), t = c.currentTime + (delay || 0), o = c.createOscillator(), v = c.createGain();
+    o.type = "sine"; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    v.gain.setValueAtTime(g || .5, t); v.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(v); v.connect(c.destination); o.start(t); o.stop(t + dur);
+  } catch (e) {}
+}
+function brass(f, dur, g, delay) {                    // 金管風: のこぎり波 + ローパスが開く
+  try {
+    const c = ctx(), t = c.currentTime + (delay || 0), o = c.createOscillator(), fl = c.createBiquadFilter(), v = c.createGain();
+    o.type = "sawtooth"; o.frequency.value = f; fl.type = "lowpass"; fl.Q.value = 2;
+    fl.frequency.setValueAtTime(500, t); fl.frequency.exponentialRampToValueAtTime(3200, t + .08);
+    v.gain.setValueAtTime(.0001, t); v.gain.exponentialRampToValueAtTime(g || .12, t + .03);
+    v.gain.setValueAtTime(g || .12, t + dur * .6); v.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(fl); fl.connect(v); v.connect(c.destination); o.start(t); o.stop(t + dur);
+  } catch (e) {}
+}
+const sClick = () => { noise(.06, 2200, 3, .55); thump(210, 90, .09, .35); };      // 駒音: パチッ
+const sOk = () => {                                                              // 技名の「ドン」+ きらめき
+  thump(160, 42, .55, .8, .08); noise(.25, 900, .7, .5, .08);
+  [784, 988, 1175, 1568, 1976].forEach((f, k) => { tone(f, .5, "triangle", .1, .22 + k * .07); tone(f * 2, .35, "sine", .035, .24 + k * .07); });
+  noise(.5, 7000, 1.2, .12, .3, "highpass");
+};
+const sNg = () => { tone(220, .22, "square", .08); tone(165, .38, "square", .08, .18); thump(120, 60, .3, .25, .18); };
+const sFan = () => {                                                              // 合格ファンファーレ
+  thump(150, 45, .5, .8, 0);
+  [[392, 0], [523, .14], [659, .28], [784, .42]].forEach(([f, d]) => brass(f, .22, .1, d));
+  [523, 659, 784, 1047].forEach((f) => brass(f, 1.1, .1, .62));
+  [1568, 1976, 2349, 3136].forEach((f, k) => tone(f, .6, "triangle", .06, .7 + k * .08));
+  noise(.9, 6500, 1, .15, .62, "highpass");
+};
+
+/* ── 問題の開始 ── */
+function clearTimers() { clearTimeout(G.hintTimer); clearTimeout(G.replayTimer); }
+function say(t, k) { const v = $("verdict"); v.textContent = t; v.className = "verdict " + (k || "info"); }
+function load(qi) {
+  clearTimers();
+  G.qi = qi; G.st = parse(D[qi].sfen); G.sel = null; G.locked = false;
+  G.hintCells = null; G.hintHand = null; G.hinted = false; G.missed = false;
+  const p = D[qi];
+  $("tagbox").className = "tagbox";
+  $("badge").textContent = G.mode === "exam" ? `試験 ${G.exam.k + 1} / ${EXAM_N}` : `第 ${qi + 1} 問 / ${D.length}`;
+  $("qtext").innerHTML = `<b>${G.st.turn === "b" ? "先手" : "後手"}</b>の次の一手は？<br>盤か持駒をタップして指してください。`;
+  say(G.mode === "exam" ? "試験中: 1問でも間違えたらやり直しです。" : "");
+  $("hintBtn").disabled = G.mode === "exam"; $("ansBtn").disabled = G.mode === "exam";
+  $("prevBtn").style.display = $("nextBtn").style.display = G.mode === "exam" ? "none" : "";
+  $("nextBtn").disabled = false;
+  renderBoard();
+  if (G.mode === "practice" && !SELFTEST) G.hintTimer = setTimeout(showHint, HINT_MS);
+  $("modeLbl").textContent = G.mode === "exam" ? "› 試験モード" : "› 練習";
+  updateTop();
+}
+function updateTop() {
+  const left = D.length - done.size;
+  const eb = $("examBtn");
+  if (G.mode === "exam") { eb.textContent = "練習に戻る"; eb.disabled = false; }
+  else if (left > 0) { eb.textContent = `🔒 試験モード（あと${left}問）`; eb.disabled = true; }
+  else { eb.textContent = localStorage.getItem(examKey) ? "🏆 試験モード" : "試験モード"; eb.disabled = false; }
+}
+
+/* ── ヒント ── */
+function showHint() {
+  if (G.locked) return;
+  const u = D[G.qi].answer;
+  G.hinted = true;
+  if (u[1] === "*") { G.hintCells = [sqIdx(u.slice(2, 4))]; G.hintHand = u[0]; }
+  else G.hintCells = [sqIdx(u.slice(0, 2)), sqIdx(u.slice(2, 4))];
+  say(u[1] === "*" ? "ヒント: 光っているマスに、光っている駒を打ってみましょう。" : "ヒント: 光っている駒を、光っているマスへ動かしてみましょう。", "info");
+  renderBoard();
+}
+
+/* ── 入力 ── */
+function tapHand(K, side) {
+  if (G.locked || side !== G.st.turn) return;
+  if (G.sel && G.sel.kind === "hand" && G.sel.K === K) G.sel = null;
+  else G.sel = { kind: "hand", K, t: dropTargets(G.st, K) };
+  renderBoard();
+}
+function tapCell(i) {
+  if (G.locked) return;
+  const st = G.st, pc = st.g[i], s = G.sel;
+  if (s && s.t.includes(i)) { attempt(s, i); return; }
+  if (pc && pc.c === st.turn) {
+    G.sel = (s && s.kind === "cell" && s.i === i) ? null : { kind: "cell", i, t: targets(st, i) };
+  } else G.sel = null;
+  renderBoard();
+}
+function attempt(s, to) {
+  if (s.kind === "hand") { commit(s.K + "*" + sqName(to)); return; }
+  const ps = promoteState(G.st, s.i, to), base = sqName(s.i) + sqName(to);
+  if (ps === "none") commit(base);
+  else if (ps === "force") commit(base + "+");
+  else {
+    G.pendingPromo = base; $("promo").classList.add("show");
+  }
+}
+function commit(u) {
+  $("promo").classList.remove("show");
+  G.sel = null;
+  const p = D[G.qi], good = [p.answer, ...(p.alts || [])];
+  sClick();
+  if (good.includes(u)) correct(u); else wrong(u);
+}
+
+/* ── 正解 / 不正解 ── */
+function lineTail(u) {
+  const p = D[G.qi];
+  return p.line && p.line[0] === u ? p.line.slice(1) : (p.line && p.answer === u ? p.line.slice(1) : []);
+}
+function correct(u, noCredit) {
+  G.locked = true; clearTimers();
+  G.hintCells = null; G.hintHand = null;
+  const p = D[G.qi], st = G.st;
+  const names = [];
+  let prev = null;
+  const sim = clone(st);
+  names.push(moveJa(sim, u, prev)); prev = sqIdx(u.slice(u[1] === "*" ? 2 : 2, 4));
+  applyUsi(G.st, u);
+  renderBoard();
+  if (!noCredit) {
+    sOk();
+    $("flashTag").textContent = p.tesuji; $("flashSub").textContent = "技名　—　" + p.cshort; $("flash").classList.remove("show"); void $("flash").offsetWidth; $("flash").classList.add("show");
+    say("◯ 正解！", "ok");
+    done.add(p.id); localStorage.setItem(doneKey, JSON.stringify([...done]));
+  } else say("答え: " + names[0], "info");
+  const tail = lineTail(u);
+  applyUsi(sim, u);
+  const lineEls = [`<span>${names[0]}</span>`];
+  showTag(p, lineEls, !noCredit);
+  let k = 0;
+  const step = () => {
+    if (k >= tail.length) { finish(); return; }
+    const mv = tail[k++], ja = moveJa(sim, mv, prev);
+    prev = sqIdx(mv.slice(mv[1] === "*" ? 2 : 2, 4));
+    applyUsi(sim, mv); applyUsi(G.st, mv); sClick();
+    lineEls.push(`<span class="${sim.turn === "b" ? "g" : ""}">${ja}</span>`);
+    showTag(p, lineEls, !noCredit); renderBoard();
+    G.replayTimer = setTimeout(step, 1100);
+  };
+  const finish = () => {
+    updateTop();
+    if (G.mode === "exam" && !noCredit) G.replayTimer = setTimeout(examAdvance, 1300);
+  };
+  G.replayTimer = setTimeout(step, noCredit ? 600 : 1300);
+}
+function showTag(p, lineEls, credit) {
+  $("tagbox").className = "tagbox show";
+  $("tagCat").textContent = p.mirror ? "（左右反転の図）" : "";
+  $("tagName").innerHTML = `<small>技名:</small> ${p.tesuji} <small>（${p.cshort}）</small>`;
+  $("tagLine").innerHTML = lineEls.join("");
+  $("tagEx").textContent = p.explanation || "";
+}
+function wrong(u) {
+  sNg();
+  const bh = $("boardHost"); bh.classList.remove("shake"); void bh.offsetWidth; bh.classList.add("shake");
+  if (G.mode === "exam") { examFail(); return; }
+  G.missed = true;
+  say("ちがいます。もう一度考えてみましょう。", "ng");
+  renderBoard();
+}
+
+/* ── 練習 ── */
+function go(d) {
+  if (G.mode !== "practice") return;
+  load((G.qi + d + D.length) % D.length);
+}
+function firstUndone() { const i = D.findIndex((p) => !done.has(p.id)); return i < 0 ? 0 : i; }
+
+/* ── 試験 ── */
+function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function pickExam() {
+  const pool = shuffle(D.map((_, i) => i)), used = new Set(), out = [];
+  for (const i of pool) if (out.length < EXAM_N && !used.has(D[i].tesuji)) { out.push(i); used.add(D[i].tesuji); }
+  for (const i of pool) if (out.length < EXAM_N && !out.includes(i)) out.push(i);
+  return out;
+}
+function startExam() {
+  hideResult();
+  G.mode = "exam"; G.exam = { order: pickExam(), k: 0 };
+  load(G.exam.order[0]);
+}
+function examAdvance() {
+  G.exam.k++;
+  if (G.exam.k >= EXAM_N) { examPass(); return; }
+  load(G.exam.order[G.exam.k]);
+}
+function showResult(mark, title, text, b1, f1, b2, f2) {
+  $("resMark").textContent = mark; $("resTitle").textContent = title; $("resText").textContent = text;
+  $("resBtn").textContent = b1; $("resBtn").onclick = f1;
+  $("resBtn2").textContent = b2; $("resBtn2").onclick = f2;
+  $("result").classList.add("show");
+}
+function hideResult() { $("result").classList.remove("show"); }
+function examFail() {
+  G.locked = true; clearTimers();
+  const p = D[G.qi];
+  showResult("✕", "不合格", `${G.exam.k}問連続で正解。${G.exam.k + 1}問目で間違えました。正解は「${p.tesuji}」の手でした。もう一度、最初から挑戦しましょう。`,
+    "再挑戦", startExam, "練習に戻る", backToPractice);
+}
+function examPass() {
+  clearTimers(); sFan();
+  localStorage.setItem(examKey, "1");
+  showResult("🏆", "合格！", `${EXAM_N}問連続で正解しました。おめでとうございます！`,
+    "もう一度挑戦", startExam, "練習に戻る", backToPractice);
+  updateTop();
+}
+function backToPractice() { hideResult(); G.mode = "practice"; G.exam = null; load(firstUndone()); }
+
+/* ── 一覧 ── */
+function openList() {
+  let h = "", cat = null;
+  D.forEach((p, i) => {
+    if (p.category !== cat) { cat = p.category; h += `<div class="lgrp">${cat}</div>`; }
+    h += `<div class="litem${i === G.qi ? " cur" : ""}" data-i="${i}"><span>第${i + 1}問 ${done.has(p.id) ? p.tesuji : "？"}${p.mirror ? "（反転）" : ""}</span><span class="ok">${done.has(p.id) ? "✓" : ""}</span></div>`;
+  });
+  $("listHost").innerHTML = h;
+  $("listHost").onclick = (e) => { const it = e.target.closest(".litem"); if (it) { $("sheet").classList.remove("show"); if (G.mode === "practice") load(+it.dataset.i); } };
+  $("sheet").classList.add("show");
+}
+
+/* ── 配線 ── */
+$("promo").querySelector("#yesPromo").onclick = () => commit(G.pendingPromo + "+");
+$("promo").querySelector("#noPromo").onclick = () => commit(G.pendingPromo);
+$("hintBtn").onclick = showHint;
+$("ansBtn").onclick = () => { if (!G.locked) { G.missed = true; correct(D[G.qi].answer, true); } };
+$("prevBtn").onclick = () => go(-1);
+$("nextBtn").onclick = () => go(1);
+$("listBtn").onclick = openList;
+$("closeList").onclick = () => $("sheet").classList.remove("show");
+$("examBtn").onclick = () => { if (G.mode === "exam") backToPractice(); else startExam(); };
+
+/* ── セルフテスト（?selftest） ── */
+function selftest() {
+  const out = []; let bad = 0;
+  const T = (c, m) => { if (!c) { bad++; out.push("NG " + m); } };
+  // 1) 各問: 解答手順が移動規則上たどれて、答えをタップで入力できる
+  D.forEach((p, qi) => {
+    const st = parse(p.sfen);
+    for (const mv of p.line) {
+      const me = st.turn;
+      if (mv[1] === "*") T(st.hand[me][mv[0]] > 0 && dropTargets(st, mv[0]).includes(sqIdx(mv.slice(2, 4))), `${p.id} 打 ${mv}`);
+      else {
+        const fr = sqIdx(mv.slice(0, 2)), to = sqIdx(mv.slice(2, 4));
+        T(st.g[fr] && st.g[fr].c === me && targets(st, fr).includes(to), `${p.id} 移動 ${mv}`);
+        const ps = promoteState(st, fr, to);
+        T(mv.endsWith("+") ? ps !== "none" : ps !== "force", `${p.id} 成り ${mv}`);
+      }
+      applyUsi(st, mv);
+    }
+    // タップ操作で答えを入力して正解になる
+    G.mode = "practice"; load(qi);
+    const u = p.answer;
+    if (u[1] === "*") { tapHand(u[0], G.st.turn); tapCell(sqIdx(u.slice(2, 4))); }
+    else {
+      tapCell(sqIdx(u.slice(0, 2))); tapCell(sqIdx(u.slice(2, 4)));
+      if ($("promo").classList.contains("show")) $(u.endsWith("+") ? "yesPromo" : "noPromo").click();
+    }
+    T(G.locked && done.has(p.id), `${p.id} タップ入力で正解にならない`);
+    clearTimers();
+    // 不正解: 別の手（盤に最初に出る合法な打ち/動き）
+    load(qi);
+    const bad1 = (() => { for (let i = 0; i < 81; i++) { const q = G.st.g[i]; if (q && q.c === G.st.turn) { for (const t of targets(G.st, i)) { const m = sqName(i) + sqName(t); if (m !== p.answer && !(p.alts || []).includes(m) && promoteState(G.st, i, t) === "none") return m; } } } return null; })();
+    if (bad1) { done.delete(p.id); const before = done.size; commit(bad1); T(!G.locked && done.size === before, `${p.id} 誤答が不正解にならない`); }
+    clearTimers();
+  });
+  // 2) 試験の流れ: 5問連続正解で合格 / 1問誤答で不合格
+  const solveTap = () => {
+    const u = D[G.qi].answer;
+    if (u[1] === "*") { tapHand(u[0], G.st.turn); tapCell(sqIdx(u.slice(2, 4))); }
+    else { tapCell(sqIdx(u.slice(0, 2))); tapCell(sqIdx(u.slice(2, 4))); if ($("promo").classList.contains("show")) $(u.endsWith("+") ? "yesPromo" : "noPromo").click(); }
+  };
+  localStorage.removeItem(examKey);
+  startExam();
+  for (let k = 0; k < EXAM_N; k++) { solveTap(); clearTimers(); T(G.locked, "試験 " + (k + 1) + "問目 正解"); T(!$("result").classList.contains("show") || k === EXAM_N, "途中で結果が出た"); examAdvance(); }
+  T($("result").classList.contains("show") && $("resTitle").textContent === "合格！" && localStorage.getItem(examKey) === "1", "5問連続で合格にならない");
+  hideResult();
+  startExam(); solveTap(); clearTimers(); examAdvance();
+  const wrongMv = (() => { for (let i = 0; i < 81; i++) { const q = G.st.g[i]; if (q && q.c === G.st.turn) for (const t of targets(G.st, i)) { const m = sqName(i) + sqName(t); if (m !== D[G.qi].answer && promoteState(G.st, i, t) === "none") return m; } } })();
+  commit(wrongMv); clearTimers();
+  T($("result").classList.contains("show") && $("resTitle").textContent === "不合格", "1問誤答で不合格にならない");
+  T(G.exam.k === 1, "不合格時の連続正解数");
+  hideResult(); localStorage.removeItem(examKey); G.mode = "practice"; G.exam = null;
+  // 3) 試験: 5問選出
+  const ex = pickExam(); T(ex.length === EXAM_N && new Set(ex).size === EXAM_N, "試験の選出");
+  // 4) 手筋名が全問にある
+  D.forEach((p) => T(p.tesuji && p.category, p.id + " 手筋名なし"));
+  localStorage.removeItem(doneKey);
+  document.body.setAttribute("data-selftest", bad ? "NG" : "OK");
+  const pre = document.createElement("pre"); pre.id = "selftest";
+  pre.textContent = (bad ? "SELFTEST NG " + bad + "\n" : "SELFTEST OK " + D.length + "\n") + out.join("\n");
+  document.body.appendChild(pre);
+}
+
+G.mode = "practice";
+load(firstUndone());
+if (SELFTEST) selftest();
+if (/[?&]hint/.test(location.search)) showHint();
+if (/[?&]solve/.test(location.search)) { const u = D[G.qi].answer; if (u[1] === "*") { tapHand(u[0], G.st.turn); tapCell(sqIdx(u.slice(2, 4))); } }
+</script>
+</body></html>
