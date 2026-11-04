@@ -120,24 +120,38 @@ table.board td.hint{animation:glow 1s infinite alternate}
 .flash::before,.flash::after{content:"";position:absolute;left:-10%;right:-10%;height:3px;
   background:linear-gradient(90deg,transparent,#ffd966 20%,#fff3b0 50%,#ffd966 80%,transparent);
   box-shadow:0 0 12px #ffcc33}
-.flash::before{top:30%;transform:translateX(-100%);animation:sweep .5s .05s ease-out forwards}
-.flash::after{bottom:30%;transform:translateX(100%);animation:sweepr .5s .05s ease-out forwards}
-.flash.show{display:flex;animation:flashout 2.4s forwards}
+.flash::before{top:30%;transform:translateX(-100%);animation:sweep .35s .03s ease-out forwards}
+.flash::after{bottom:30%;transform:translateX(100%);animation:sweepr .35s .03s ease-out forwards}
+.flash.show{display:flex;animation:flashout 1.7s forwards}
 .flash .m{font-size:calc(var(--cell)*.42);font-weight:700;color:#ffe9a8;letter-spacing:.5em;margin-bottom:calc(var(--cell)*.1);
-  font-family:"Hiragino Mincho ProN","Yu Mincho",serif;opacity:0;animation:fadein .3s .35s forwards}
+  font-family:"Hiragino Mincho ProN","Yu Mincho",serif;opacity:0;animation:fadein .25s .22s forwards}
 .flash .t{font-family:"Hiragino Mincho ProN","Yu Mincho","MS PMincho",serif;font-weight:900;
   font-size:calc(var(--cell)*1.05);letter-spacing:.06em;padding:0 10px;line-height:1.25;
   background:linear-gradient(180deg,#fffbe0 0%,#ffd75e 45%,#e09a1a 55%,#ffe58a 100%);
   -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;
   filter:drop-shadow(0 3px 0 rgba(90,50,0,.9)) drop-shadow(0 0 14px rgba(255,190,50,.75));
-  animation:slam .45s .1s cubic-bezier(.2,1.4,.4,1) both}
+  animation:slam .35s .05s cubic-bezier(.2,1.4,.4,1) both}
 .flash .sub{margin-top:calc(var(--cell)*.14);font-size:calc(var(--cell)*.3);color:#ffd9a0;letter-spacing:.3em;
-  font-family:"Hiragino Mincho ProN","Yu Mincho",serif;opacity:0;animation:fadein .3s .6s forwards}
+  font-family:"Hiragino Mincho ProN","Yu Mincho",serif;opacity:0;animation:fadein .25s .35s forwards}
 @keyframes slam{0%{opacity:0;transform:scale(2.2) rotate(-4deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
 @keyframes sweep{to{transform:translateX(0)}}
 @keyframes sweepr{to{transform:translateX(0)}}
 @keyframes fadein{to{opacity:1}}
-@keyframes flashout{0%{opacity:0}8%{opacity:1}78%{opacity:1}100%{opacity:0}}
+@keyframes flashout{0%{opacity:0}9%{opacity:1}72%{opacity:1}100%{opacity:0}}
+table.board td.glow{animation:pika .9s ease-out}
+table.board td.glow span{animation:pikaT .9s ease-out}
+@keyframes pika{0%{background:rgba(255,255,255,.95);box-shadow:inset 0 0 0 4px #fff,0 0 24px 8px rgba(255,235,120,.95)}
+  100%{box-shadow:inset 0 0 0 0 transparent,0 0 0 0 transparent}}
+@keyframes pikaT{0%{filter:brightness(2.4) drop-shadow(0 0 10px #ffe680)}100%{filter:none}}
+.pop{position:absolute;z-index:12;pointer-events:none;white-space:nowrap;translate:-50% 0;
+  font-family:"Hiragino Mincho ProN","Yu Mincho","MS PMincho",serif;font-weight:900;
+  font-size:calc(var(--cell)*.4);letter-spacing:.04em;
+  background:linear-gradient(180deg,#fffbe0 0%,#ffd75e 48%,#e09a1a 58%,#ffe58a 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 2px 0 rgba(60,30,0,.95)) drop-shadow(0 0 8px rgba(255,190,50,.8));
+  animation:popin 1.4s ease-out forwards}
+.pop.up{translate:-50% -100%}
+@keyframes popin{0%{opacity:0;transform:scale(.6)}14%{opacity:1;transform:scale(1.12)}26%{transform:scale(1)}78%{opacity:1}100%{opacity:0;transform:translateY(-8px)}}
 
 .sheet{display:none;position:fixed;inset:0;z-index:40;background:rgba(10,12,16,.72);align-items:center;justify-content:center}
 .sheet.show{display:flex}
@@ -437,6 +451,7 @@ const sOk = () => {                                                             
   [784, 988, 1175, 1568, 1976].forEach((f, k) => { tone(f, .5, "triangle", .1, .22 + k * .07); tone(f * 2, .35, "sine", .035, .24 + k * .07); });
   noise(.5, 7000, 1.2, .12, .3, "highpass");
 };
+const sOkS = () => { tone(1175, .18, "triangle", .12); tone(1568, .32, "sine", .1, .07); noise(.05, 6000, 2, .15, 0, "highpass"); };
 const sNg = () => { tone(220, .22, "square", .08); tone(165, .38, "square", .08, .18); thump(120, 60, .3, .25, .18); };
 const sFan = () => {                                                              // 合格ファンファーレ
   thump(150, 45, .5, .8, 0);
@@ -447,12 +462,15 @@ const sFan = () => {                                                            
 };
 
 /* ── 問題の開始 ── */
-function clearTimers() { clearTimeout(G.hintTimer); clearTimeout(G.replayTimer); }
+function clearTimers() { clearTimeout(G.hintTimer); clearTimeout(G.replayTimer); clearTimeout(G.idleTimer); clearTimeout(G.nextTimer); }
+function after(ms, fn, seq) { if (SELFTEST) { if (seq) fn(); return 0; } return setTimeout(fn, ms); }
 function say(t, k) { const v = $("verdict"); v.textContent = t; v.className = "verdict " + (k || "info"); }
 function load(qi) {
   clearTimers();
   G.qi = qi; G.st = parse(D[qi].sfen); G.sel = null; G.locked = false;
   G.hintCells = null; G.hintHand = null; G.hinted = false; G.missed = false;
+  G.plan = D[qi].line.slice(); G.pi = 0; G.moves = []; G.prevDest = null; G.fin = false;
+  document.querySelectorAll(".pop").forEach((e) => e.remove());
   const p = D[qi];
   $("tagbox").className = "tagbox";
   $("badge").textContent = G.mode === "exam" ? `試験 ${G.exam.k + 1} / ${EXAM_N}` : `第 ${PR.indexOf(qi) + 1} 問 / ${PR.length}`;
@@ -477,7 +495,7 @@ function updateTop() {
 /* ── ヒント ── */
 function showHint() {
   if (G.locked) return;
-  const u = D[G.qi].answer;
+  const u = G.plan[G.pi];
   G.hinted = true;
   if (u[1] === "*") { G.hintCells = [sqIdx(u.slice(2, 4))]; G.hintHand = u[0]; }
   else G.hintCells = [sqIdx(u.slice(0, 2)), sqIdx(u.slice(2, 4))];
@@ -513,63 +531,69 @@ function attempt(s, to) {
 function commit(u) {
   $("promo").classList.remove("show");
   G.sel = null;
-  const p = D[G.qi], good = [p.answer, ...(p.alts || [])];
-  sClick();
-  if (good.includes(u)) correct(u); else wrong(u);
-}
-
-/* ── 正解 / 不正解 ── */
-function lineTail(u) {
   const p = D[G.qi];
-  return p.line && p.line[0] === u ? p.line.slice(1) : (p.line && p.answer === u ? p.line.slice(1) : []);
+  const ok = G.pi === 0 ? [p.answer, ...(p.alts || [])].includes(u) : u === G.plan[G.pi];
+  sClick();
+  if (ok) correct(u); else wrong(u);
 }
-function correct(u, noCredit) {
-  G.locked = true; clearTimers();
-  G.hintCells = null; G.hintHand = null;
-  const p = D[G.qi], st = G.st;
-  const names = [];
-  let prev = null;
-  const sim = clone(st);
-  names.push(moveJa(sim, u, prev)); prev = sqIdx(u.slice(u[1] === "*" ? 2 : 2, 4));
+const destOf = (u) => sqIdx(u.slice(2, 4));
+function boardEl(i) { return document.querySelector(`#bt td[data-i="${i}"]`); }
+function glowAt(i) { const td = boardEl(i); if (td) { td.classList.add("glow"); setTimeout(() => td.classList.remove("glow"), 1000); } }
+function popAt(i, text) {                               // 駒の近くに小さく出す（指し手の邪魔をしない）
+  const td = boardEl(i), wrap = document.querySelector(".boardwrap"); if (!td) return;
+  const wr = wrap.getBoundingClientRect(), r = td.getBoundingClientRect(), up = ((i / 9) | 0) >= 2;
+  const el = document.createElement("div");
+  el.className = "pop" + (up ? " up" : ""); el.textContent = text;
+  el.style.left = (r.left - wr.left + r.width / 2) + "px";
+  el.style.top = (up ? r.top - wr.top - 2 : r.bottom - wr.top + 2) + "px";
+  wrap.appendChild(el); setTimeout(() => el.remove(), 1500);
+}
+function addMove(ja, gote) { G.moves.push(`<span class="${gote ? "g" : ""}">${ja}</span>`); }
+function correct(u) {
+  clearTimeout(G.hintTimer); clearTimeout(G.idleTimer);
+  G.locked = true; G.hintCells = null; G.hintHand = null;
+  const p = D[G.qi], first = G.pi === 0;
+  if (first && u !== p.answer) G.plan = [u];            // 別解で入ったら、その1手で完結
+  addMove(moveJa(G.st, u, G.prevDest), G.st.turn === "w");
+  G.prevDest = destOf(u);
   applyUsi(G.st, u);
-  renderBoard();
-  if (!noCredit) {
-    sOk();
-    $("flashTag").textContent = p.tesuji; $("flashSub").textContent = "技名　—　" + p.cshort; $("flash").classList.remove("show"); void $("flash").offsetWidth; $("flash").classList.add("show");
-    say("◯ 正解！", "ok");
-    done.add(p.id); localStorage.setItem(doneKey, JSON.stringify([...done]));
-  } else say("答え: " + names[0], "info");
-  const tail = lineTail(u);
-  applyUsi(sim, u);
-  const lineEls = [`<span>${names[0]}</span>`];
-  showTag(p, lineEls, !noCredit);
-  let k = 0;
-  const step = () => {
-    if (k >= tail.length) { finish(); return; }
-    const mv = tail[k++], ja = moveJa(sim, mv, prev);
-    prev = sqIdx(mv.slice(mv[1] === "*" ? 2 : 2, 4));
-    applyUsi(sim, mv); applyUsi(G.st, mv); sClick();
-    lineEls.push(`<span class="${sim.turn === "b" ? "g" : ""}">${ja}</span>`);
-    showTag(p, lineEls, !noCredit); renderBoard();
-    G.replayTimer = setTimeout(step, 1100);
-  };
-  const finish = () => {
-    updateTop();
-    if (G.mode === "exam" && !noCredit) G.replayTimer = setTimeout(examAdvance, 1300);
-  };
-  // 技名の演出（#flash の flashout）が完全に終わってから再生を始める
-  let started = false;
-  const start = () => { if (started) return; started = true; $("flash").removeEventListener("animationend", onEnd); clearTimeout(G.replayTimer); G.replayTimer = setTimeout(step, 400); };
-  const onEnd = (e) => { if (e.animationName === "flashout") start(); };
-  if (noCredit) G.replayTimer = setTimeout(step, 600);
-  else { $("flash").addEventListener("animationend", onEnd); G.replayTimer = setTimeout(start, 3200); }   // 保険（イベントが来ない場合）
+  renderBoard(); glowAt(destOf(u));
+  if (G.pi + 1 >= G.plan.length) { finalOk(p); return; }
+  sOkS(); popAt(destOf(u), first ? p.tesuji : "◯ 正解");
+  if (first) say("◯ 正解！ 相手の応手のあと、続けて指してください。", "ok"); else say("◯ いいですね。続けて指してください。", "ok");
+  showTag(p, false);
+  after(900, oppMove, true);
 }
-function showTag(p, lineEls, credit) {
+function oppMove() {
+  const p = D[G.qi], mv = G.plan[G.pi + 1];
+  addMove(moveJa(G.st, mv, G.prevDest), G.st.turn === "w");
+  G.prevDest = destOf(mv);
+  applyUsi(G.st, mv); sClick();
+  G.pi += 2; renderBoard(); showTag(p, false);
+  if (G.pi >= G.plan.length) { finalOk(p); return; }
+  G.locked = false;
+  G.idleTimer = after(15000, idleOut);                   // 正解のあと15秒何も触らなければ次へ
+}
+function finalOk(p) {
+  G.locked = true; G.fin = true;
+  done.add(p.id); localStorage.setItem(doneKey, JSON.stringify([...done])); updateTop();
+  sOk(); bigFlash(p); say("◯ 正解！", "ok"); showTag(p, true);
+  G.nextTimer = after(3000, () => { if (G.mode === "exam") examAdvance(); else go(1); });   // 3秒で次の問題へ
+}
+function bigFlash(p) {
+  $("flashTag").textContent = p.tesuji; $("flashSub").textContent = "技名　—　" + p.cshort;
+  const f = $("flash"); f.classList.remove("show"); void f.offsetWidth; f.classList.add("show");
+}
+function idleOut() {
+  if (G.locked) return;
+  if (G.mode === "exam") examFail("途中で15秒手が止まりました。"); else go(1);
+}
+function showTag(p, final) {
   $("tagbox").className = "tagbox show";
   $("tagCat").textContent = p.mirror ? "（左右反転の図）" : "";
   $("tagName").innerHTML = `<small>技名:</small> ${p.tesuji} <small>（${p.cshort}）</small>`;
-  $("tagLine").innerHTML = lineEls.join("");
-  $("tagEx").textContent = p.explanation || "";
+  $("tagLine").innerHTML = G.moves.join("");
+  $("tagEx").textContent = final ? (p.explanation || "") : "";
 }
 function wrong(u) {
   sNg();
@@ -578,6 +602,20 @@ function wrong(u) {
   G.missed = true;
   say("ちがいます。もう一度考えてみましょう。", "ng");
   renderBoard();
+}
+function reveal() {                                       // 「答えを見る」: 正解手順を見せる（正解にはならない）
+  if (G.locked) return;
+  clearTimers(); G.locked = true; G.hintCells = null; G.hintHand = null; G.missed = true;
+  const p = D[G.qi], line = G.pi === 0 ? p.line : G.plan.slice(G.pi);
+  let k = 0;
+  const step = () => {
+    if (k >= line.length) { say("答えを見ました（正解にはなりません）。", "info"); return; }
+    const mv = line[k++];
+    addMove(moveJa(G.st, mv, G.prevDest), G.st.turn === "w"); G.prevDest = destOf(mv);
+    applyUsi(G.st, mv); sClick(); renderBoard(); glowAt(destOf(mv)); showTag(p, k >= line.length);
+    G.replayTimer = setTimeout(step, 1000);
+  };
+  step();
 }
 
 /* ── 練習 ── */
@@ -613,10 +651,10 @@ function showResult(mark, title, text, b1, f1, b2, f2) {
   $("result").classList.add("show");
 }
 function hideResult() { $("result").classList.remove("show"); }
-function examFail() {
+function examFail(why) {
   G.locked = true; clearTimers();
   const p = D[G.qi];
-  showResult("✕", "不合格", `${G.exam.k}問連続で正解。${G.exam.k + 1}問目で間違えました。正解は「${p.tesuji}」の手でした。もう一度、最初から挑戦しましょう。`,
+  showResult("✕", "不合格", `${G.exam.k}問連続で正解。${G.exam.k + 1}問目で${why ? why.replace("。", "") : "間違えました"}。正解は「${p.tesuji}」の手でした。もう一度、最初から挑戦しましょう。`,
     "再挑戦", startExam, "練習に戻る", backToPractice);
 }
 function examPass() {
@@ -645,7 +683,7 @@ function openList() {
 $("promo").querySelector("#yesPromo").onclick = () => commit(G.pendingPromo + "+");
 $("promo").querySelector("#noPromo").onclick = () => commit(G.pendingPromo);
 $("hintBtn").onclick = showHint;
-$("ansBtn").onclick = () => { if (!G.locked) { G.missed = true; correct(D[G.qi].answer, true); } };
+$("ansBtn").onclick = reveal;
 $("prevBtn").onclick = () => go(-1);
 $("nextBtn").onclick = () => go(1);
 $("listBtn").onclick = openList;
@@ -653,11 +691,20 @@ $("closeList").onclick = () => $("sheet").classList.remove("show");
 $("examBtn").onclick = () => { if (G.mode === "exam") backToPractice(); else startExam(); };
 
 /* ── セルフテスト（?selftest） ── */
+function tapMove(u) {
+  if (u[1] === "*") { tapHand(u[0], G.st.turn); tapCell(sqIdx(u.slice(2, 4))); }
+  else { tapCell(sqIdx(u.slice(0, 2))); tapCell(sqIdx(u.slice(2, 4))); if ($("promo").classList.contains("show")) $(u.endsWith("+") ? "yesPromo" : "noPromo").click(); }
+}
+function playAll() { let n = 0; while (!G.fin && n++ < 20) tapMove(G.plan[G.pi]); }
+function wrongMoveNow() {
+  const exp = G.pi === 0 ? [D[G.qi].answer, ...(D[G.qi].alts || [])] : [G.plan[G.pi]];
+  for (let i = 0; i < 81; i++) { const q = G.st.g[i]; if (q && q.c === G.st.turn) for (const t of targets(G.st, i)) { const m = sqName(i) + sqName(t); if (!exp.includes(m) && promoteState(G.st, i, t) === "none") return m; } }
+}
 function selftest() {
   const out = []; let bad = 0;
   const T = (c, m) => { if (!c) { bad++; out.push("NG " + m); } };
-  // 1) 各問: 解答手順が移動規則上たどれて、答えをタップで入力できる
   D.forEach((p, qi) => {
+    // 1) 解答手順が移動規則上たどれる
     const st = parse(p.sfen);
     for (const mv of p.line) {
       const me = st.turn;
@@ -670,42 +717,32 @@ function selftest() {
       }
       applyUsi(st, mv);
     }
-    // タップ操作で答えを入力して正解になる
-    G.mode = "practice"; load(qi);
-    const u = p.answer;
-    if (u[1] === "*") { tapHand(u[0], G.st.turn); tapCell(sqIdx(u.slice(2, 4))); }
-    else {
-      tapCell(sqIdx(u.slice(0, 2))); tapCell(sqIdx(u.slice(2, 4)));
-      if ($("promo").classList.contains("show")) $(u.endsWith("+") ? "yesPromo" : "noPromo").click();
-    }
-    T(G.locked && done.has(p.id), `${p.id} タップ入力で正解にならない`);
+    // 2) タップで最後まで指して正解（相手の応手は自動、続きは自分で指す）
+    done.delete(p.id); G.mode = "practice"; load(qi);
+    tapMove(p.line[0]);
+    if (p.line.length > 2) T(!G.locked && G.pi === 2 && !G.fin, `${p.id} 1手目のあと続きを指せない`);
+    playAll();
+    T(G.fin && G.locked && done.has(p.id), `${p.id} 最後まで指して正解にならない`);
     clearTimers();
-    // 不正解: 別の手（盤に最初に出る合法な打ち/動き）
-    load(qi);
-    const bad1 = (() => { for (let i = 0; i < 81; i++) { const q = G.st.g[i]; if (q && q.c === G.st.turn) { for (const t of targets(G.st, i)) { const m = sqName(i) + sqName(t); if (m !== p.answer && !(p.alts || []).includes(m) && promoteState(G.st, i, t) === "none") return m; } } } return null; })();
-    if (bad1) { done.delete(p.id); const before = done.size; commit(bad1); T(!G.locked && done.size === before, `${p.id} 誤答が不正解にならない`); }
+    // 3) 1手目の誤答 / 途中の誤答は不正解（練習は続行）
+    done.delete(p.id); load(qi);
+    let m = wrongMoveNow(); commit(m);
+    T(!G.locked && G.pi === 0 && !done.has(p.id), `${p.id} 1手目の誤答`);
+    if (p.line.length > 2) {
+      tapMove(p.line[0]); m = wrongMoveNow(); commit(m);
+      T(!G.locked && G.pi === 2 && !G.fin && !done.has(p.id), `${p.id} 途中の誤答`);
+    }
     clearTimers();
   });
-  // 2) 試験の流れ: 5問連続正解で合格 / 1問誤答で不合格
-  const solveTap = () => {
-    const u = D[G.qi].answer;
-    if (u[1] === "*") { tapHand(u[0], G.st.turn); tapCell(sqIdx(u.slice(2, 4))); }
-    else { tapCell(sqIdx(u.slice(0, 2))); tapCell(sqIdx(u.slice(2, 4))); if ($("promo").classList.contains("show")) $(u.endsWith("+") ? "yesPromo" : "noPromo").click(); }
-  };
-  localStorage.removeItem(examKey);
-  startExam();
-  for (let k = 0; k < EXAM_N; k++) { solveTap(); clearTimers(); T(G.locked, "試験 " + (k + 1) + "問目 正解"); T(!$("result").classList.contains("show") || k === EXAM_N, "途中で結果が出た"); examAdvance(); }
+  // 4) 試験: 5問連続正解で合格 / 誤答で不合格
+  localStorage.removeItem(examKey); startExam();
+  for (let k = 0; k < EXAM_N; k++) { playAll(); T(G.fin, "試験 " + (k + 1) + "問目"); examAdvance(); }
   T($("result").classList.contains("show") && $("resTitle").textContent === "合格！" && localStorage.getItem(examKey) === "1", "5問連続で合格にならない");
   hideResult();
-  startExam(); solveTap(); clearTimers(); examAdvance();
-  const wrongMv = (() => { for (let i = 0; i < 81; i++) { const q = G.st.g[i]; if (q && q.c === G.st.turn) for (const t of targets(G.st, i)) { const m = sqName(i) + sqName(t); if (m !== D[G.qi].answer && promoteState(G.st, i, t) === "none") return m; } } })();
-  commit(wrongMv); clearTimers();
-  T($("result").classList.contains("show") && $("resTitle").textContent === "不合格", "1問誤答で不合格にならない");
-  T(G.exam.k === 1, "不合格時の連続正解数");
+  startExam(); playAll(); examAdvance(); commit(wrongMoveNow()); clearTimers();
+  T($("result").classList.contains("show") && $("resTitle").textContent === "不合格" && G.exam.k === 1, "誤答で不合格にならない");
   hideResult(); localStorage.removeItem(examKey); G.mode = "practice"; G.exam = null;
-  // 3) 試験: 5問選出
   const ex = pickExam(); T(ex.length === EXAM_N && new Set(ex).size === EXAM_N, "試験の選出");
-  // 4) 手筋名が全問にある
   D.forEach((p) => T(p.tesuji && p.category, p.id + " 手筋名なし"));
   localStorage.removeItem(doneKey);
   document.body.setAttribute("data-selftest", bad ? "NG" : "OK");
@@ -719,6 +756,6 @@ load(firstUndone());
 if (SELFTEST) selftest();
 const qm = location.search.match(/[?&]q=(\d+)/); if (qm) load(+qm[1]);
 if (/[?&]hint/.test(location.search)) showHint();
-if (/[?&]solve/.test(location.search)) { const u = D[G.qi].answer; if (u[1] === "*") { tapHand(u[0], G.st.turn); tapCell(sqIdx(u.slice(2, 4))); } else { tapCell(sqIdx(u.slice(0, 2))); tapCell(sqIdx(u.slice(2, 4))); } }
+if (/[?&]solve/.test(location.search)) tapMove(G.plan[0]);
 </script>
 </body></html>
