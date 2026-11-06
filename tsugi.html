@@ -465,15 +465,18 @@ const sFan = () => {                                                            
 function clearTimers() { clearTimeout(G.hintTimer); clearTimeout(G.replayTimer); clearTimeout(G.idleTimer); clearTimeout(G.nextTimer); }
 function after(ms, fn, seq) { if (SELFTEST) { if (seq) fn(); return 0; } return setTimeout(fn, ms); }
 function say(t, k) { const v = $("verdict"); v.textContent = t; v.className = "verdict " + (k || "info"); }
+const MIRROR_P = 0.2;                                      // 左右反転の図が出る確率
+const baseOf = (i) => (D[i].mirror ? i - 1 : i);
 function load(qi) {
   clearTimers();
+  if (!SELFTEST && !D[qi].mirror && D[qi + 1] && D[qi + 1].mirror && Math.random() < MIRROR_P) qi = qi + 1;
   G.qi = qi; G.st = parse(D[qi].sfen); G.sel = null; G.locked = false;
   G.hintCells = null; G.hintHand = null; G.hinted = false; G.missed = false;
   G.plan = D[qi].line.slice(); G.pi = 0; G.moves = []; G.prevDest = null; G.fin = false;
   document.querySelectorAll(".pop").forEach((e) => e.remove());
   const p = D[qi];
   $("tagbox").className = "tagbox";
-  $("badge").textContent = G.mode === "exam" ? `試験 ${G.exam.k + 1} / ${EXAM_N}` : `第 ${PR.indexOf(qi) + 1} 問 / ${PR.length}`;
+  $("badge").textContent = G.mode === "exam" ? `試験 ${G.exam.k + 1} / ${EXAM_N}` : `第 ${PR.indexOf(baseOf(qi)) + 1} 問 / ${PR.length}`;
   $("qtext").innerHTML = `<b>${G.st.turn === "b" ? "先手" : "後手"}</b>の次の一手は？<br>盤か持駒をタップして指してください。`;
   say(G.mode === "exam" ? "試験中: 1問でも間違えたらやり直しです。" : "");
   $("hintBtn").disabled = G.mode === "exam"; $("ansBtn").disabled = G.mode === "exam";
@@ -585,7 +588,7 @@ function oppMove() {
 }
 function finalOk(p) {
   G.locked = true; G.fin = true;
-  done.add(p.id); localStorage.setItem(doneKey, JSON.stringify([...done])); updateTop();
+  done.add(p.id); if (p.mirror) done.add(D[G.qi - 1].id); localStorage.setItem(doneKey, JSON.stringify([...done])); updateTop();
   sOk(); bigFlash(p); say("◯ 正解！", "ok"); showTag(p, true);
   G.nextTimer = after(3000, () => { if (G.mode === "exam") examAdvance(); else go(1); });   // 3秒で次の問題へ
 }
@@ -630,7 +633,7 @@ function reveal() {                                       // 「答えを見る�
 /* ── 練習 ── */
 function go(d) {
   if (G.mode !== "practice") return;
-  const pos = PR.indexOf(G.qi);
+  const pos = PR.indexOf(baseOf(G.qi));
   load(PR[(pos + d + PR.length) % PR.length]);
 }
 function firstUndone() { const i = PR.find((j) => !done.has(D[j].id)); return i === undefined ? PR[0] : i; }
@@ -638,7 +641,7 @@ function firstUndone() { const i = PR.find((j) => !done.has(D[j].id)); return i 
 /* ── 試験 ── */
 function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 function pickExam() {
-  const pool = shuffle(D.map((_, i) => i)), used = new Set(), out = [];
+  const pool = shuffle(PR), used = new Set(), out = [];
   for (const i of pool) if (out.length < EXAM_N && !used.has(D[i].tesuji)) { out.push(i); used.add(D[i].tesuji); }
   for (const i of pool) if (out.length < EXAM_N && !out.includes(i)) out.push(i);
   return out;
@@ -681,7 +684,7 @@ function openList() {
   PR.forEach((i, n) => {
     const p = D[i];
     if (p.category !== cat) { cat = p.category; h += `<div class="lgrp">${cat}</div>`; }
-    h += `<div class="litem${i === G.qi ? " cur" : ""}" data-i="${i}"><span>第${n + 1}問 ${done.has(p.id) ? p.tesuji : "？"}</span><span class="ok">${done.has(p.id) ? "✓" : ""}</span></div>`;
+    h += `<div class="litem${i === baseOf(G.qi) ? " cur" : ""}" data-i="${i}"><span>第${n + 1}問 ${done.has(p.id) ? p.tesuji : "？"}</span><span class="ok">${done.has(p.id) ? "✓" : ""}</span></div>`;
   });
   $("listHost").innerHTML = h;
   $("listHost").onclick = (e) => { const it = e.target.closest(".litem"); if (it) { $("sheet").classList.remove("show"); if (G.mode === "practice") load(+it.dataset.i); } };
