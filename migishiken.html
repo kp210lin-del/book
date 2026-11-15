@@ -395,7 +395,10 @@ function openChapter(id){setChapter(id);goHome()}
 
 // ---- 局面検索（部分図）: 条件を置いたマスだけを全章の局面と比べる。持駒と手番は比べない
 const PAL=['K','R','B','G','S','N','L','P','+R','+B','+P'];
-function openSearch(){stopTimers();searchBase=cur().s;mode='search';sel=null;pending=null;$('#promo').style.display='none';render()}
+// 局面の駒のあるマスを全部条件にする（空きのマスは比べない）
+function patFrom(sfen){const P=parse(sfen);pat={};for(let f=1;f<=9;f++)for(let r=1;r<=9;r++){const pc=at(P,f,r);if(pc)pat[f+','+r]=pc.c+':'+pc.p}}
+// 検索を開くと、いまの章の基本図から始める
+function openSearch(){stopTimers();searchBase=cur().s;patFrom(N[C.start].s);mode='search';sel=null;pending=null;$('#promo').style.display='none';render()}
 function searchHits(){const keys=Object.keys(pat);if(!keys.length)return null;
  const sq=keys.map(k=>[k.split(',').map(Number),pat[k]]);const out=[];
  D.chapters.forEach(ch=>{const seen=new Set();
@@ -421,7 +424,7 @@ function renderSearch(){
   <div class="pal">${row(ME)}${row(OPP)}<div class="row"><span></span>${pb('empty','空き','txt')}${pb('','消す','txt')}</div></div><div id="results">${res}</div>`;
  document.querySelectorAll('.pbtn').forEach(b=>b.onclick=()=>{palV=b.dataset.v;render()});
  document.querySelectorAll('.res').forEach(b=>b.onclick=()=>openView(b.dataset.c,+b.dataset.id));
- tools([['fcur','今の局面',false,()=>{const P=parse(searchBase);pat={};for(let f=1;f<=9;f++)for(let r=1;r<=9;r++){const pc=at(P,f,r);if(pc)pat[f+','+r]=pc.c+':'+pc.p}render()}],
+ tools([['fbase','基本図',false,()=>{patFrom(N[C.start].s);render()}],['fcur','今の局面',false,()=>{patFrom(searchBase);render()}],
   ['fclr','全部消す',!Object.keys(pat).length,()=>{pat={};render()}],['back','練習に戻る',false,()=>openChapter(C.id)]])}
 
 // ---- 閲覧: 検索結果の局面から、両方の手を自由に進めて変化を見る
