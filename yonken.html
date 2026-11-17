@@ -1,0 +1,1518 @@
+<!DOCTYPE html>
+<html lang="ja"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="robots" content="noindex,nofollow">
+<title>右四間飛車で攻め倒す本（対四間飛車編）</title>
+<style>
+:root{
+  --bg:#1f2430; --panel:#2a3140; --line:#3a4150; --ink:#eef2f7;
+  --sub:#9aa7bd; --accent:#e0853a; --ok:#46b46b; --bad:#d9534f;
+  --board:#e8c479; --grid:#7a5a22;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);
+  font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+  -webkit-text-size-adjust:100%;overscroll-behavior:none}
+a{color:inherit;text-decoration:none}
+
+/* ビューアは1画面固定（全体スクロールさせない。長い解答は左カラム内でスクロール） */
+body{overflow:hidden}
+/* 左カラム上部のメタ情報（盤とは分離して左に寄せる） */
+.meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-bottom:8px;
+  padding-bottom:8px;border-bottom:1px solid #333}
+.meta .back{font-size:15px;padding:8px 12px;border-radius:10px;background:#2a3140}
+.meta .bktitle{font-size:19px;font-weight:700}
+.meta .counter{font-size:15px;color:var(--sub);white-space:nowrap}
+.meta .counter b{color:var(--ink);font-size:20px}
+.meta .turn{font-size:15px;color:var(--sub)}
+.meta .turn b{color:var(--accent)}
+.turn .theme{margin-left:10px;padding:2px 8px;border:1px solid var(--line);border-radius:10px;font-size:13px;color:var(--ink);white-space:nowrap}
+.wrap{display:flex;gap:14px;padding:10px;align-items:stretch;max-width:1600px;margin:0 auto;
+  height:100dvh;max-height:100dvh;overflow:hidden}
+.left{flex:1 1 calc(var(--bw) + 48px);min-width:0;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-right:4px}
+.right{flex:0 0 auto;display:flex;align-items:center;justify-content:center}
+.boardbox{display:flex;flex-direction:column;align-items:center;gap:5px}
+.boardrow{display:flex;align-items:flex-start;justify-content:center;gap:10px;width:100%}
+.boardwrap{position:relative}
+.boardtools{display:flex;flex-direction:column;gap:8px;width:108px}
+.modegroup{display:flex;flex-direction:column;gap:8px}
+.toolbtn{width:100%;padding:10px 8px;border-radius:10px;border:1px solid #000;
+  background:#39414f;color:var(--ink);font-size:15px;font-weight:700;min-height:44px}
+.toolbtn.active{background:var(--accent);color:#1b1b1b}
+.toolbtn:disabled{opacity:.45;cursor:default}
+.promobox{display:none;flex-direction:column;gap:10px;position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);z-index:20;background:rgba(20,24,32,.95);
+  border:2px solid var(--accent);border-radius:14px;padding:18px 22px;
+  box-shadow:0 8px 30px rgba(0,0,0,.55);min-width:160px}
+.promobox.show{display:flex}
+.promolabel{font-size:15px;color:var(--ink);text-align:center;font-weight:700}
+.promobtn{width:100%;padding:12px 8px;border-radius:10px;border:1px solid #000;
+  background:#5d6a82;color:var(--ink);font-size:17px;font-weight:700;min-height:48px}
+.toolstatus{background:var(--panel);border:1px solid #000;border-radius:10px;
+  padding:8px 10px;font-size:12px;line-height:1.5;color:var(--sub);min-height:92px}
+.evalbtn{width:100%;padding:10px 8px;border-radius:10px;border:1px solid #000;
+  background:#3d5a80;color:var(--ink);font-size:15px;font-weight:700;min-height:44px}
+.evalbtn:disabled{opacity:.5}
+.evalbox{background:var(--panel);border:1px solid #000;border-radius:10px;
+  padding:8px 10px;text-align:center;min-height:58px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:2px}
+.evalbox .lab{font-size:11px;color:var(--sub)}
+.evalbox .val{font-size:24px;font-weight:800;color:var(--accent);line-height:1.1;
+  font-variant-numeric:tabular-nums}
+.evalbox .val.small{font-size:16px}
+.evalbox .note{font-size:10px;color:var(--sub)}
+.turn{font-size:16px;color:var(--sub)}
+.turn b{color:var(--accent)}
+table.board{table-layout:fixed;border-collapse:collapse;background:var(--board);
+  box-shadow:0 6px 20px rgba(0,0,0,.45);border:3px solid var(--grid)}
+table.board td{width:var(--cell);height:var(--cell);max-width:var(--cell);overflow:hidden;
+  border:1px solid var(--grid);
+  text-align:center;vertical-align:middle;padding:0;
+  font-size:calc(var(--cell)*.72);line-height:1;font-weight:600;
+  font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
+table.board.editable td{cursor:pointer}
+table.board td.sel{background:rgba(224,133,58,.28)}
+table.board td.dst{box-shadow:inset 0 0 0 3px rgba(70,180,107,.8)}
+/* 選択中の駒が行けるマス（空きマス=ドット / 取れる駒=枠） */
+table.board td.can{position:relative}
+table.board td.can::after{content:"";position:absolute;left:50%;top:50%;
+  width:26%;height:26%;transform:translate(-50%,-50%);border-radius:50%;
+  background:rgba(70,180,107,.6);pointer-events:none}
+table.board td.can:has(span)::after{width:78%;height:78%;border-radius:6px;
+  background:transparent;border:3px solid rgba(70,180,107,.6);box-sizing:border-box}
+td.g span{display:inline-block;transform:rotate(180deg)}
+td span.wide{font-size:.5em;white-space:nowrap}
+td.s{color:#16407a} td.g{color:#a32a2a}  /* 自陣(先手)=青 / 敵(後手)=赤 で視認性UP */
+/* 座標は盤の外（上=筋9..1 / 右=段一..九） */
+.brd{display:inline-block}
+.files{display:flex;padding-left:3px}
+.files i{width:var(--cell);text-align:center;font-style:normal;font-weight:700;
+  font-size:calc(var(--cell)*.23);color:var(--sub);font-family:sans-serif;padding-bottom:3px}
+.bmid{display:flex;align-items:flex-start}
+.ranks{display:flex;flex-direction:column;padding-top:3px}
+.ranks i{height:var(--cell);display:flex;align-items:center;justify-content:center;
+  width:calc(var(--cell)*.62);font-style:normal;font-weight:700;
+  font-size:calc(var(--cell)*.23);color:var(--sub);font-family:sans-serif}
+.hands{display:flex;flex-direction:column;gap:4px;width:100%;max-width:var(--bw)}
+.hand{display:flex;align-items:flex-start;gap:8px;background:var(--panel);
+  border:1px solid #000;border-radius:10px;padding:8px 10px;font-size:17px;min-height:56px}
+.hand .lab{color:var(--sub);font-size:13px;flex:0 0 auto;padding-top:5px}
+.hand .pc{display:flex;flex-wrap:wrap;gap:8px;font-family:"Hiragino Mincho ProN",serif}
+.handbtn{min-width:44px;min-height:40px;padding:4px 8px;border-radius:10px;border:1px solid #000;
+  background:#485164;color:var(--ink);font-size:24px;line-height:1;font-family:"Hiragino Mincho ProN",serif}
+.handbtn small{font-size:14px;margin-left:2px}
+.handbtn.g span{display:inline-block;transform:rotate(180deg)}
+.handbtn.sel{background:var(--accent);color:#1b1b1b}
+.handempty{font-size:15px;color:var(--sub);padding-top:7px}
+.qmeta{font-size:13px;color:var(--sub);margin-bottom:4px}
+.situation{background:var(--panel);border:1px solid #000;border-radius:12px;
+  padding:10px 12px;font-size:16px;line-height:1.5;margin-bottom:8px}
+.btnrow{display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+button.big{flex:1 1 auto;font-size:18px;font-weight:700;padding:12px;border-radius:12px;
+  border:none;background:var(--accent);color:#1b1b1b;min-height:48px}
+button.big:active{filter:brightness(.9)}
+.answer{display:none;background:var(--panel);border:1px solid #000;border-radius:12px;
+  padding:14px;font-size:17px;line-height:1.6}
+.answer.show{display:block}
+.ans-h{font-size:14px;color:var(--sub);margin-bottom:8px}
+.movebig{font-size:30px;font-weight:800;color:var(--accent);font-family:"Hiragino Mincho ProN",serif}
+.expl{font-size:17px;line-height:1.85;margin-top:10px;white-space:pre-wrap;
+  font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
+.captured{margin-top:10px;font-size:14px;color:var(--sub)}
+.ansimg{width:100%;max-width:100%;border-radius:10px;border:1px solid #000;background:#fff;display:block}
+.pending{margin-top:8px;font-size:13px;color:var(--sub)}
+.choice{border:1px solid #3a4150;border-radius:10px;padding:10px 12px;margin:8px 0}
+.choice.correct{border-color:var(--ok);background:rgba(70,180,107,.12)}
+.choice .mv{font-size:20px;font-weight:700}
+.choice .tag{float:right;font-size:13px;padding:2px 8px;border-radius:20px;background:#39414f}
+.choice.correct .tag{background:var(--ok);color:#08240f}
+.choice .ex{margin-top:6px;font-size:15px;color:#d4dbe8}
+.seq{font-size:19px;line-height:1.9;font-family:"Hiragino Mincho ProN",serif}
+.seq .ply{display:inline-block;padding:2px 8px;margin:2px;border-radius:8px;background:#39414f}
+.seq .hisshi{background:var(--bad);color:#fff;font-weight:700}
+.wrongseq{margin-top:10px;font-size:16px;color:var(--sub)}
+.note{margin-top:10px;font-size:13px;color:var(--sub)}
+.kind{display:inline-block;font-size:13px;padding:3px 10px;border-radius:20px;
+  background:var(--accent);color:#1b1b1b;font-weight:700;margin-bottom:8px}
+.jumpbox{display:flex;flex-direction:column;gap:6px}
+.jumpbox input{width:100%;box-sizing:border-box;font-size:15px;padding:6px;border-radius:8px;
+  border:1px solid #000;background:#2a3140;color:var(--ink);text-align:center}
+@media (max-width:820px){
+  .wrap{flex-direction:column;align-items:stretch;gap:6px}
+  .right{order:1;width:100%;flex:0 0 auto}
+  .left{order:2;width:100%;flex:1 1 auto;min-height:0;height:auto;overflow-y:auto}
+  .boardtools{width:96px}
+  .toolbtn{font-size:14px;min-height:40px;padding:8px 6px}
+}
+
+.toolbtn.chbtn{background:#2f5d8a;color:#fff}
+button.big:disabled{opacity:.4;cursor:default}
+.toolbtn.chbtn.active{background:#5a6272;color:var(--ink)}
+.chhud{display:none;gap:6px;align-items:center}
+body.ch-on .chhud{display:flex}
+body.ch-on .jumpbox{display:none}
+.chdot{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;
+  background:#39414f;color:var(--sub);font-size:15px;font-weight:800;border:2px solid transparent}
+.chdot.hard{box-shadow:0 0 0 2px var(--bad) inset}
+.chdot.cur{border-color:var(--accent);color:var(--ink)}
+.chdot.ok{background:var(--ok);color:#08240f;box-shadow:none}
+.chdot.ng{background:var(--bad);color:#fff;box-shadow:none}
+.chstatus{display:none;background:var(--panel);border:1px solid #000;border-radius:12px;padding:12px 14px;margin-bottom:10px}
+body.ch-on .chstatus{display:block}
+.chstatus .chhead{font-size:14px;color:var(--sub);margin-bottom:4px}
+.chstatus .chhead b{color:var(--ink)}
+.chstatus .chlv{display:inline-block;font-size:12px;font-weight:800;padding:2px 8px;border-radius:20px;margin-left:6px;color:#fff;background:#5a6272}
+.chstatus .chlv.hard{background:var(--bad)}
+.chstatus .chmsg{font-size:18px;font-weight:700;line-height:1.5}
+.chstatus.ok .chmsg{color:var(--ok)}
+.chstatus.ng .chmsg{color:var(--bad)}
+.chtoast{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%) scale(.6);opacity:0;pointer-events:none;z-index:40;
+  font-size:56px;font-weight:900;padding:14px 34px;border-radius:20px;background:rgba(17,20,28,.88);
+  transition:opacity .18s ease,transform .25s cubic-bezier(.2,1.4,.4,1)}
+.chtoast.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.chtoast.ok{color:var(--ok)} .chtoast.ng{color:var(--bad)}
+.chresult{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;
+  background:rgba(10,12,18,.78);padding:16px}
+.chresult.show{display:flex}
+.chcard{width:min(94vw,420px);max-height:92dvh;overflow-y:auto;background:var(--panel);border:1px solid #000;
+  border-radius:18px;padding:20px 18px;text-align:center;box-shadow:0 18px 40px rgba(0,0,0,.45)}
+.chcard h2{margin:0 0 6px;font-size:20px}
+.chcard .score{font-size:54px;font-weight:900;color:var(--accent);line-height:1.1}
+.chcard .score small{font-size:24px;color:var(--sub)}
+.chcard .cmt{font-size:17px;font-weight:700;margin:6px 0 2px}
+.chcard .sub{font-size:14px;color:var(--sub);margin-bottom:12px}
+.chrow{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;background:#39414f;margin:6px 0;text-align:left}
+.chrow .mk{font-size:22px;font-weight:900;width:26px;text-align:center}
+.chrow .mk.ok{color:var(--ok)} .chrow .mk.ng{color:var(--bad)}
+.chrow .tx{flex:1;font-size:15px}
+.chrow .tx small{color:var(--sub)}
+.chrow button{padding:8px 12px;border-radius:9px;border:1px solid #000;background:#5a6272;color:var(--ink);font-size:14px;font-weight:700}
+.chacts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.chacts button{padding:13px 8px;border-radius:12px;border:1px solid #000;font-size:16px;font-weight:800;background:#39414f;color:var(--ink)}
+.chacts button.primary{background:var(--accent);color:#1b1b1b}
+
+/* ---- 解答手順の自動再生（ラクラク次の一手のみ） ---- */
+table.board td.last{box-shadow:inset 0 0 0 3px rgba(224,133,58,.95)}
+.rpbox{margin-top:14px;padding-top:10px;border-top:1px solid #3a4150}
+.rpbox .seq .ply.cur{background:var(--accent);color:#1b1b1b;font-weight:700}
+.rpbox .seq .ply.done{background:#4a5568}
+.rpctl{display:flex;gap:10px;margin-top:10px}
+.rpctl .toolbtn{width:auto;flex:1}
+</style></head><body>
+<div class="wrap">
+  <div class="left">
+    <div class="meta">
+      <a class="back" href="index.html">☰ 一覧</a>
+      <div class="bktitle">右四間飛車で攻め倒す本（対四間飛車編）</div>
+      <div class="counter">第 <b id="curNo">1</b> 問 / <span id="total">0</span></div>
+      <div class="turn" id="turnLbl"></div>
+      <div class="chhud" id="chHud"></div>
+    </div>
+    <div class="chstatus" id="chStatus"><div class="chhead" id="chHead"></div><div class="chmsg" id="chMsg"></div></div>
+    <div class="qmeta" id="qmeta"></div>
+    <div class="situation" id="situation"></div>
+    <div class="btnrow"><button class="big" id="showBtn">解答を見る</button></div>
+    <div class="answer" id="answer"></div>
+  </div>
+  <div class="right"><div class="boardbox">
+    <div class="hands"><div class="hand"><span class="lab">後手 持駒</span><span class="pc" id="goteHandPc">なし</span></div></div>
+    <div class="boardrow">
+      <div class="boardwrap">
+        <div id="boardHost"></div>
+        <div class="promobox" id="promoBox">
+          <div class="promolabel">成りますか？</div>
+          <button class="promobtn" id="promoteBtn">成る</button>
+          <button class="promobtn" id="stayBtn">成らず</button>
+        </div>
+      </div>
+      <div class="boardtools">
+        <div class="modegroup" id="modeGroup"><button class="toolbtn" id="answerModeBtn">解答モード</button><button class="toolbtn" id="reviewModeBtn">検討モード</button></div>
+        <button class="toolbtn" id="resetBtn">初期配置</button>
+        <button class="toolbtn" id="copySfenBtn">SFENコピー</button>
+        
+        
+        <button class="toolbtn" id="prevBtn">◀ 前の問題</button>
+        <button class="toolbtn" id="nextBtn">次の問題 ▶</button>
+        <div class="jumpbox">
+          <input type="number" id="jumpInp" min="1" placeholder="問題番号">
+          <button class="toolbtn" id="jumpBtn">移動</button>
+        </div>
+        <div class="toolstatus" id="toolStatus">盤の横ボタンで移動モードにします。</div>
+      </div>
+    </div>
+    <div class="hands"><div class="hand"><span class="lab">先手 持駒</span><span class="pc" id="senteHandPc">なし</span></div></div>
+  </div></div>
+</div>
+<div class="chtoast" id="chToast"></div>
+<div class="chresult" id="chResult"><div class="chcard" id="chCard"></div></div>
+<script>
+const BOOK_SLUG="右四間飛車/右四間飛車で攻め倒す本";
+const EVAL_API=null;
+const CHALLENGE=null;
+const DATA=[{"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 1, "chapter": "第一章 3三角5四銀型", "sfen": "ln1g3nl/1ks1gr3/1pp1p1bpp/p2pspp2/9/P1P1SP1PP/1P1PP1P2/1BKS1R3/LNG1G2NL b - 1", "turn": "b", "answer": {"type": "single", "usi": "2i1g", "candidates": ["2i1g"], "line": ["2i1g"], "heading": "▲1七桂", "caption": "【第1解答図は▲1七桂(29)まで】", "explanation": "端に桂馬を跳ねていく手が正解。3三角5四銀型には端に桂馬を跳ねて積極的に仕掛けていく手が成立します。"}, "situation": "基本図から△6四歩とついてきました。これには積極的に指していきます。どう指すのが良いでしょうか。", "caption": "【第1図は△6四歩(63)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 2, "chapter": "第一章 3三角5四銀型", "sfen": "ln1g3n1/1ks1gr2l/1pp1p1bpp/p2pspp2/9/P1P1SP1PP/1P1PP1P1N/1BKS1R3/LNG1G3L b - 1", "turn": "b", "answer": {"type": "single", "usi": "1g2e", "candidates": ["1g2e"], "line": ["1g2e"], "heading": "▲2五桂", "caption": "【第2解答図は▲2五桂(17)まで】", "explanation": "桂馬を跳ねていくのが正解。\nれに対しては△2四角と逃げる手と△2二角と逃げる手の二つが考えられるので、順に見ていきます。"}, "situation": "前問解答図から△1二香と進みました。これはこちらの角の利きから香車をかわした意味でよくある手です。これにはどう攻めるのが良いでしょうか。", "caption": "【第2図は△1二香(11)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 3, "chapter": "第一章 3三角5四銀型", "sfen": "ln1g3n1/1ks1gr2l/1pp1p2pp/p2psppb1/7N1/P1P1SP1PP/1P1PP1P2/1BKS1R3/LNG1G3L b - 1", "turn": "b", "answer": {"type": "single", "usi": "4f4e", "candidates": ["4f4e"], "line": ["4f4e"], "heading": "▲4五歩", "caption": "【第3解答図は▲4五歩(鮖)まで】", "explanation": "右四間飛車らしく4筋から仕掛けるのが正解。これには△同歩と△同銀が考えられるので順に見ていきます。"}, "situation": "前問解答図から△2四角と進みました。これにはどう攻めるのが良いでしょうか。", "caption": "【第3図は△2四角(33)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 4, "chapter": "第一章 3三角5四銀型", "sfen": "ln1g3n1/1ks1gr2l/1pp1p2pp/p2ps1pb1/5p1N1/P1P1S2PP/1P1PP1P2/1BKS1R3/LNG1G3L b p 1", "turn": "b", "answer": {"type": "single", "usi": "8h1a+", "candidates": ["8h1a+"], "line": ["8h1a+"], "heading": "▲1一角成", "caption": "【第4解答図は▲1一角成(88)まで】", "explanation": "自然に角を成る手が正解。これで次に▲2一馬と桂馬を取る手が受けにくいです。\nとはいえ△4六角と反撃してくる手は考えられるので次問で。"}, "situation": "前問解答図から△4五同歩と進みました。これには自然に攻めていきましょう。", "caption": "【第4図は△4五同歩(まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 5, "chapter": "第一章 3三角5四銀型", "sfen": "ln1g3+B1/1ks1gr2l/1pp1p2pp/p2ps1p2/5p1N1/P1P1S2PP/1P1PP1+b2/2KS1R3/LNG1G3L b N2p 1", "turn": "b", "answer": {"type": "single", "usi": "2a3a", "candidates": ["2a3a"], "line": ["2a3a"], "heading": "▲3一馬", "caption": "【第5解答図は▲3一馬(21)まで】", "explanation": "▲3三桂成とする手も自然ですが、△4四飛と逃げられるとそれ以上飛車をいじめることができないので、難しい意味があります。\n▲3一馬にも△4四飛と逃げられる手がありますがそれは次問で。"}, "situation": "前問解答図から△4六角▲2一馬△3七角成と進みました。これにはどう攻めるのが良いでしょうか。", "caption": "【第5図は△3七角成(鮖)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 6, "chapter": "第一章 3三角5四銀型", "sfen": "ln1g2+B2/1ks1g3l/1pp1p2pp/p2psrp2/5p1N1/P1P1S2PP/1P1PP1+b2/2KS1R3/LNG1G3L b N2p 1", "turn": "b", "answer": {"type": "single", "usi": "3a2b", "candidates": ["3a2b"], "line": ["3a2b", "4d4b", "2b7g"], "heading": "▲2二馬△4二飛▲7七馬", "caption": "【第6解答図は▲7七馬(22)まで】", "explanation": "手順に馬を引き付けるのが正解。この局面は自陣が堅く、駒得しており、次の▲3三桂成が厳しいので右四間飛車側が指せます。"}, "situation": "前問解答図から△4四飛と進みました。これにはどう指すのが良いでしょうか。3手示してください。", "caption": "【第6図は△4四飛(42)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 7, "chapter": "第一章 3三角5四銀型", "sfen": "ln1g3n1/1ks1gr2l/1pp1p2pp/p2p1ppb1/5s1N1/P1P1S2PP/1P1PP1P2/1BKS1R3/LNG1G3L b p 1", "turn": "b", "answer": {"type": "single", "usi": "5f4e", "candidates": ["5f4e"], "line": ["5f4e", "4d4e", "S*3c"], "heading": "▲4五同銀△同歩▲3三銀", "caption": "【第7解答図は▲3三銀打まで】", "explanation": "銀を取って▲3三銀と打つのが正解。\nこの▲3三銀にかえて▲1一角成は△4六歩が4七歩成の先手になるので自信なしです。"}, "situation": "戻って第3解答図では△4五同銀と取る手も考えられます。これにはどう攻めますか。3手示してください。", "caption": "【第7図は△4五同銀(54)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 8, "chapter": "第一章 3三角5四銀型", "sfen": "ln1g1r3/1ks1g3l/1pp1p1+Npp/p2p2pb1/5p3/P1P4PP/1P1PP1P2/1BKS1R3/LNG1G3L b N2sp 1", "turn": "b", "answer": {"type": "single", "usi": "3c3b", "candidates": ["3c3b"], "line": ["3c3b", "4a4c", "N*5e"], "heading": "▲3二成桂△4三飛▲5五桂", "caption": "【第8解答図は▲5五桂打まで】", "explanation": "まずは▲3二成桂と飛車を追います。これに対して△5一飛なら▲4五飛と活用すれば飛車の働きの差で右四間飛車が良くなります。\n△4三飛と縦に逃げる手には▲5五桂とさらに飛車を追うのが正解。△4四飛と逃げる手が気になりますが、それは次問で。"}, "situation": "前問解答図から△3三同桂▲同桂成△4一飛と進みました。右四間飛車側は駒損しているので急いで攻めていく必要がありますが、どのように攻めるのが良いでしょうか。3手示してください。", "caption": "【第8図は△4一飛(42)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 9, "chapter": "第一章 3三角5四銀型", "sfen": "ln1g5/1ks1g1+N1l/1pp1p2pp/p2p1rpb1/4Np3/P1P4PP/1P1PP1P2/1BKS1R3/LNG1G3L b 2sp 1", "turn": "b", "answer": {"type": "single", "usi": "5e6c+", "candidates": ["5e6c+"], "line": ["5e6c+", "5b6c", "8h4d"], "heading": "▲6三桂成△同金▲4四角", "caption": "【第9解答図は▲4四角(88)まで】", "explanation": "▲6三桂成と成り捨てるのが好手。△同金が自然ですが、桂馬がいなくなったことで飛車を取ることができます。この局面は右四間飛車側が指せます。\nちなみに▲6三桂成に対して△5四飛と逃げる手には▲5二成桂△同金▲4五飛と活用して右四間飛車側が指せます。"}, "situation": "前問解答図から△4四飛と逃げてきました。唯一の飛車の逃げ場所ですが、これには3手1組の好手順があります。", "caption": "【第9図は△4四飛(43)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 10, "chapter": "第一章 3三角5四銀型", "sfen": "ln1g3n1/1ks1gr1bl/1pp1p2pp/p2pspp2/7N1/P1P1SP1PP/1P1PP1P2/1BKS1R3/LNG1G3L b - 1", "turn": "b", "answer": {"type": "single", "usi": "4f4e", "candidates": ["4f4e"], "line": ["4f4e"], "heading": "▲4五歩", "caption": "【第10解答図は▲4五歩まで】", "explanation": "右四間飛車らしく4筋から攻めていくのが正解。これに対しては△同歩と△2四歩が考えられるので順に見ていきます。"}, "situation": "第2解答図の▲2五桂に対して△2四角と逃げると右四間飛車側の攻めが決まることがわかりました。そこで△2二角と逃げる手を見ていきます。これにはどう攻めるのが良いでしょうか。", "caption": "【第10図は△2二角(33)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 11, "chapter": "第一章 3三角5四銀型", "sfen": "ln1g3n1/1ks1gr1bl/1pp1p2pp/p2ps1p2/5p1N1/P1P1S2PP/1P1PP1P2/1BKS1R3/LNG1G3L b p 1", "turn": "b", "answer": {"type": "single", "usi": "8h2b+", "candidates": ["8h2b+"], "line": ["8h2b+", "4b2b", "B*7g"], "heading": "▲2二角成△同飛▲7七角", "caption": "【第11解答図は▲7七角打まで】", "explanation": "角交換をしてから▲7七角とこのラインに角を打つのが良くある攻め筋。以下は△4二飛と逃げるくらいですが、▲3三桂成△同桂▲同角成で先に馬ができるので右四間飛車側も指せます。"}, "situation": "前問解答図から△4五同歩と取ってきました。これにはどう攻めますか。3手示してください。", "caption": "【第11図は△4五同歩まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 12, "chapter": "第一章 3三角5四銀型", "sfen": "ln1g3n1/1ks1gr1bl/1pp1p3p/p2psppp1/5P1N1/P1P1S2PP/1P1PP1P2/1BKS1R3/LNG1G3L b - 1", "turn": "b", "answer": {"type": "single", "usi": "4e4d", "candidates": ["4e4d"], "line": ["4e4d", "2d2e", "5f4e"], "heading": "▲4四歩△2五歩▲4五銀", "caption": "【第12解答図は▲4五銀(56)まで】", "explanation": "4筋の歩を取って、桂馬を取ってきた手に銀をぶつける手が正解。\nこれに対して△同銀なら▲同飛で次に4三銀と2五飛の二つの狙いがあり、どちらとも厳しいので右四間飛車側が指せます。"}, "situation": "少し戻って第10解答図では△2四歩と桂馬を取りに来る手も考えられます。これにはどう攻めますか。3手示してください。", "caption": "【第12図は△2四歩(23)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 13, "chapter": "第一章 3三角5四銀型", "sfen": "ln1g3n1/1ks1gr1bl/1pp1p3p/p2p1Pp2/3s1S1p1/P1P4PP/1P1PP1P2/1BKS1R3/LNG1G3L b Pn 1", "turn": "b", "answer": {"type": "single", "usi": "4e3d", "candidates": ["4e3d"], "line": ["4e3d"], "heading": "▲3四銀", "caption": "【第13解答図は▲3四銀35)まで】", "explanation": "単刀直入に銀を出て攻める手が正解。\nこの手に代えて受けるなら▲4六飛ですが△8四桂と打って次に△7六桂の両取りを見せられると難しい展開です。"}, "situation": "前問解答図から△6五銀と進みました。次に△7六銀とこちらの玉頭に攻めてくる手がありますが、一度受けるべきでしょうか。それとも攻めるべきでしょうか。", "caption": "【第13図は△6五銀(54)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 14, "chapter": "第一章 3三角5四銀型", "sfen": "ln1g3n1/1ks1gr1bl/1pp1p3p/p2p1PS2/7p1/P1s4PP/1P1PP1P2/1BKS1R3/LNG1G3L b 2Pnp 1", "turn": "b", "answer": {"type": "single", "usi": "4d4c+", "candidates": ["4d4c+"], "line": ["4d4c+"], "heading": "▲4三歩成", "caption": "第14解答図は▲4三歩成まで】", "explanation": "ここでも攻める手が正解。もし△7五桂と攻めてくれば▲2二角成△同飛▲5二とで右四間飛車側が指せます。そのためこの局面は右四間飛車側が指せます\n▲4三歩成で▲4六飛と受けに回る手には△3二飛が好手で▲4三歩成でも▲7六飛でも△3四飛で正解よりは劣ります。"}, "situation": "前問解答図から△7六銀と出てきました。この手はつぎに△7五桂と打つ手を狙っていますが、受けるべきでしょうか。それとも攻めるべきでしょうか。", "caption": "【第14図は△7六銀(65)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 15, "chapter": "第一章 3三角5四銀型", "sfen": "ln1g3nl/1ks1gr3/1pp1p1b1p/p2psppp1/9/P1P1SP1PP/1P1PP1P1N/1BKS1R3/LNG1G3L b - 1", "turn": "b", "answer": {"type": "single", "usi": "2f2e", "candidates": ["2f2e"], "line": ["2f2e"], "heading": "▲2五歩", "caption": "【第15解答図は▲2五歩(26)まで】", "explanation": "▲2五桂と跳ねることはできなくなりましたが、▲2五歩と歩をぶつけて仕掛けていくことができます。\n△同歩なら▲同桂で2五の地点に桂馬を跳ねることができるので右四間飛車側が十分です。"}, "situation": "というわけで▲2五桂と跳ねると攻めが決まることがわかりました。そこで第1解答図で△2四歩と桂馬を跳ねる手を防ぐ手も考えられます。これにはどう攻めますか。", "caption": "【第15図は△2四歩(23)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 16, "chapter": "第一章 3三角5四銀型", "sfen": "ln1g3nl/1ks1g2r1/1pp1p1b1p/p2psppp1/7P1/P1P1SP2P/1P1PP1P1N/1BKS1R3/LNG1G3L b - 1", "turn": "b", "answer": {"type": "single", "usi": "4h2h", "candidates": ["4h2h"], "line": ["4h2h"], "heading": "▲2八飛", "caption": "【第16解答図は▲2八飛38)まで】", "explanation": "こちらも戦いが起こった筋に飛車を回るのが正解。右四間飛車ですが、時には違う筋に飛車を振って戦うことも大切です。"}, "situation": "前問解答図から△2二飛と進みました。戦いが起こった筋に飛車を振る振り飛車らしい手ですが、これにはどう指すのが良いでしょうか。", "caption": "【第16図は△2二飛(42)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 17, "chapter": "第一章 3三角5四銀型", "sfen": "ln1g3nl/1ks1g2r1/1pp1p1b1p/p2psppp1/7R1/P1P1SP2P/1P1PP1P1N/1BKS5/LNG1G3L b P 1", "turn": "b", "answer": {"type": "single", "usi": "2e2f", "candidates": ["2e2f"], "line": ["2e2f"], "heading": "▲2六飛", "caption": "【第17解答図は▲2六飛(25)まで】", "explanation": "ここに引くのが正解。ここに引くことで1七の桂頭をカバーすることができます。\nこの局面はこちらだけ飛車先の歩を交換できているので右四間飛車側が十分です。"}, "situation": "前問解答図から△2五歩▲同飛△2四歩と進みました。△2四歩のところで△2五同飛と取るのは▲同桂と取った手が角取りになるので右四間飛車側が十分です。\nこの局面は飛車をどこに引くのが良いでしょうか。", "caption": "【第17図は△2四歩打まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 18, "chapter": "第二章 3三角4三銀型", "sfen": "ln1g3n1/1ks1gr2l/1ppp1sbpp/p3ppp2/9/P1P1SP1PP/1P1PP1P2/1BKS1R3/LNG1G2NL b - 1", "turn": "b", "answer": {"type": "single", "usi": "2i1g", "candidates": ["2i1g"], "line": ["2i1g"], "heading": "▲1七桂", "caption": "【第1解答図は▲1七桂(29)まで】", "explanation": "端に桂馬を跳ねる手が正解。次に▲2五桂跳ねる手を見せます。\nちなみにこの手では▲3六歩～▲3七桂と活用する手も有力です。"}, "situation": "基本図から△1二香と進みました。これは振り飛車の常とう手段で、こちらの角の利きをかわした意味があります。これにはどう指すのが良いでしょうか。", "caption": "【第1図は△1二香(11)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 19, "chapter": "第二章 3三角4三銀型", "sfen": "ln1g3n1/1ks1gr2l/1pp2sbpp/p2pppp2/9/P1P1SP1PP/1P1PP1P1N/1BKS1R3/LNG1G3L b - 1", "turn": "b", "answer": {"type": "single", "usi": "1g2e", "candidates": ["1g2e"], "line": ["1g2e"], "heading": "▲2五桂", "caption": "【第2解答図は▲2五桂(17)まで】", "explanation": "狙い通り桂馬を跳ねていく手が正解。3三角型には桂馬を跳ねて攻めていくのが基本になります。\nこれには△2四角と△2二角が考えられるので順に見ていきます。"}, "situation": "前問解答図から△6四歩と進みました。これには狙い通り攻めていきましょう。", "caption": "【第2図は△6四歩(63)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 20, "chapter": "第二章 3三角4三銀型", "sfen": "ln1g3n1/1ks1gr2l/1pp2s1pp/p2ppppb1/7N1/P1P1SP1PP/1P1PP1P2/1BKS1R3/LNG1G3L b - 1", "turn": "b", "answer": {"type": "single", "usi": "3g3f", "candidates": ["3g3f"], "line": ["3g3f"], "heading": "▲3六歩", "caption": "【第3解答図は▲3六歩(37)まで】", "explanation": "すぐに▲4五歩と突くと△3五角が気になる手で、2六の歩取りと▲4四歩に△同角を用意されてしまいます。\nそこで▲3六歩と突いて△3五角を防ぐのが正解です。"}, "situation": "前問解答図から△2四角と進みました。これには▲4五歩と4筋から攻めていきたいところですが、果たしてそれで良いでしょうか。", "caption": "【第3図は△2四角(33)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 21, "chapter": "第二章 3三角4三銀型", "sfen": "ln1g3n1/1ks1gr2l/1p3s1pp/p1pppppb1/7N1/P1P1SPPPP/1P1PP4/1BKS1R3/LNG1G3L b - 1", "turn": "b", "answer": {"type": "single", "usi": "4f4e", "candidates": ["4f4e"], "line": ["4f4e", "4d4e", "5f4e"], "heading": "▲4五歩同歩▲同銀", "caption": "【第4解答図は▲4五同銀(56)まで】", "explanation": "シンプルに4筋から攻めていくのが正解。\n次に▲4四歩と打って拠点ができれば右四間飛車側が優勢です。"}, "situation": "前問解答図から△7四歩と突いて陣形を整備してきました。これには満を持して仕掛けていきます。3手示してください", "caption": "【第4図は△7四歩(73)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 22, "chapter": "第二章 3三角4三銀型", "sfen": "ln1g3n1/1ks1gr2l/1p3s1pp/p1pppppb1/5S1N1/P1P3PPP/1P1PP4/1BKS1R3/LNG1G3L b P 1", "turn": "b", "answer": {"type": "single", "usi": "4e4d", "candidates": ["4e4d"], "line": ["4e4d", "4c4d", "4h4d", "4b4d", "8h4d"], "heading": "▲4四同銀△同銀▲同飛△同飛▲同角", "caption": "【第5解答図は▲4四同角(88)まで】", "explanation": "シンプルに飛車と銀を捌くのが正解。\nこの局面は桂馬が捌けている分、右四間飛車側が指せます。"}, "situation": "前問解答図から△4四歩と打ってこちらから▲4四歩と打つ手を防いできました。これには自然に捌いていきましょう。5手示してください。", "caption": "【第5図は△4四歩打まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 23, "chapter": "第二章 3三角4三銀型", "sfen": "ln1g3n1/1ks1gr1bl/1pp2s1pp/p2pppp2/7N1/P1P1SP1PP/1P1PP1P2/1BKS1R3/LNG1G3L b - 1", "turn": "b", "answer": {"type": "single", "usi": "4f4e", "candidates": ["4f4e"], "line": ["4f4e"], "heading": "▲4五歩", "caption": "【第6解答図は▲4五歩まで】", "explanation": "右四間飛車らしく4筋から攻めていくのが正解。"}, "situation": "次に第2解答図から△2二角と引いてくる手を見ていきます。これには右四間飛車らしく攻めていきましょう。", "caption": "【第6図は△2二角(33)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 24, "chapter": "第二章 3三角4三銀型", "sfen": "ln1g3n1/1ks1gr1bl/1pp2s1pp/p2pp1p2/5p1N1/P1P1S2PP/1P1PP1P2/1BKS1R3/LNG1G3L b p 1", "turn": "b", "answer": {"type": "single", "usi": "8h2b+", "candidates": ["8h2b+"], "line": ["8h2b+", "4b2b", "5f4e"], "heading": "▲2二角成△同飛▲4五銀", "caption": "【第7解答図は▲4五銀(56)まで】", "explanation": "放っておくと△8八角成とされ、▲同玉も▲同金も形が悪くなってしまいます。\nそこで▲2二角成と角を取ってから銀を出て攻めていきます。次に▲4四歩と打てれば右四間飛車側が優勢です。"}, "situation": "前問解答図から自然に△4五同歩と取ってきました。これにはどう攻めるのが良いでしょうか。3手示してください。", "caption": "【第7図は△4五同歩(まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 25, "chapter": "第二章 3三角4三銀型", "sfen": "ln1g3n1/1ks1g2rl/1pp2s1pp/p2pppp2/5S1N1/P1P4PP/1P1PP1P2/2KS1R3/LNG1G3L b BPb 1", "turn": "b", "answer": {"type": "single", "usi": "4e4d", "candidates": ["4e4d"], "line": ["4e4d"], "heading": "▲4四同銀", "caption": "【第8解答図は▲4四同銀(45)まで】", "explanation": "シンプルに▲同銀が正解。これには△同銀取って▲同飛に△5五角と打って飛車香両取りをかける手が見えていますが、それは次問で。"}, "situation": "前問解答図から△4四歩と進みました。これを▲同銀と取るとある反撃が待ち受けていますが、取っても大丈夫でしょうか。", "caption": "【第8図は△4四歩打まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 26, "chapter": "第二章 3三角4三銀型", "sfen": "ln1g1+R1n1/1ks1g2rl/1pp4pp/p2pp1p2/7N1/P1P4PP/1P1PP1P2/2KS5/+bNG1G3L b BS2Psl 1", "turn": "b", "answer": {"type": "single", "usi": "P*4c", "candidates": ["P*4c"], "line": ["P*4c"], "heading": "▲4三歩", "caption": "【第9解答図は▲4三歩打まで】", "explanation": "振り飛車側は次に△4二飛とぶつける手を狙っています。そこで▲4三歩と打ってその手を防ぐのが正解。\nこの局面は竜の存在が大きく、また次に▲3一銀(角)と打つ手が厳しく右四間飛車側が優勢です。"}, "situation": "前問解答図から△4四同銀▲同飛△5五角▲4一飛成△9九角成と進みました。香車を取られましたが、こちらは竜ができました。ここで相手の狙いを防げばこちらが優勢になります。", "caption": "【第9図は△9九角成(55)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 27, "chapter": "第二章 3三角4三銀型", "sfen": "ln1g3n1/1ks1gr1bl/1pp2s2p/p2ppppp1/5P1N1/P1P1S2PP/1P1PP1P2/1BKS1R3/LNG1G3L b - 1", "turn": "b", "answer": {"type": "single", "usi": "4e4d", "candidates": ["4e4d"], "line": ["4e4d", "4c4d", "P*4e"], "heading": "▲4四歩同銀▲4五歩", "caption": "【第10解答図は▲4五歩打まで】", "explanation": "まずは4筋の歩を取ります。△同角なら▲同角△同銀▲3一角が厳しいので△同銀ですが▲4五歩と打って攻めていきます。これに△3五銀なら▲2二角成△同飛▲3一角で右四間飛車側が指せます。\n△5五銀と△5三銀についてはこの後見ていきます。"}, "situation": "第6解答図は△4五同歩と取ると攻めがつながることがわかりました。そこで△2四歩と突いて桂馬を取りに来る手も考えられます。これにはどう攻めますか。3手示してください。", "caption": "【第10図は△2四歩(23)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 28, "chapter": "第二章 3三角4三銀型", "sfen": "ln1g3n1/1ks1gr1bl/1pp5p/p2pp1pp1/4sP1N1/P1P1S2PP/1P1PP1P2/1BKS1R3/LNG1G3L b p 1", "turn": "b", "answer": {"type": "single", "usi": "5f5e", "candidates": ["5f5e"], "line": ["5f5e", "5d5e", "S*2c"], "heading": "▲5五同銀△同歩▲2三銀", "caption": "【第11解答図は▲2二銀打まで】", "explanation": "まずは銀を取ります。△同角なら▲同角△同歩▲4四歩と突けば右四間飛車側が十分です。\n△同歩には▲2三銀と打って角を狙って攻めていきます。"}, "situation": "前問解答図から△5五銀と出てきました。これにはどう攻めるのが良いでしょうか。3手示してください。", "caption": "【第11図は△5五銀(まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 29, "chapter": "第二章 3三角4三銀型", "sfen": "ln1g3nb/1ks1gr2l/1pp4Sp/p2p2pp1/4pP1N1/P1P4PP/1P1PP1P2/1BKS1R3/LNG1G3L b sp 1", "turn": "b", "answer": {"type": "single", "usi": "2c3d+", "candidates": ["2c3d+"], "line": ["2c3d+", "2d2e", "4e4d"], "heading": "▲3四銀成△2五歩▲4四歩", "caption": "【第12解答図は▲4四歩35)まで】", "explanation": "銀を成って、桂馬を取ってきた手に飛車先の歩を突く手が正解。\nこの局面は次に▲4三歩成が厳しい攻めですが、それを受ける手が難しいので右四間飛車側が指せます。"}, "situation": "前問解答図から△1一角と逃げてきました。これにはどう攻めるのが良いでしょうか。3手示してください。", "caption": "【第12図は△1一角(22)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 30, "chapter": "第二章 3三角4三銀型", "sfen": "ln1g3n1/1ks1gr1bl/1pp1s3p/p2pp1pp1/5P1N1/P1P1S2PP/1P1PP1P2/1BKS1R3/LNG1G3L b p 1", "turn": "b", "answer": {"type": "single", "usi": "8h2b+", "candidates": ["8h2b+"], "line": ["8h2b+", "4b2b", "4e4d"], "heading": "▲2二角成△同飛▲4四歩", "caption": "【第13解答図は▲4四歩35)まで】", "explanation": "角を取ってから飛車先の歩を突くのが正解。次に▲4三歩成があるので△4二歩と受けてきますがそれは次問で。"}, "situation": "というわけで第10解答図で△5五銀と出てくる手は右四間飛車側が良くなりました。△5五銀では△5三銀も考えられます。これにはどう攻めるのが良いでしょうか。3手示してください。", "caption": "【第13図は△5三銀(まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 31, "chapter": "第二章 3三角4三銀型", "sfen": "ln1g3n1/1ks1gp1rl/1pp1s3p/p2ppPpp1/7N1/P1P1S2PP/1P1PP1P2/2KS1R3/LNG1G3L b Bb 1", "turn": "b", "answer": {"type": "single", "usi": "B*7g", "candidates": ["B*7g"], "line": ["B*7g"], "heading": "▲7七角", "caption": "【第14解答図は▲7七角打まで】", "explanation": "▲7七角が正解。このラインに角を打って飛車を狙う手はよく出てくるので常に狙いところです。\n次に▲4三歩成が決まれば飛車金両取りで右四間飛車側が優勢です。"}, "situation": "前問解答図から△4二歩と進みました。これにはどう攻めるのが良いでしょうか。角を使います", "caption": "【第14図は△4二歩打まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 32, "chapter": "第二章 3三角4三銀型", "sfen": "ln1g3n1/1ks1gpr1l/1pp1s3p/p2ppPpp1/7N1/P1P1S2PP/1PBPP1P2/2KS1R3/LNG1G3L b b 1", "turn": "b", "answer": {"type": "single", "usi": "4d4c+", "candidates": ["4d4c+"], "line": ["4d4c+", "4b4c", "7g1a+"], "heading": "▲4三歩成△同歩▲1一角成", "caption": "第15解答図は▲1一角成(刀)まで】", "explanation": "歩を成り捨てて角を成るのが正解。\nこの局面は難しいですが、先に馬を作れているので右四間飛車側も十分です。"}, "situation": "前問解答図から△3二飛とこちらの角のラインから逃げてきました。これには自然に3手進めてください。", "caption": "【第15図は△3二飛(22)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 33, "chapter": "第二章 3三角4三銀型", "sfen": "ln1g3n1/1ks1gr2l/1ppp1sb1p/p3pppp1/9/P1P1SP1PP/1P1PP1P1N/1BKS1R3/LNG1G3L b - 1", "turn": "b", "answer": {"type": "single", "usi": "2f2e", "candidates": ["2f2e"], "line": ["2f2e"], "heading": "▲2五歩", "caption": "【第16解答図は▲2五歩(26)まで】", "explanation": "歩を突いて駒をぶつけていくのが正解。△同歩なら▲同桂と捌いていけば右四間飛車側が十分です。"}, "situation": "右四間飛車側の桂馬が▲2五桂と跳ねることができれば攻めが決まりやすいことがわかりました。そこで△2四歩と突いてそれを防いでくる手も考えられます。これにはどう攻めるのが良いでしょうか。3三角5四銀型でどう攻めたか思い出してください。", "caption": "【第16図は△2四歩(23)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 34, "chapter": "第二章 3三角4三銀型", "sfen": "ln1g3n1/1ks1g2rl/1ppp1sb1p/p3pppp1/7P1/P1P1SP2P/1P1PP1P1N/1BKS1R3/LNG1G3L b - 1", "turn": "b", "answer": {"type": "single", "usi": "4f4e", "candidates": ["4f4e"], "line": ["4f4e"], "heading": "▲4五歩", "caption": "【第17解答図は▲4五歩まで】", "explanation": "ここでは右四間飛車らしく4筋から仕掛ける手も有力です。次に▲4四歩と取りこめれば右四間飛車側が良くなるので△同歩が自然ですが、それは次問で。"}, "situation": "前問解答図から振り飛車らしく△2二飛と戦いの起こった筋に飛車を振ってきました。ここでは▲2八飛も有力ですが、もっと積極的に仕掛ける手もあります。", "caption": "【第17図は△2二飛(42)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 35, "chapter": "第二章 3三角4三銀型", "sfen": "ln1g3n1/1ks1g2rl/1ppp1sb1p/p3p1pp1/5p1P1/P1P1S3P/1P1PP1P1N/1BKS1R3/LNG1G3L b p 1", "turn": "b", "answer": {"type": "single", "usi": "8h3c+", "candidates": ["8h3c+"], "line": ["8h3c+", "2a3c", "B*1a"], "heading": "▲3三角成△同桂▲1一角", "caption": "【第18解答図は▲1一角打まで】", "explanation": "角を取ってから角を打つのが正解。△2三飛なら▲2四歩△同飛▲3三角成、△3二飛にも▲2四歩と取れば右四間飛車側が指しやすいです。"}, "situation": "前問解答図から△4五同歩と進みました。これには3手1組の好手順があります。", "caption": "【第18図は△4五同歩まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 36, "chapter": "第三章 2二角5四銀型", "sfen": "ln1g3nl/1ks1gr1b1/1pp1p2p1/p2pspp1p/9/P1P1SP1PP/1P1PP1P2/1BKS1R3/LNG1G2NL b - 1", "turn": "b", "answer": {"type": "single", "usi": "3g3f", "candidates": ["3g3f"], "line": ["3g3f"], "heading": "▲3六歩", "caption": "【第1解答図は▲3六歩(37)まで】", "explanation": "すぐに▲4五歩と仕掛ける手も有力ですが、相手陣に隙がないため難解な戦いです。\n右四間飛車側は振り飛車に△7四歩を突いてもらいたい意味がある(理由は後述)ので▲3六歩と一手様子を見ます。"}, "situation": "基本図から△6四歩と進みました。これにはすぐに仕掛ける手も有力ですが、一手待ちたいところです。どう指すのが良いでしょうか。", "caption": "【第1図は△6四歩(63)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 37, "chapter": "第三章 2二角5四銀型", "sfen": "ln1g3nl/1ks1gr1b1/1p2p2p1/p1ppspp1p/9/P1P1SPPPP/1P1PP4/1BKS1R3/LNG1G2NL b - 1", "turn": "b", "answer": {"type": "single", "usi": "4f4e", "candidates": ["4f4e"], "line": ["4f4e"], "heading": "▲4五歩", "caption": "【第2解答図は▲4五歩まで】", "explanation": "右四間飛車らしく4筋から仕掛けるのが正解。これを△同銀なら▲同銀△同歩▲2二角成△同飛▲4五飛で飛車が捌けるので右四間飛車側が十分です。\nちなみにこの手で▲3七桂と跳ねると△3五歩▲同歩△3二飛と動かれてしまいます。2二角型に▲3七桂は危険です。"}, "situation": "前問解答図から△7四歩と突いて陣形を整備してきました。自然な手ですがこれには早速仕掛けていきます。", "caption": "【第2図は△7四歩(73)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 38, "chapter": "第三章 2二角5四銀型", "sfen": "ln1g3nl/1ks1gr1b1/1p2p2p1/p1pps1p1p/5p3/P1P1S1PPP/1P1PP4/1BKS1R3/LNG1G2NL b p 1", "turn": "b", "answer": {"type": "single", "usi": "8h2b+", "candidates": ["8h2b+"], "line": ["8h2b+", "4b2b", "B*7g"], "heading": "▲2二角成△同飛▲7七角", "caption": "【第3解答図は▲7七角打まで】", "explanation": "角を取ってこのラインに角を打つのが正解。このラインに角を打って攻める手は右四間飛車でよく出てきます。\nこの局面は△1二飛と△3三角が考えられるので順に見ていきます。"}, "situation": "前問解答図から△4五同歩と進みました。これにはどう攻めますか。3手示してください。", "caption": "【第3図は△4五同歩(まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 39, "chapter": "第三章 2二角5四銀型", "sfen": "ln1g3nl/1ks1g3r/1p2p2p1/p1pps1p1p/5p3/P1P1S1PPP/1PBPP4/2KS1R3/LNG1G2NL b bp 1", "turn": "b", "answer": {"type": "single", "usi": "5f4e", "candidates": ["5f4e"], "line": ["5f4e"], "heading": "▲4五銀", "caption": "【第4解答図は▲4五銀(56)まで】", "explanation": "シンプルに銀を出るのが正解。△同銀なら▲同飛で飛車が捌けるので右四間飛車側が十分です。"}, "situation": "前問解答図から△1二飛と逃げてきました。これにはシンプルに攻めていきましょう。", "caption": "【第4図は△1二飛(22)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 40, "chapter": "第三章 2二角5四銀型", "sfen": "ln1g3nl/1ks1g3r/1p2p2p1/p1pp2p1p/3s1S3/P1P3PPP/1PBPP4/2KS1R3/LNG1G2NL b Pbp 1", "turn": "b", "answer": {"type": "single", "usi": "4e5f", "candidates": ["4e5f"], "line": ["4e5f"], "heading": "▲5六銀", "caption": "【第5解答図は▲5六銀(45)まで】", "explanation": "銀をぶつけつつ飛車の利きを通す手が正解。△同銀なら▲同歩で飛車の働きの差の分、右四間飛車が指しやすいです。\n△7六銀と出てくる手が気になりますがそれは次問で。"}, "situation": "前問解答図から△6五銀とかわしてきました。これは▲4五銀とぶつけた時によく出てくる手で、警戒しなければいけない手です。これにはどうしますか。", "caption": "【第5図は△6五銀(54)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 41, "chapter": "第三章 2二角5四銀型", "sfen": "ln1g3nl/1ks1g3r/1p2p2p1/p1pp2p1p/9/P1s1S1PPP/1PBPP4/2KS1R3/LNG1G2NL b Pb2p 1", "turn": "b", "answer": {"type": "single", "usi": "7g5e", "candidates": ["7g5e"], "line": ["7g5e"], "heading": "▲5五角", "caption": "【第6解答図は▲5五角(77)まで】", "explanation": "この角を出る手が狙いで、△7四歩が突いてあるため、次に▲6四角が王手になります。このための第1解答図での▲3六歩でした。"}, "situation": "前問解答図から△7六銀と進みました。玉頭に出られて気持ち悪いところですが、ここで△7四歩を突くまで待機した意味が出てきます。", "caption": "【第6図は△7六銀(65)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 42, "chapter": "第三章 2二角5四銀型", "sfen": "ln1g3nl/1ks1g1b1r/1p2p2p1/p1pp2p1p/4B4/P1s1S1PPP/1P1PP4/2KS1R3/LNG1G2NL b P2p 1", "turn": "b", "answer": {"type": "single", "usi": "7i8h", "candidates": ["7i8h"], "line": ["7i8h"], "heading": "▲8八金", "caption": "【第7解答図は▲8八金(79)まで】", "explanation": "次に△8七銀成と成られると気持ち悪いので丁寧に受けておくのが正解です。"}, "situation": "前問解答図から△3二角と進みました。この角は▲4一飛成を防ぎつつ、△8七銀成を狙っています。これには丁寧に受けておきましょう。", "caption": "【第7図は△3二角打まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 43, "chapter": "第三章 2二角5四銀型", "sfen": "ln1g3nl/1k2g1b1r/1ps1p2p1/p1pp2p1p/4B4/P1s1S1PPP/1P1PP4/1GKS1R3/LN2G2NL b P2p 1", "turn": "b", "answer": {"type": "single", "usi": "1f1e", "candidates": ["1f1e"], "line": ["1f1e"], "heading": "▲1五歩", "caption": "【第8解答図は▲1五歩(16)まで】", "explanation": "端を攻めるのが正解。△同歩なら▲1三歩と打ち、△同飛なら▲2二角成、△同桂なら▲1五香で右四間飛車側が優勢です。\n端を攻めたこの局面は右四間飛車側が指せます。\nちなみにこの▲1五歩では▲2五歩も有力で、それでも右四間飛車側が十分です。"}, "situation": "前問解答図から△7三銀と進みました。▲6四角は防がれてしまいましたが、こちらにはも一つ狙いがあります。", "caption": "【第8図は△7三銀(72)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 44, "chapter": "第三章 2二角5四銀型", "sfen": "ln1g3nl/1ks1g3r/1p2p2p1/p1pps1p1p/5S3/P1P3PPP/1PBPPp3/2KS1R3/LNG1G2NL b Pb 1", "turn": "b", "answer": {"type": "single", "usi": "4h4g", "candidates": ["4h4g"], "line": ["4h4g"], "heading": "▲4七同飛", "caption": "【第9解答図は魯4七同飛まで】", "explanation": "シンプルに取る手が正解。△3八角の反撃が気になりますが、それは次問で。"}, "situation": "第4解答図では△4七歩と打って飛車をいじめてくる手も考えられます。これにはどう指すのが良いでしょうか。", "caption": "【第9図は△4七歩打まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 45, "chapter": "第三章 2二角5四銀型", "sfen": "ln1g3nl/1ks1g3r/1p2p2p1/p1pps1p1p/5S3/P1P3PPP/1PBPPR3/2KS2b2/LNG1G2NL b 2P 1", "turn": "b", "answer": {"type": "single", "usi": "4g4h", "candidates": ["4g4h"], "line": ["4g4h", "3h2i+", "4e5d"], "heading": "▲4八飛△2九角成▲5四銀", "caption": "【第10解答図は▲5四銀35)まで】", "explanation": "角取りに飛車を逃げて、桂馬を取ってきた手に銀を取っておきます。以下△同歩が自然ですが、▲4一飛成と成った局面は難解ながら右四間飛車側も指せます。"}, "situation": "前問解答図から△3八角と進みました。飛車桂両取りですが、これには自然に進めてください。", "caption": "【第10図は△3八角打まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 46, "chapter": "第三章 2二角5四銀型", "sfen": "ln1g3nl/1ks1g2r1/1p2p1bp1/p1pps1p1p/5p3/P1P1S1PPP/1PBPP4/2KS1R3/LNG1G2NL b p 1", "turn": "b", "answer": {"type": "single", "usi": "5f4e", "candidates": ["5f4e"], "line": ["5f4e"], "heading": "▲4五銀", "caption": "【第11解答図は▲4五銀(56)まで】", "explanation": "銀を出て攻めるのが正解。▲4五銀と出るときは△6五銀と交わしてくる手を警戒しなければいけませんが、この場合は▲4四銀と角取りに銀を出れば右四間飛車側が指せます。(以下△5一角なら▲4三銀成が飛車取りで厳しい)"}, "situation": "今まで第3解答図から△1二飛と飛車を逃げる手を見てきました。ここから△3三角と打ってくる変化を見ていきます。これにはどう攻めるのが良いでしょうか。", "caption": "【第11図は△3三角打まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 47, "chapter": "第三章 2二角5四銀型", "sfen": "ln1g3nl/1ks1gr3/1p2p2p1/p1pps1p1p/5S3/P1P3PPP/1PNPP4/2KS1R3/L1G1G2NL b BPbp 1", "turn": "b", "answer": {"type": "single", "usi": "4e5d", "candidates": ["4e5d"], "line": ["4e5d", "4b4h+", "5i4h"], "heading": "▲5四銀△4八飛成▲同金", "caption": "第12解答図は▲4八同金(59)まで】", "explanation": "銀を取って、飛車を取ってきた手に▲同金と取っておくのが正解。以下△5四歩と銀を取るのが自然ですが、そこで手番がこちらに来るので先に攻めることができます。"}, "situation": "前問解答図で△4二飛は▲4四銀と角取りに銀を出る攻めが厳しいです。そこで△7七角成▲同桂としてから△4二飛と回ってきました。これにはどう指すのが良いでしょうか。3手示してください。", "caption": "【第12図は△4二飛(22)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 48, "chapter": "第三章 2二角5四銀型", "sfen": "ln1g3nl/1ks1g4/1p5p1/p1ppp1p1p/9/P1P3PPP/1PNPP4/2KS1G3/L1G4NL b RBSPrbsp 1", "turn": "b", "answer": {"type": "single", "usi": "R*4a", "candidates": ["R*4a"], "line": ["R*4a"], "heading": "▲4一飛", "caption": "【第13解答図は▲4一飛打まで】", "explanation": "自然に飛車を打ちおろして攻めていくのが正解。▲3一飛もありますが自陣に利いている分、▲4一飛が勝ります。"}, "situation": "前問解答図から△5四歩と銀を取ってきました。これには自然に飛車を使って攻めていきましょう。", "caption": "【第13図は△5四歩(53)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 49, "chapter": "第三章 2二角5四銀型", "sfen": "ln1g1R1nl/1ks1g4/1p5p1/p1ppp1p1p/9/P1P3PPP/1PNPP4/2KS1G1r1/L1G4NL b BSPbsp 1", "turn": "b", "answer": {"type": "single", "usi": "S*3h", "candidates": ["S*3h"], "line": ["S*3h"], "heading": "▲3八銀", "caption": "【第14解答図は▲3八銀打まで】", "explanation": "がっちり銀を打って桂馬を守りつつ、金を取られにくくする手が正解。\n銀を打ったおかげで相手の飛車が狭くなっているのもこちらのポイントです。"}, "situation": "前問解答図から△2八飛と打って攻め合いに来ました。次に桂馬を取られると△8四桂と攻めてくる手があるため嫌味です。ここはがっちり受けておきましょう。", "caption": "【第14図は△2八飛打まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 50, "chapter": "第三章 2二角5四銀型", "sfen": "ln1g1R1nl/1ks1g4/1p5p1/p2pp1p1p/2p6/P1P3PPP/1PNPP4/2KS1GSr1/L1G4NL b BPbsp 1", "turn": "b", "answer": {"type": "single", "usi": "B*3g", "candidates": ["B*3g"], "line": ["B*3g", "B*5e", "3g5e", "5d5e", "B*3b"], "heading": "▲3七角△5五角▲同角△同歩▲3二角", "caption": "【第15解答図は▲3二角打まで】", "explanation": "まず▲3七角と飛車取りに打ちます。飛車が詰んでいるので△5五角と打っくらいですが、取ってから▲3二角と打てば桂頭に利かせることができます。(ここで△4三歩なら▲7五歩)この局面は難解ですが右四間飛車側も十分に指せます。"}, "situation": "前問解答図から△7五歩と桂頭を攻めてきました。受けにくそうな攻めですが、手順を尽くすことで受けることができます。5手示してください。", "caption": "【第15図は△7五歩(74)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 51, "chapter": "第三章 2二角5四銀型", "sfen": "ln1g3n1/1ks1gr1bl/1pp1p2p1/p2pspp1p/9/P1P1SPPPP/1P1PP4/1BKS1R3/LNG1G2NL b - 1", "turn": "b", "answer": {"type": "single", "usi": "4f4e", "candidates": ["4f4e"], "line": ["4f4e"], "heading": "▲4五歩", "caption": "【第16解答図は▲4五歩(鮖)まで】", "explanation": "右四間飛車らしく4筋から仕掛けるのが正解。▲3六歩と突いてあるため、戦いの途中で▲3七桂と使う手があるので十分に成立しています。"}, "situation": "第1解答図で△7四歩と待機する手は玉のコビンが開いて危険な意味がありました。そこで△1二香と待機してくる手も考えられます。これにも右四間飛車らしく仕掛けていきましょう。", "caption": "【第16図は△1二香(11)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 52, "chapter": "第三章 2二角5四銀型", "sfen": "ln1g3n1/1ks1gr1bl/1pp1p2p1/p2ps1p1p/5p3/P1P1S1PPP/1P1PP4/1BKS1R3/LNG1G2NL b p 1", "turn": "b", "answer": {"type": "single", "usi": "8h2b+", "candidates": ["8h2b+"], "line": ["8h2b+", "4b2b", "2i3g"], "heading": "▲2二角成△同飛▲3七桂", "caption": "【第17解答図は▲3七桂(29)まで】", "explanation": "角を取ってから桂馬を活用するのが正解。次に▲4五桂と跳ねる手を狙っていますが、△3三桂には▲1一角が厳しく、△3二飛に▲4五桂と捌いていけば右四間飛車側が指せます。この変化は△1二香がたたっています。"}, "situation": "前問解答図で△4五同銀は▲同銀△同歩▲2二角成△同飛▲4五飛で右四間飛車側が十分です。そのため△4五同歩と取る一手です。これにはどう指すのが良いでしょうか。3手示してください。", "caption": "【第17図は△4五同歩まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 53, "chapter": "第三章 2二角5四銀型", "sfen": "ln1g3n1/1ks1gr2l/1pp1p2p1/p2ps1p1p/5p3/P1P1S1PPP/1P1PP1N2/2KS1R3/LNG1G3L b Bbp 1", "turn": "b", "answer": {"type": "single", "usi": "3g4e", "candidates": ["3g4e"], "line": ["3g4e"], "heading": "▲4五桂", "caption": "【第18解答図は▲4五桂(37)まで】", "explanation": "シンプルに桂馬を跳ねるのが正解。「桂馬の高跳び歩の餌食」に見えますが…"}, "situation": "前問解答図から△4二飛と進みました。これにはどう指すのが良いでしょうか。", "caption": "【第18図は△4二飛(22)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 54, "chapter": "第三章 2二角5四銀型", "sfen": "ln1g3n1/1ks1gr2l/1pp1p2p1/p2pspp1p/5N3/P1P1S1PPP/1P1PP4/2KS1R3/LNG1G3L b BPb 1", "turn": "b", "answer": {"type": "single", "usi": "B*3a", "candidates": ["B*3a"], "line": ["B*3a"], "heading": "▲3一角", "caption": "【第19解答図は▲3一角打まで】", "explanation": "角を打つのが狙いの切り返し。これに対して△4五歩と桂馬を取れば▲4二角成△同金▲2二飛で先に敵陣を攻めている分、右四間飛車側が指せます。"}, "situation": "前問解答図から△4四歩と進みました。桂馬を取りに来て自然な手ですが、これには狙いの切り返しがあります。", "caption": "【第19図は△4四歩打まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 55, "chapter": "第三章 2二角5四銀型", "sfen": "ln1g1rBn1/1ks1g3l/1pp1p2p1/p2pspp1p/5N3/P1P1S1PPP/1P1PP4/2KS1R3/LNG1G3L b Pb 1", "turn": "b", "answer": {"type": "single", "usi": "4e5c+", "candidates": ["4e5c+"], "line": ["4e5c+"], "heading": "▲5三桂成", "caption": "第20解答図は▲5三桂成(45)まで】", "explanation": "桂馬を成る手が正解。△同金なら▲同角成、△3一飛なら▲5四成桂でどちらも右四間飛車側が指せます。\nこの手に代えて▲2二角成は△3七角、▲5三角成は△4五銀でいずれも難解です。"}, "situation": "前問解答図から△4一飛と進みました。ここは色々な攻めが見えるところですが、一番良いのはどれでしょうか。", "caption": "【第20図は△4一飛(42)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 56, "chapter": "第三章 2二角5四銀型", "sfen": "ln1g3n1/1ks1gr2l/1pp1p2p1/p2ps1p1p/5N3/P1P1S1PPP/1P1PP1b2/2KS1R3/LNG1G3L b BPp 1", "turn": "b", "answer": {"type": "single", "usi": "4e5c+", "candidates": ["4e5c+"], "line": ["4e5c+"], "heading": "▲5三桂成", "caption": "第21解答図は▲5三桂成(45)まで】", "explanation": "桂馬を成ってしまう手が正解。△同金なら▲4二飛成、△4八角成なら▲4二成桂△5九馬▲5二成桂△6八馬▲同金、△4八飛成なら▲同金△同角成▲5二成桂でいずれも右四間飛車十分の展開です。"}, "situation": "第18解答図では△3七角と反撃してくる手も考えられます。この角打ちはよくある反撃で、右四間飛車側としては常に警戒しなければいけない反撃ですが、これには用意の切り返しがあります。", "caption": "【第21図は△3七角打まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 57, "chapter": "第三章 2二角5四銀型", "sfen": "ln1g3n1/1ks1gr2l/1pp1p2p1/p2ps1p1p/5N3/P1P1SpPPP/1P1PP4/2KS1R3/LNG1G3L b BPb 1", "turn": "b", "answer": {"type": "single", "usi": "B*3a", "candidates": ["B*3a"], "line": ["B*3a"], "heading": "▲3一角", "caption": "【第22解答図は▲3一角打まで】", "explanation": "▲4六同飛と取る手も有力ですが、△3七角や△3三桂(▲同桂成なら△4六飛)が気になります。\nそこで飛車取りに角を打つのがおすすめの手。△3二飛と逃げてくる手が気になりますが、それは次問で。"}, "situation": "最後に第18解答図で△4六歩と反撃してくる手を見ていきましょう。一見タダですが、これは取ってもよいのでしょうか。", "caption": "【第22図は△4六歩打まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 58, "chapter": "第三章 2二角5四銀型", "sfen": "ln1g2Bn1/1ks1g1r1l/1pp1p2p1/p2ps1p1p/5N3/P1P1SpPPP/1P1PP4/2KS1R3/LNG1G3L b Pb 1", "turn": "b", "answer": {"type": "single", "usi": "4e5c+", "candidates": ["4e5c+"], "line": ["4e5c+"], "heading": "▲5三桂成", "caption": "第23解答図は▲5三桂成(45)まで】", "explanation": "▲5三角成もありますが△4五銀と桂馬を取ってくる手が気になります。\n▲5三桂成がわかりやすい攻め。△同金なら▲同角成で、△3一飛にも▲5四成桂と取っておけば、駒損ながらも次に▲4四歩などの攻めが厳しいため右四間飛車側も指せます。"}, "situation": "前問解答図から△3二飛と進みました。これにはどう攻めるのが良いでしょうか。", "caption": "【第23図は△3二飛(42)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 59, "chapter": "第三章 2二角5四銀型", "sfen": "ln1g2rn1/1ks1g3l/1pp4p1/p2p+N1p1p/9/P1P1SpPPP/1P1PP1b2/2KS1R3/LNG1G3L b S2Pb 1", "turn": "b", "answer": {"type": "single", "usi": "P*4d", "candidates": ["P*4d"], "line": ["P*4d"], "heading": "▲4四歩", "caption": "【第24解答図は▲4四歩打まで】", "explanation": "狙い通り歩を垂らして、攻める手が正解。△4八角成と飛車を取ってくるのは▲同金でこちらの攻め駒に角が加わるのでありがたい意味があります。とはいえ△4一飛にも▲3二銀～▲4三歩成と攻める手や、その手を含みに▲4九飛とする手もあるため右四間飛車側が十分です。"}, "situation": "とはいえ前問解答図から△3一飛▲5四成桂△3七角と反撃してくる手は気になるところ。これにはどう指すのが良いでしょうか。", "caption": "【第24図は△3七角打まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 60, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g3nl/1ks1gr1b1/1pp2s1p1/p2pppp1p/9/P1P1SP1PP/1P1PP1P2/1BKS1R3/LNG1G2NL b - 1", "turn": "b", "answer": {"type": "single", "usi": "4f4e", "candidates": ["4f4e"], "line": ["4f4e"], "heading": "▲4五歩", "caption": "【第1解答図は▲4五歩まで】", "explanation": "右四間飛車らしく4筋から仕掛けるのが正解。基本的に2二角型には▲4五歩から仕掛けていきます。\nこれに対して△同歩なら▲2二角成△同飛▲3一角で右四間飛車側が指せます。"}, "situation": "基本図から△6四歩と進みました。陣形を整備して自然な手ですが、これには右四間飛車らしく仕掛けていきます。", "caption": "【第1図は△6四歩(63)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 61, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g3nl/1ks1gr1b1/1p3s1p1/p1ppppp1p/5P3/P1P1S2PP/1P1PP1P2/1BKS1R3/LNG1G2NL b - 1", "turn": "b", "answer": {"type": "single", "usi": "4e4d", "candidates": ["4e4d"], "line": ["4e4d"], "heading": "▲4四歩", "caption": "【第2解答図は▲4四歩(45)まで】", "explanation": "自然に歩を取る手が正解。これに対しては△同銀と△同角が考えられるので順に見ていきます。"}, "situation": "前問解答図から△7四歩と陣形を整備してきました。これにはどう攻めますか。", "caption": "【第2図は△7四歩(73)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 62, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g3nl/1ks1gr1b1/1p5p1/p1pppsp1p/9/P1P1S2PP/1P1PP1P2/1BKS1R3/LNG1G2NL b Pp 1", "turn": "b", "answer": {"type": "single", "usi": "5f4e", "candidates": ["5f4e"], "line": ["5f4e"], "heading": "▲4五銀", "caption": "【第3解答図は▲4五銀(56)まで】", "explanation": "銀をぶつけていく手が正解。これに対して△同銀なら▲2二角成△同飛▲4五飛と進めて、飛車が捌けているので右四間飛車側が良くなります。"}, "situation": "前問解答図から△4四同銀と進みました。これにはどう攻めますか。", "caption": "【第3図は△4四同銀(43)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 63, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g3nl/1ks1gr1b1/1p2s2p1/p1ppp1p1p/5S3/P1P4PP/1P1PP1P2/1BKS1R3/LNG1G2NL b Pp 1", "turn": "b", "answer": {"type": "single", "usi": "8h2b+", "candidates": ["8h2b+"], "line": ["8h2b+", "4b2b", "B*7g"], "heading": "▲2二角成△同飛▲7七角", "caption": "【第4解答図▲7七角打まで】", "explanation": "角を取ってこのラインに角を打つのが定番の攻め。これに対して△1二飛なら▲3四銀と出て▲2三銀成と▲4三銀成を狙えば右四間飛車側が指せます。"}, "situation": "前問解答図から△5三銀と進みました。これには右四間飛車の定番の攻めで攻めていきます。", "caption": "【第4図は△5三銀まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 64, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g3nl/1ks1g2r1/1p2s2p1/p1ppp1p1p/4bS3/P1P4PP/1PBPP1P2/2KS1R3/LNG1G2NL b Pp 1", "turn": "b", "answer": {"type": "single", "usi": "7g5e", "candidates": ["7g5e"], "line": ["7g5e"], "heading": "▲5五同角", "caption": "【第5解答図は▲5五同角(77)まで】", "explanation": "角を取ってしまう手が正解。右四間飛車側の狙いは△5五同歩と取らせて5五の地点に歩を進めさせることで、その効果は次に現れます。"}, "situation": "前問解答図で△3三角と受ける手には▲同角成△同桂▲3四銀と出て桂馬を狙えば右四間飛車側が指せます。そこで△5五角と打ってきました。これにはどう指すのが良いでしょうか。", "caption": "【第5図は△5五角打まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 65, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g3nl/1ks1g2r1/1p2s2p1/p1pp2p1p/4pS3/P1P4PP/1P1PP1P2/2KS1R3/LNG1G2NL b BPbp 1", "turn": "b", "answer": {"type": "single", "usi": "4e4d", "candidates": ["4e4d"], "line": ["4e4d", "5c4d", "4h4d"], "heading": "▲4四銀同銀▲同飛", "caption": "【第6解答図は▲4四同飛)まで】", "explanation": "銀をぶつけて捌きにいくのが正解。この局面で5五の地点に歩がいるため△5五角と打って飛香両取りをかける手がありません。これが▲7七角と打った時の狙いでした。\nこの局面は飛車が捌けている分、右四間飛車側が指せます。"}, "situation": "△5五同角と進みました。これにはどう攻めるのが良いでしょうか。", "caption": "【第6図は△5五同歩(54)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 66, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g3nl/1ks1gr1b1/1p5p1/p1ppp1p1p/4sS3/P1P4PP/1P1PP1P2/1BKS1R3/LNG1G2NL b Pp 1", "turn": "b", "answer": {"type": "single", "usi": "P*4d", "candidates": ["P*4d"], "line": ["P*4d"], "heading": "▲4四歩", "caption": "【第7解答図は▲4四歩打まで】", "explanation": "▲5六歩と突く手も考えられますが△3三桂が厄介な手で、▲5四銀△4八飛成▲同金△2八飛と進むと先に飛車を打たれているので少し嫌な局面です。\nここは▲4四歩と打って次に▲5六歩と突く手を狙う方が勝ります。"}, "situation": "第3解答図では△5五銀と出る手も考えられます。これにはどう指すのが良いでしょうか。", "caption": "【第7図は△5五銀まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 67, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g3nl/1ks1gr1b1/1p5p1/p1pppPp1p/4sS3/P1P2p1PP/1P1PP1P2/1BKS1R3/LNG1G2NL b - 1", "turn": "b", "answer": {"type": "single", "usi": "4e5d", "candidates": ["4e5d"], "line": ["4e5d"], "heading": "▲5四銀", "caption": "【第8解答図は▲5四銀(45)まで】", "explanation": "銀を前に出る手が正解。この手が5五の銀取りになっていますが、△4四角には▲4三歩が好手で、△1二飛(△同金には▲同銀成～5四金)▲4五銀△2二角に▲3四銀と出る手が厳しく、右四間飛車側が優勢です。"}, "situation": "前問解答図から△4六歩と打ってきました。これは▲5六歩と突けば△4四銀と歩を取る狙いです。これには駒を前に進めていきましょう。", "caption": "【第8図は△4六歩打まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 68, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g3nl/1ks1gr1b1/1p5p1/p1ppSsp1p/9/P1P2p1PP/1P1PP1P2/1BKS1R3/LNG1G2NL b Pp 1", "turn": "b", "answer": {"type": "single", "usi": "P*4c", "candidates": ["P*4c"], "line": ["P*4c"], "heading": "▲4三歩", "caption": "【第9解答図は▲4三歩打まで】", "explanation": "飛車取りに歩を打つ手が正解。これに対して△3二飛なら▲4六飛と歩を払っておいて右四間飛車側が指せます。"}, "situation": "前問解答図から△4四銀と進みました。これにはどう指すのが良いでしょうか。", "caption": "【第9図は△4四銀(55)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 69, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g3nl/1ks2r1b1/1p3g1p1/p1ppSsp1p/9/P1P2p1PP/1P1PP1P2/1BKS1R3/LNG1G2NL b 2p 1", "turn": "b", "answer": {"type": "single", "usi": "5d4c+", "candidates": ["5d4c+"], "line": ["5d4c+", "4b4c", "4h4f"], "heading": "▲4三同銀成△同飛▲4六飛", "caption": "【第10解答図は▲4六飛38)まで】", "explanation": "金を取ってから歩を払うのが正解。この局面は先に守りの金をはがせている分、右四間飛車側が指せます。\nちなみに▲4六飛では▲5四金も考えられますが、△4二飛▲4六飛に△4五銀打と打たれて少し難しいところがあります。"}, "situation": "前問解答図から△4三同金と進みました。これにはどう攻めるのが良いでしょうか。3手示してください。", "caption": "【第10図は△4三同金(52)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 70, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g3nl/1ks1gr3/1p3s1p1/p1pppbp1p/9/P1P1S2PP/1P1PP1P2/1BKS1R3/LNG1G2NL b Pp 1", "turn": "b", "answer": {"type": "single", "usi": "8h4d", "candidates": ["8h4d"], "line": ["8h4d", "4c4d", "B*3a"], "heading": "▲4四同角△同銀▲3一角", "caption": "【第11解答図は▲3一角打まで】", "explanation": "角を取って飛車取りに角を打っ手が正解。これに対して飛車を逃げてくれれば▲6四角成が厳しく、右四間飛車側が優勢です。"}, "situation": "少し戻って第2解答図では△4四同角も考えられます。これにはどう攻めるのが良いでしょうか。3手示してください。", "caption": "【第11図は△4四同角(22)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 71, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g2Bnl/1ks1gr3/1p2s2p1/p1ppp1p1p/9/P1P1S2PP/1P1PP1P2/2KS1R3/LNG1G2NL b Pbp 1", "turn": "b", "answer": {"type": "single", "usi": "3a4b+", "candidates": ["3a4b+"], "line": ["3a4b+"], "heading": "▲4二角成", "caption": "第12解答図は▲4二角成(31)まで】", "explanation": "自然に飛車を取る手が正解。これに対して△同金なら▲4四歩と垂らして次に▲4三歩成を狙う手が厳しく、右四間飛車側が指せます。"}, "situation": "前問解答図から△5三銀と進みました。これは▲3一角と打った時によくある対応です。まずは自然な手でいきましょう。", "caption": "【第12図は△5三銀(まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 72, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g3nl/1ks1gs3/1p5p1/p1ppp1p1p/9/P1P1S2PP/1P1PP1P2/2KS1R3/LNG1G2NL b RP2bp 1", "turn": "b", "answer": {"type": "single", "usi": "6g6f", "candidates": ["6g6f"], "line": ["6g6f"], "heading": "▲6六歩", "caption": "【第13解答図は▲6六歩(67)まで】", "explanation": "▲4一飛と打っと△3三角が好手で▲7七桂と香車取りを受けると△3二角と飛車を詰まされて不利になります。\nそこでじっと▲6六歩と突く手が正解。この手は△3三角の筋を緩和しつつ、5六の銀の引き場所を作っています。この局面は右四間飛車側が指せます。"}, "situation": "前問解答図から△4二同銀と進みました。これに対しては▲4一飛車と打つ手が自然に見えますが、果たしてそれで良いでしょうか。", "caption": "【第13図は△4二同銀(53)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 73, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g3nl/1ks1gr3/1pp2sbp1/p2pppp1p/5P3/P1P1S2PP/1P1PP1P2/1BKS1R3/LNG1G2NL b - 1", "turn": "b", "answer": {"type": "single", "usi": "4e4d", "candidates": ["4e4d"], "line": ["4e4d"], "heading": "▲4四歩", "caption": "【第14解答図は▲4四歩35)まで】", "explanation": "自然に歩を取る手が正解。これに対して△同角なら▲同角△同銀▲3一角で右四間飛車側が十分です。(第11図からの進行を参照)"}, "situation": "というわけで第1解答図で△7四歩と待機してくる手には▲4四歩から攻めて右四間飛車側が指せることがわかりました。\nそこで△3三角と上がって、角を安定させてくる手も考えられます。これにはどう指すのが良いでしょうか。", "caption": "【第14図は△3三角(22)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 74, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g3nl/1ks1gr3/1pp3bp1/p2ppsp1p/9/P1P1S2PP/1P1PP1P2/1BKS1R3/LNG1G2NL b Pp 1", "turn": "b", "answer": {"type": "single", "usi": "P*4e", "candidates": ["P*4e"], "line": ["P*4e"], "heading": "▲4五歩", "caption": "【第15解答図は▲4五歩打まで】", "explanation": "あまり筋は良くないですが歩を打つ手が正解。\nこれに対して△3五銀なら▲2二角成～▲3一角、△5五銀なら▲同銀△同歩▲4四銀△2二角▲5五銀で右四間飛車側が十分です。"}, "situation": "前問解答図から△4四同銀と進みました。ここで相手の角が2二にいれば▲4五銀と攻める手がありますが、今回は3三にいます。これにはどう攻めるのが良いでしょうか。", "caption": "【第15図は△4四同銀(43)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 75, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g3nl/1ks1gr3/1pp1s1bp1/p2pp1p1p/5P3/P1P1S2PP/1P1PP1P2/1BKS1R3/LNG1G2NL b p 1", "turn": "b", "answer": {"type": "single", "usi": "8h3c+", "candidates": ["8h3c+"], "line": ["8h3c+", "2a3c", "B*7g"], "heading": "▲3三角成△同桂▲7七角", "caption": "【第16解答図は▲7七角打まで】", "explanation": "角を取ってこのラインに角を打つ手が正解。これに対しては△4三金、△4三飛、△4五桂が考えられるので順に見ていきます。"}, "situation": "前問解答図から△5三銀と進みました。これには今までも何度か出てきた右四間飛車定番の攻めで行きます。3手示してください。", "caption": "【第16図は△5三銀(まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 76, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g4l/1ks2r3/1pp1sgnp1/p2pp1p1p/5P3/P1P1S2PP/1PBPP1P2/2KS1R3/LNG1G2NL b bp 1", "turn": "b", "answer": {"type": "single", "usi": "2i1g", "candidates": ["2i1g"], "line": ["2i1g"], "heading": "▲1七桂", "caption": "【第17答図は▲1七桂(29)まで】", "explanation": "遊んでいる桂馬を活用する手が正解。次に▲2五桂と跳ねていく手を狙います。"}, "situation": "前問解答図から△4三金と進みました。現状、攻め駒不足感があるので、遊び駒を活用していきましょう。", "caption": "【第17図は△4三金(52)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 77, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g4l/1ks2r3/1pp1sgn2/p2pp1ppp/5P3/P1P1S2PP/1PBPP1P1N/2KS1R3/LNG1G3L b bp 1", "turn": "b", "answer": {"type": "single", "usi": "2f2e", "candidates": ["2f2e"], "line": ["2f2e", "2d2e", "4h2h"], "heading": "▲2五歩同歩▲2八飛", "caption": "【第18解答図▲2八飛(48)まで】", "explanation": "2筋の歩を突き捨ててから飛車を回る手が正解。\nこのように、右四間飛車では4筋だけにこだわらず、2筋で戦う手が良い手になることもあります。"}, "situation": "前問解答図から△2四歩として▲2五桂を防いできました。これにはどう指すのが良いでしょうか。3手示してください。", "caption": "【第18図は△2四歩(23)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 78, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g4l/1ks4r1/1pp1sgn2/p2pp1p1p/5P1p1/P1P1S3P/1PBPP1P1N/2KS3R1/LNG1G3L b b2p 1", "turn": "b", "answer": {"type": "single", "usi": "1g2e", "candidates": ["1g2e"], "line": ["1g2e"], "heading": "▲2五桂", "caption": "【第19解答図は▲2五桂(17)まで】", "explanation": "受けてきた手にも桂馬を跳ねる手が正解。△同桂なら▲2二角成、△同飛なら▲同飛△同桂▲2三飛と進めて右四間飛車側が指せます。"}, "situation": "前問解答図から△2二飛と▲2五桂を防いできました。これには強引に攻めていきましょう。", "caption": "【第19図は△2二飛(42)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 79, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g3rl/1ks6/1pp1sgn2/p2pp1p1p/5P1N1/P1P1S3P/1PBPP1P2/2KS3R1/LNG1G3L b Pb2p 1", "turn": "b", "answer": {"type": "single", "usi": "P*2f", "candidates": ["P*2f"], "line": ["P*2f"], "heading": "▲2六歩", "caption": "【第20解答図は▲2六歩打まで】", "explanation": "じっと歩を打つ手が正解。この局面はかなり難解です。ただ△2五桂▲同歩の後に2筋の歩を伸ばす楽しみがあるので、右四間飛車側も指せると思います。ちなみに▲2六歩では▲4四歩△同銀▲3三桂成という手もあって、激しい戦いが好きな方にはおすすめです。"}, "situation": "前問解答図から△2一飛と進みました。これはこちらの角の利きを避けて、次に△2五桂と取る手を狙っています。次の一手は辛抱の手です。", "caption": "【第20図は△2一飛(22)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 80, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g4l/1ks1g4/1pp1srnp1/p2pp1p1p/5P3/P1P1S2PP/1PBPP1P2/2KS1R3/LNG1G2NL b bp 1", "turn": "b", "answer": {"type": "single", "usi": "4e4d", "candidates": ["4e4d"], "line": ["4e4d"], "heading": "▲4四歩", "caption": "【第21解答図は▲4四歩35)まで】", "explanation": "飛車先の歩を突く手が正解。これに対して△4一飛なら▲4三歩成△同飛(△同金には▲3三角成)▲同飛成△同金▲4一飛で先に飛車を敵陣に打てるので、右四間飛車側も不満がないと思います。"}, "situation": "少し戻って第16解答図では△4三飛と受けてくる手も考えられます。これに対してはどのように指すのが良いでしょうか。", "caption": "【第21図は△4三飛(42)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 81, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g4l/1ks1gr3/1pp1s1np1/p2ppPp1p/9/P1P1S2PP/1PBPP1P2/2KS1R3/LNG1G2NL b bp 1", "turn": "b", "answer": {"type": "single", "usi": "3g3f", "candidates": ["3g3f"], "line": ["3g3f"], "heading": "▲3六歩", "caption": "【第22解答図は▲3六歩(37)まで】", "explanation": "3筋の歩を突いて桂頭を狙う手が正解。相手の飛車が4二にいるので3筋を攻めていったときにあたりが強い意味があります。"}, "situation": "前問解答図から△4二飛と進みました。これは▲4三歩成に△同金と取る狙いで、▲3三角成には△同金と取ることができます。\nただ△4二飛にも弱点はあります。", "caption": "【第22図は△4二飛(43)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 82, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g4l/1ks1gr3/1pp1s1np1/p2ppPp1p/5p3/P1P1S1PPP/1PBPP4/2KS1R3/LNG1G2NL b b 1", "turn": "b", "answer": {"type": "single", "usi": "9f9e", "candidates": ["9f9e"], "line": ["9f9e", "9d9e", "3f3e", "3d3e", "9i9e", "9a9e", "P*3d"], "heading": "▲9五歩同歩▲3五歩△同歩▲9五香△同香▲3四歩", "caption": "【第23解答図は▲3四歩打まで】", "explanation": "9筋と3筋の歩を突き捨ててから香車を捨てて歩を打つ手が正解。強引ですが次の▲3三歩成が厳しいので成立しています。\nちなみに▲9五歩では▲1五歩が自然ですが△同歩と取ってくれず、△4四銀とされて難解です。"}, "situation": "前問解答図から△4五歩と進みました。次に△4四銀と歩を取られると攻めが切れてしまいます。ここは7手1組の派手な手順で攻めていきましょう。", "caption": "【第23図は△4五歩打まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 83, "chapter": "第四章 2二角4三銀型", "sfen": "1n1g4l/1ks1g4/1pp1s1+Pp1/3ppr2p/5pp2/2P1S2PP/1PBPP4/+l1KS1R3/1NG1G2NL b Nbl3p 1", "turn": "b", "answer": {"type": "single", "usi": "7g4d", "candidates": ["7g4d"], "line": ["7g4d", "5c4d", "3c3d"], "heading": "▲4四同角△同銀▲3四と", "caption": "【第24解答図は▲3四と(33)まで】", "explanation": "シンプルに飛車を取ってと金を引く手が正解。この局面は難解ですが、と金ができている、持ち駒に飛車がある、▲9四桂の王手をいつでも狙えるなどの利点があるため右四間飛車側も指せると思います。"}, "situation": "前問解答図から△9八香成▲3三歩成△4四飛と進みました。ここはどう指すのが良いでしょうか。3手示してください。", "caption": "【第24図は△4四飛(42)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 84, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g4l/1ks1gr3/1pp1s2p1/p2pp1p1p/5n3/P1P1S2PP/1PBPP1P2/2KS1R3/LNG1G2NL b b2p 1", "turn": "b", "answer": {"type": "single", "usi": "5f4e", "candidates": ["5f4e"], "line": ["5f4e"], "heading": "▲4五同銀", "caption": "第25解答図は▲4五同銀まで】", "explanation": "▲1一角成も自然で有力です。\nただ△5七桂成とされて▲同銀△4八飛成▲同銀△3八角と進んだ局面は、こちらの陣形が乱されて少し気持ち悪い局面です。そこで桂馬を取る手を本線として扱います。"}, "situation": "最後に第16解答図で△4五桂と跳ねてくる手を見ていきます。これには自然な手が二つありますが、どちらが良いでしょうか。", "caption": "【第25図は△4五桂(33)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 85, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g4l/1ks1gr3/1pp1s2p1/p2pp1p1p/5S3/P1P4PP/1PBPPRP2/2KS2b2/LNG1G2NL b NPp 1", "turn": "b", "answer": {"type": "single", "usi": "4g4f", "candidates": ["4g4f"], "line": ["4g4f"], "heading": "▲4六飛", "caption": "【第26答図は▲4六飛37)まで】", "explanation": "上に逃げる手が正解。▲4八飛と下に逃げると△2九角成とされた後に△4七歩と飛車取りに歩を打ってくる厳しい狙いが残るので、右四間飛車側が苦戦です。"}, "situation": "前問解答図から△4七歩▲同飛△3八角と進みました。これに対しては飛車を逃げるしかありませんが、どこに逃げるのが良いでしょうか。", "caption": "【第26図は△3八角打まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 86, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g4+B/1ks1gr3/1pp1s2p1/p2pp1p1p/5S3/P1P2R1PP/1P1PP1P2/2KS5/LNG1G3+b b NLPnlp 1", "turn": "b", "answer": {"type": "single", "usi": "P*4c", "candidates": ["P*4c"], "line": ["P*4c"], "heading": "▲4三歩", "caption": "【第27解答図は▲4三歩打まで】", "explanation": "歩を打つ手が正解。△同金なら相手陣が乱れますし、△同飛には▲4四香△同銀に▲5四銀が好手(▲4四同銀は△4一飛で難解)で、△4一飛なら▲4四馬と銀を取って右四間飛車側が指せます。"}, "situation": "前問解答図から△2九角成▲1一角成△1九馬と進みました。お互い桂香を取って自然な進行ですが、ここではどう指すのが良いでしょうか。", "caption": "【第27図は△1九馬(29)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 87, "chapter": "第四章 2二角4三銀型", "sfen": "ln1g1r3/1ks1g4/1pp1sP+Bp1/p2pp1p1p/5S3/P1P2R1PP/1P1PP1+b2/2KS5/LNG1G4 b NLnl2p 1", "turn": "b", "answer": {"type": "single", "usi": "L*4i", "candidates": ["L*4i"], "line": ["L*4i"], "heading": "▲4九香", "caption": "【第28解答図は▲4九香打まで】", "explanation": "香車を打って飛車に紐をつける手が正解。この局面はかなり難解で、以下は△4六馬▲同香と進むことが予想されます。\n難解ではありますが、右四間飛車側としては▲5六銀～▲4三歩成のように4筋から攻める手が残っているので、十分に戦えると思います。"}, "situation": "前問解答図から△4一飛▲3三馬△3七馬と進みました。ここで▲4九飛と逃げると△4七歩と打たれて抑え込まれてしまいます。ではどう指すのが良いでしょうか。", "caption": "【第28図は△3七馬(19)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 88, "chapter": "第五章 3二金型", "sfen": "ln1g3nl/1ks2rgb1/1pppp2pp/p3spp2/9/P1P1SP1P1/1P1PP1P1P/1BKS1R3/LNG2G1NL b - 1", "turn": "b", "answer": {"type": "single", "usi": "3g3f", "candidates": ["3g3f"], "line": ["3g3f"], "heading": "▲3六歩", "caption": "【第1解答図は▲3六歩(37)まで】", "explanation": "歩を突いて▲3七桂と使う準備をする手が正解。振り飛車側の3二金型は中央が薄いので、▲1七桂と端に使うよりも▲3七桂と中央に跳ねて真ん中を狙う方が勝ります。"}, "situation": "基本図からは△5四銀と△5四歩が考えられるので順に見ていきます。これにはどう指すのが良いでしょうか。", "caption": "【第1図は△5四銀(43)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 89, "chapter": "第五章 3二金型", "sfen": "ln1g1r1nl/1ks3g2/1pp1p1bp1/p2pspp1p/9/P1P1SPPPP/1P1PP1N2/1BKS1R3/LNG1G3L b - 1", "turn": "b", "answer": {"type": "single", "usi": "8h7g", "candidates": ["8h7g"], "line": ["8h7g"], "heading": "▲7七角", "caption": "【第2解答図は▲7七角(88)まで】", "explanation": "すぐに▲4五歩と突く手も考えられますが、△同歩▲同桂に△8八角成が気になる手で、▲同金も▲同玉も形が悪くなってしまいます。\nそこで一度▲7七角と上がって陣形を整備する手が正解です。"}, "situation": "前問解答図から△6四歩▲1六歩△1四歩▲5九金△3三角▲3七桂△4一飛と進みました。この局面はどう指すのが良いでしょうか。", "caption": "【第2図は△4一飛(42)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 90, "chapter": "第五章 3二金型", "sfen": "ln1g1r1n1/1ks3g1l/1pp1p1bp1/p2pspp1p/9/P1P1SPPPP/1PBPP1N2/2KS1R3/LNG1G3L b - 1", "turn": "b", "answer": {"type": "single", "usi": "4f4e", "candidates": ["4f4e"], "line": ["4f4e"], "heading": "▲4五歩", "caption": "【第3解答図は▲4五歩まで】", "explanation": "右四間飛車側の陣形は完成したのでここで仕掛けていきます。これに対しては△同歩と取るくらいですが、それは次問で。"}, "situation": "前問解答図から△1二香と待機してきました。振り飛車側から動くのは難しいので自然なところです。これには満を持して仕掛けていきます。", "caption": "【第3図は△1二香(11)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 91, "chapter": "第五章 3二金型", "sfen": "ln1g1r1n1/1ks3g1l/1pp1p1bp1/p2ps1p1p/5p3/P1P1S1PPP/1PBPP1N2/2KS1R3/LNG1G3L b p 1", "turn": "b", "answer": {"type": "single", "usi": "5f4e", "candidates": ["5f4e"], "line": ["5f4e"], "heading": "▲4五同銀", "caption": "【第4解答図は▲4五同銀(56)まで】", "explanation": "銀で歩を取る手が正解。これに対して△同銀なら▲同飛と捌いて右四間飛車側が十分です。\nまた事前に▲7七角と上がってある効果で△7七角成と角を取ってきても▲同桂と比較的形良く取ることができます。"}, "situation": "前問解答図から△4五同歩と進みました。これにはどう攻めますか。", "caption": "【第4図は△4五同歩(まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 92, "chapter": "第五章 3二金型", "sfen": "ln1g1r1n1/1ks3g1l/1pp1p1bp1/p2ps1p1p/5S3/P1P2pPPP/1PBPP1N2/2KS1R3/LNG1G3L b P 1", "turn": "b", "answer": {"type": "single", "usi": "4h4f", "candidates": ["4h4f"], "line": ["4h4f"], "heading": "▲4六飛", "caption": "【第5解答図は▲4六同飛)まで】", "explanation": "シンプルに取ってしまう手が正解。振り飛車側は、ある反撃を狙っていますがそれは次問で。"}, "situation": "ちなみに前問解答の▲4五銀に代えて▲4五桂も有力ですが、△7七角成▲同桂△3七角が気になります。\n前問解答図から△4六歩と打ってきました。振り飛車側からよくある反撃ですが、これは取ってよいのでしょうか。", "caption": "【第5図は△4六歩打まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 93, "chapter": "第五章 3二金型", "sfen": "ln1g1r1n1/1ks3g1l/1pp1p2p1/p2ps1p1p/5S3/P1P2RPPP/1PNPP1N2/2KS3b1/L1G1G3L b B2P 1", "turn": "b", "answer": {"type": "single", "usi": "4f4i", "candidates": ["4f4i"], "line": ["4f4i"], "heading": "▲4九飛", "caption": "【第6解答図は▲4九飛まで】", "explanation": "今すぐ▲5四銀と銀を取って攻めていきたいのですが、それには△4六飛があります。\nそこで飛車を引いて香車に紐をつけつつ、飛車に紐をつける手が正解。こうしておいて次に▲5四銀を狙います。"}, "situation": "前問解答図から△7七角成▲同桂△2八角と進みました。これが振り飛車側の狙いです。桂香両取りで厳しいようですが、これには冷静な一着があります。", "caption": "【第6図は△2八角打まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 94, "chapter": "第五章 3二金型", "sfen": "ln1g1r1n1/1ks3g1l/1pp1p2p1/p2ps1p1p/5S3/P1P3PPP/1PNPP1+b2/2KS5/L1G1GR2L b B2Pn 1", "turn": "b", "answer": {"type": "single", "usi": "4e5d", "candidates": ["4e5d"], "line": ["4e5d"], "heading": "▲5四銀", "caption": "【第7解答図は▲5四銀(45)まで】", "explanation": "狙い通り銀を取る手が正解。次に▲4一飛成と飛車を取る手があるので△4九飛成としてくるくらいですが、それは次問で。"}, "situation": "前問解答図から△3七角成と進みました。一番気になる手ですが、これには狙い通り攻めていきましょう。", "caption": "【第7図は△3七角成(28)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 95, "chapter": "第五章 3二金型", "sfen": "ln1g3n1/1ks3g1l/1pp4p1/p2pp1p1p/9/P1P3PPP/1PNPP1+b2/2KS5/L1G2G2L b RBS2Prsn 1", "turn": "b", "answer": {"type": "single", "usi": "9f9e", "candidates": ["9f9e"], "line": ["9f9e"], "heading": "▲9五歩", "caption": "【第8解答図は▲9五歩(96)まで】", "explanation": "端攻めが正解。△同歩なら▲9三歩△同香▲8五桂と攻める手があります。\nこの局面は難解ですが、振り飛車側の3二の金が守りから離れており、また先に敵陣を攻めることができているので右四間飛車側も十分の局面です。"}, "situation": "前問解答図から△4九飛成▲同金△5四歩と進みました。自然な進行ですが、これにはどう攻めますか。", "caption": "【第8図は△5四歩(53)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 96, "chapter": "第五章 3二金型", "sfen": "ln1g3nl/1ks2rgb1/1ppp1s1pp/p3ppp2/9/P1P1SP1P1/1P1PP1P1P/1BKS1R3/LNG2G1NL b - 1", "turn": "b", "answer": {"type": "single", "usi": "3g3f", "candidates": ["3g3f"], "line": ["3g3f"], "heading": "▲3六歩", "caption": "【第9解答図は▲3六歩(37)まで】", "explanation": "歩を突いて▲3七桂と使う準備をする手が正解。振り飛車側の3二金型は中央が薄いので、▲1七桂と端に使うよりも▲3七桂と中央に跳ねて真ん中を狙う方が勝ります。"}, "situation": "今まで基本図から△5四銀と出てくる展開を見てきました。ここからは△5四歩を見ていきます。これは4三銀型で待機しようという意味ですが、右四間飛車側はどのように指すのが良いでしょうか。", "caption": "【第9図は△5四歩(53)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 97, "chapter": "第五章 3二金型", "sfen": "ln1g3n1/1ks2rg1l/1pp2sbp1/p2pppp1p/9/P1P1SPPPP/1P1PP1N2/1BKS1R3/LNG1G3L b - 1", "turn": "b", "answer": {"type": "single", "usi": "8h7g", "candidates": ["8h7g"], "line": ["8h7g"], "heading": "▲7七角", "caption": "【第10解答図は▲7七角(88)まで】", "explanation": "すぐに▲4五歩と仕掛けると△同歩▲同桂に△8八角成が気になる手で、▲同金も▲同玉も形が乱れてしまいます。\nそこで一度角を上がる手が正解になります。これで角を取られても▲同桂と比較的形良くとることができます。"}, "situation": "前問解答図から△3三角▲1六歩△1四歩▲5九金△6四歩▲3七桂△1二香と進みました。振り飛車側から動く手は難しいので、右四間飛車側が陣形整備を望めば、このように進むのが妥当なところです。ここで右四間飛車側はもう一手陣形を整備します。", "caption": "【第10図は△1二香(11)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 98, "chapter": "第五章 3二金型", "sfen": "ln1g3n1/1ks2rg1l/1p3sbp1/p1ppppp1p/9/P1P1SPPPP/1PBPP1N2/2KS1R3/LNG1G3L b - 1", "turn": "b", "answer": {"type": "single", "usi": "4f4e", "candidates": ["4f4e"], "line": ["4f4e"], "heading": "▲4五歩", "caption": "【第11解答図は▲4五歩(鮖)まで】", "explanation": "飛車先の歩を突く手が正解。3二金型は中央が薄いので、▲2五桂と2筋方面から仕掛けるよりも▲4五歩と4筋方面から仕掛けたほうがうまくいきやすいです。\nこれに対して△7三桂は▲4四歩△同銀▲4五銀とぶつけていけば右四間飛車側が指せます。"}, "situation": "前問解答図から△7四歩と進みました。ここで満を持して仕掛けていきましょう。", "caption": "【第11図は△7四歩(73)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 99, "chapter": "第五章 3二金型", "sfen": "ln1g3n1/1ks2rg1l/1p3sbp1/p1ppp1p1p/5p3/P1P1S1PPP/1PBPP1N2/2KS1R3/LNG1G3L b p 1", "turn": "b", "answer": {"type": "single", "usi": "3g4e", "candidates": ["3g4e"], "line": ["3g4e"], "heading": "▲4五同桂", "caption": "第13解答図は▲4五同桂(37)まで】", "explanation": "桂馬で歩を取る手が正解。角を取る手と▲5三桂成を狙っていきます。"}, "situation": "前問解答図から△4五同歩と進みました。これにはどう攻めるのが良いでしょうか。", "caption": "【第12図は△4五同歩まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 100, "chapter": "第五章 3二金型", "sfen": "ln1g3n1/1ks2rg1l/1p5p1/p1pppsp1p/5N3/P1P1S1PPP/1PNPP4/2KS1R3/L1G1G3L b BPbp 1", "turn": "b", "answer": {"type": "single", "usi": "B*5c", "candidates": ["B*5c"], "line": ["B*5c"], "heading": "▲5三角", "caption": "【第14解答図は▲5三角打まで】", "explanation": "強引に角を打ち込む手が正解。以下△同銀▲同桂成△4八飛成▲同金という進行が考えられますが5三の成桂が大きく、右四間飛車側が指せます。"}, "situation": "前問解答図から△7七角成▲同桂△4四銀と進みました。角取りを受けつつ▲5三桂成を受ける手順ですが、ここで強引に攻めていけば右四間飛車側が良くなります。", "caption": "【第14図は△4四銀(43)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 101, "chapter": "第五章 3二金型", "sfen": "ln1g1r1n1/1ks3g1l/1pp2sbp1/p2pppp1p/9/P1P1SPPPP/1PBPP1N2/2KS1R3/LNG1G3L b - 1", "turn": "b", "answer": {"type": "single", "usi": "4f4e", "candidates": ["4f4e"], "line": ["4f4e"], "heading": "▲4五歩", "caption": "【第15解答図は▲4五歩(鮖)まで】", "explanation": "飛車先の歩を突いて仕掛けていく手が正解。3二金型には▲4五歩から仕掛けていく方が攻めが決まりやすいです。\nこれに対して△7四歩と待機してくれば▲4四歩で、△同銀には▲4五桂△2二角▲5三桂不成、△同角なら▲同角△同銀▲5三角で指せます。"}, "situation": "第10解答図では△4一飛と待機してくる手も考えられます。これにも右四間飛車らしく仕掛けていきましょう。", "caption": "【第15図は△4一飛(42)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 102, "chapter": "第五章 3二金型", "sfen": "ln1g1r1n1/1ks3g1l/1pp2sbp1/p2pp1p1p/5p3/P1P1S1PPP/1PBPP1N2/2KS1R3/LNG1G3L b p 1", "turn": "b", "answer": {"type": "single", "usi": "7g3c+", "candidates": ["7g3c+"], "line": ["7g3c+", "2a3c", "3g4e", "3c4e", "5f4e"], "heading": "▲3三角成△同桂▲4五桂△同桂▲同銀", "caption": "第16解答図は▲4五同銀まで】", "explanation": "まずは角を取って△同桂に▲4五桂と跳ねます。次に▲5三桂不成があるので△同桂くらいですが▲同銀と取って次に▲5三桂を狙っていきます。"}, "situation": "前問解答図から△4五同歩と進みました。これにはどう攻めますか。5手示してください。", "caption": "【第16図は△4五同歩まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 103, "chapter": "第五章 3二金型", "sfen": "ln1g5/1ks2rg1l/1pp2s1p1/p2pp1p1p/5S3/P1P3PPP/1P1PP4/2KS1R3/LNG1G3L b BNPbnp 1", "turn": "b", "answer": {"type": "single", "usi": "P*4d", "candidates": ["P*4d"], "line": ["P*4d", "4c5b", "4e5d"], "heading": "▲4四歩△5二銀▲5四銀", "caption": "【第17解答図は▲5四銀35)まで】", "explanation": "歩を打って、銀を引かせて銀を出る手が正解。右四間飛車らしく4筋から攻めていきます。"}, "situation": "前問解答図から△4二飛と浮いて▲5三桂が両取りにならないようにしてきました。これにはどう攻めますか。3手示してください。", "caption": "【第17図は△4二飛(41)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 104, "chapter": "第五章 3二金型", "sfen": "ln1g5/1ks1srg1l/1pp4p1/p2pSPp1p/4b4/P1P3PPP/1P1PP4/2KS1R3/LNG1G3L b BNPnp 1", "turn": "b", "answer": {"type": "single", "usi": "B*2a", "candidates": ["B*2a"], "line": ["B*2a"], "heading": "▲2一角", "caption": "【第18解答図は▲2一角打まで】", "explanation": "角を打って攻める手が正解。\nの角は3二の金に狙いをつけている意味がありますが、△3一金と交わす手には▲4三歩成が厳しく、右四間飛車側が良くなります。"}, "situation": "前問解答図から△5五角と打って両取りをかけてきました。これには「両取り受けるべからず」で攻めていきましょう。", "caption": "【第18図は△5五角打まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 105, "chapter": "第五章 3二金型", "sfen": "ln1g3B1/1ks1srg1l/1pp4p1/p2pSPp1p/9/P1P3PPP/1P1PP4/2KS1R3/+bNG1G3L b NPnlp 1", "turn": "b", "answer": {"type": "single", "usi": "4d4c+", "candidates": ["4d4c+"], "line": ["4d4c+"], "heading": "▲4三歩成", "caption": "第19解答図は▲4三歩成まで】", "explanation": "歩を成る手が厳しい手。△同銀なら▲3二角成、△同金も△同飛も▲同銀成が厳しいためこの局面は右四間飛車側が指せます。"}, "situation": "前問解答図から△9九角成と香車を取ってきました。自然な手で、右四間飛車側としては気になる手ですがこれには厳しい手があります。", "caption": "【第19図は△9九角成(55)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 106, "chapter": "第六章 3五歩型", "sfen": "ln1g1g1nl/1ks2r3/1ppppsbpp/p4p3/6p2/P1P1SP1P1/1P1PP1P1P/1BKS1R3/LNG2G1NL b - 1", "turn": "b", "answer": {"type": "single", "usi": "4i3h", "candidates": ["4i3h"], "line": ["4i3h"], "heading": "▲3八金", "caption": "【第1解答図は▲3八金(49)まで】", "explanation": "▲1六歩～▲1七桂も考えられますが、3筋の位を取る形には右の金を▲3八金と使うのがおすすめの指し方。次に▲4七金と上がって3筋を攻めていくのが狙いです。"}, "situation": "基本図から△9四歩と進みました。今まで右四間飛車側は右の金を▲5九金と使っていましたが、振り飛車側が3筋の位を取ってくる形には別の使い方をします。", "caption": "【第1図は△9四歩(93)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 107, "chapter": "第六章 3五歩型", "sfen": "ln1g1g1nl/1ks2r3/1pppp1bpp/p4ps2/6p2/P1P1SP1P1/1P1PP1P1P/1BKS1RG2/LNG4NL b - 1", "turn": "b", "answer": {"type": "single", "usi": "3h4g", "candidates": ["3h4g"], "line": ["3h4g"], "heading": "▲4七金", "caption": "【第2解答図は▲4七金(38)まで】", "explanation": "前述の通り、金を上がるのが正解。次に▲3六歩と突いて3筋を攻めていきます。"}, "situation": "前問解答図から△3四銀と進みました。この手は「位を取ったら位の確保」という格言通りの手で自然な手です。これには前述の狙い通り指していきましょう。", "caption": "【第2図は△3四銀(43)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 108, "chapter": "第六章 3五歩型", "sfen": "ln1g3nl/1ks1gr3/1pppp1bpp/p4ps2/6p2/P1P1SP1P1/1P1PPGP1P/1BKS1R3/LNG4NL b - 1", "turn": "b", "answer": {"type": "single", "usi": "3g3f", "candidates": ["3g3f"], "line": ["3g3f"], "heading": "▲3六歩", "caption": "【第3解答図は▲3六歩(37)まで】", "explanation": "狙い通り3筋の歩を突く手が正解。次に▲3歩△同銀▲3六歩を狙っていて、△2六銀には▲2八飛がありますし、△2四銀だと形が悪いので▲3七桂くらいで右四間飛車側が十分です。"}, "situation": "前問解答図から△5二金と進みました。これには狙い通り攻めていきましょう。", "caption": "【第3図は△5二金(41)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 109, "chapter": "第六章 3五歩型", "sfen": "ln1g3nl/1ks1gr3/1pppp1bpp/p4ps2/6p2/P1P1SPGP1/1P1PP3P/1BKS1R3/LNG4NL b P 1", "turn": "b", "answer": {"type": "single", "usi": "3f2e", "candidates": ["3f2e"], "line": ["3f2e"], "heading": "▲2五金", "caption": "【第4解答図は▲2五金(36)まで】", "explanation": "積極的に金をぶつける手が正解。これに対して△4三銀と逃げると▲3五金があるので△同銀と取るくらいですが、それは次問で。"}, "situation": "前問解答図から△3六歩▲同金△3五歩と進みました。これには積極的に攻めていきましょう。", "caption": "【第4図は△3五歩打まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 110, "chapter": "第六章 3五歩型", "sfen": "ln1g3nl/1ks2r3/1ppppgbpp/p4p3/6pP1/P1P1SP3/1P1PP3P/1BKS1R3/LNG4NL b SPg 1", "turn": "b", "answer": {"type": "single", "usi": "2e2d", "candidates": ["2e2d"], "line": ["2e2d"], "heading": "▲2四歩", "caption": "【第5解答図は▲2四歩(25)まで】", "explanation": "一度2筋の歩を突く手が正解。\nこれを△同角なら▲4五歩が厳しいので△同歩と取ってきますが、取らせることで後に▲2二歩や▲2三銀と打つ攻めを狙うことができます。"}, "situation": "前問解答図から△2五同銀▲同歩△4三金と進みました。最後の△4三金は、こちらが▲3四銀と打つ手を狙っているので、それを防いだ手です。これにはどう指すのが良いでしょうか。", "caption": "【第5図は△4三金(32)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 111, "chapter": "第六章 3五歩型", "sfen": "ln1g3nl/1ks2r3/1ppppgb1p/p4p1p1/6p2/P1P1SP3/1P1PP3P/1BKS1R3/LNG4NL b SPgp 1", "turn": "b", "answer": {"type": "single", "usi": "5f5e", "candidates": ["5f5e"], "line": ["5f5e"], "heading": "▲5五銀", "caption": "【第6解答図は▲5五銀(56)まで】", "explanation": "銀を出て力をためる手が正解。こうしておいて次に▲4五歩などの攻めを狙います。"}, "situation": "前問解答図から△2四同歩と進みました。ここは少し力をためる手でいきましょう。", "caption": "【第6図は△2四同歩(23)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 112, "chapter": "第六章 3五歩型", "sfen": "ln1g3nl/1ks2r3/1ppp1gb1p/p3pp1p1/4S1p2/P1P2P3/1P1PP3P/1BKS1R3/LNG4NL b SPgp 1", "turn": "b", "answer": {"type": "single", "usi": "P*3d", "candidates": ["P*3d"], "line": ["P*3d"], "heading": "▲3四歩", "caption": "【第7解答図は▲3四歩打まで】", "explanation": "相手の角頭に歩を打つ手が正解。これに対して△同金なら▲5四銀と出て、次に▲4三銀打を狙えば右四間飛車側が指せます。"}, "situation": "前問解答図から△5四歩と進みました。右四間飛車側としては気になる手で、ここで▲6六銀と引くようでは銀を出た意味がありません。銀を引かずに攻めていきましょう。", "caption": "【第7図は△5四歩(53)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 113, "chapter": "第六章 3五歩型", "sfen": "ln1g3nl/1ks2r1b1/1ppp1g2p/p3ppPp1/4S1p2/P1P2P3/1P1PP3P/1BKS1R3/LNG4NL b Sgp 1", "turn": "b", "answer": {"type": "single", "usi": "5e6f", "candidates": ["5e6f"], "line": ["5e6f"], "heading": "▲6六銀", "caption": "【第8解答図は▲6六銀(55)まで】", "explanation": "3筋に拠点を作れたことに満足して銀を引いておく手が正解。これに対して△3四金は▲2三銀の両取りがあるため、3筋の拠点は取られません。"}, "situation": "前問解答図から△2二角と進みました。これで3筋に拠点を作ることができました。これは大きな戦果なので、これに満足して一度撤退しておきましょう。", "caption": "【第8図は△2二角(33)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 114, "chapter": "第六章 3五歩型", "sfen": "ln1g3nl/1ks2r1b1/1pp2g2p/p2pppPp1/6p2/P1PS1P3/1P1PP3P/1BKS1R3/LNG4NL b Sgp 1", "turn": "b", "answer": {"type": "single", "usi": "S*2c", "candidates": ["S*2c"], "line": ["S*2c"], "heading": "▲2三銀打", "caption": "【第9解答図は▲2三銀打まで】", "explanation": "角取りに銀を打つ手が正解、角を取れれば大きいので△3一角と引いてきますが、それは次問で。"}, "situation": "前問解答図から△6四歩と進みました。3四の拠点が取れないとなれば△6四歩は自然な手ですが、これには攻めていきます。", "caption": "【第9図は△6四歩(63)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 115, "chapter": "第六章 3五歩型", "sfen": "ln1g2bnl/1ks2r3/1pp2g1Sp/p2pppPp1/6p2/P1PS1P3/1P1PP3P/1BKS1R3/LNG4NL b gp 1", "turn": "b", "answer": {"type": "single", "usi": "4f4e", "candidates": ["4f4e"], "line": ["4f4e", "4d4e", "6f7e"], "heading": "▲4五歩同歩▲7五銀", "caption": "【第10答図は▲7五銀(66)まで】", "explanation": "まずは4筋の歩を突きます。△同歩と取ってきますが、▲7五銀と出て角道を通すのが▲2三銀と打った時からの狙い。次に▲1一角成を狙います。"}, "situation": "前問解答図から△3一角と進みました。この局面はどう攻めるのが良いでしょうか。3手示してください。", "caption": "【第10図は△3一角(22)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 116, "chapter": "第六章 3五歩型", "sfen": "ln1g2bnl/1ks2r3/1pp2g1Sp/p2ppgPp1/2S2pp2/P1P6/1P1PP3P/1BKS1R3/LNG4NL b 2p 1", "turn": "b", "answer": {"type": "single", "usi": "4h4e", "candidates": ["4h4e"], "line": ["4h4e", "4d4e", "8h1a+"], "heading": "▲4五飛△同金▲1一角成", "caption": "第11解答図は▲1一角成まで】", "explanation": "飛車を走ってしまう手が正解。△同金と取らせて▲1一角成と香車を取ります。この局面は飛香交換の駒損ですが、次に▲2一馬と桂馬を取る手が受けづらく、また▲2一馬と桂馬を取れれば3ーの角が詰んでいるため右四間飛車側も十分に指せます。"}, "situation": "前問解答図から△4四金打と進みました。▲1一角成を防ぐならこれくらいしかありませんが、これには派手に攻めていく手が有効です。3手示してください。", "caption": "【第11図は△4四金打まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 117, "chapter": "第六章 3五歩型", "sfen": "ln1g3nl/1ks2r3/1ppppgb1p/p4pgp1/4S1p2/P1P2P3/1P1PP3P/1BKS1R3/LNG4NL b SPp 1", "turn": "b", "answer": {"type": "single", "usi": "4f4e", "candidates": ["4f4e"], "line": ["4f4e"], "heading": "▲4五歩", "caption": "【第12解答図は▲4五歩(鮖)まで】", "explanation": "飛車先の歩を突く手が正解。これに対して△同金なら▲3四歩が厳しい手で△同金なら▲2三銀、△2二角にも▲2三銀と打って攻めていけば右四間飛車側が指せます。"}, "situation": "第6解答図で△5四歩と突いてくる手には▲3四歩が厳しいことがわかりました。そこで△3四金打として▲3四歩を防ぐ手も考えられます。頑丈な受けですが、これには右四間飛車らしく攻めていけば十分に指せます。", "caption": "【第12図は△3四金打まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 118, "chapter": "第六章 3五歩型", "sfen": "ln1g3nl/1ks2r3/1ppppgb1p/p5gp1/4Spp2/P1P6/1P1PP3P/1BKS1R3/LNG4NL b SP2p 1", "turn": "b", "answer": {"type": "single", "usi": "2i3g", "candidates": ["2i3g"], "line": ["2i3g"], "heading": "▲3七桂", "caption": "【第13解答図は▲3七桂(29)まで】", "explanation": "眠っている桂馬を活用する手が正解。これに対して△3六歩が少し気になりますが、▲4五桂△2二角▲5三桂成(△同金なら▲4二飛成)と攻めていけば右四間飛車側が指せます。"}, "situation": "前問解答図から△4五同歩と進みました。これには自陣で眠っている駒を使っていきましょう。", "caption": "【第13図は△4五同歩まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 119, "chapter": "第六章 3五歩型", "sfen": "ln1g3nl/1ks2r3/1ppp1gb1p/p3p1gp1/4Spp2/P1P6/1P1PP1N1P/1BKS1R3/LNG5L b SP2p 1", "turn": "b", "answer": {"type": "single", "usi": "P*4d", "candidates": ["P*4d"], "line": ["P*4d"], "heading": "▲4四歩", "caption": "【第14解答図は▲4四歩打まで】", "explanation": "歩を打って攻めていく手が正解。これに対して△同金直も△同金寄も▲同銀と取っておけば右四間飛車側が指せます。その展開は△5四歩が一手パスのようになっているところが振り飛車側にとっては痛いです。"}, "situation": "前問解答図から△5四歩と進みました。これには▲6六銀と引く手も有力ですが、できればどんどん攻めていきたいところです。", "caption": "【第14図は△5四歩(53)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 120, "chapter": "第六章 3五歩型", "sfen": "ln1g3nl/1ks2r3/1pppg1b1p/p3pPgp1/4Spp2/P1P6/1P1PP1N1P/1BKS1R3/LNG5L b S2p 1", "turn": "b", "answer": {"type": "single", "usi": "3g4e", "candidates": ["3g4e"], "line": ["3g4e", "3d4e", "4h4e", "5d5e", "G*4c"], "heading": "▲4五桂同金▲同飛△5五歩▲4三金", "caption": "【第15解答図は▲4三金打まで】", "explanation": "まずは桂馬を跳ねます。両取りになっているので△同金と取って▲同飛に△5五歩と銀を取るくらいですが、▲4三金と打った局面は右四間飛車側が指せます。△同金なら▲同歩成、△5四金なら▲4二金△4五金▲4三歩成の要領です。"}, "situation": "前問解答図から△5三金と進みました。これにはどう攻めるのが良いでしょうか。5手示してください。", "caption": "【第15図は△5三金(43)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 121, "chapter": "第六章 3五歩型", "sfen": "ln1g1g1nl/1ks2r3/1pppp1bpp/p5s2/5pp2/P1P1SP1P1/1P1PPGP1P/1BKS1R3/LNG4NL b - 1", "turn": "b", "answer": {"type": "single", "usi": "8h3c+", "candidates": ["8h3c+"], "line": ["8h3c+"], "heading": "▲3三角成", "caption": "第16解答図は▲3三角成まで】", "explanation": "角を取ってしまう手が正解。この手では▲4五同歩も自然ですが、△8八角成と取られて▲同金も▲同玉も形が悪くなってしまうため少し嫌な展開です。"}, "situation": "今まで第2解答図から△5二金と上がってくる変化を見てきました。\n△5二金では△4五歩と仕掛けてくる手も考えられます。これにはどう指すのが良いでしょうか。", "caption": "【第16図は△4五歩(まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 122, "chapter": "第六章 3五歩型", "sfen": "ln1g1g2l/1ks2r3/1pppp1npp/p5s2/5pp2/P1P1SP1P1/1P1PPGP1P/2KS1R3/LNG4NL b Bb 1", "turn": "b", "answer": {"type": "single", "usi": "4f4e", "candidates": ["4f4e"], "line": ["4f4e"], "heading": "▲4五歩", "caption": "【第17答図は▲4五歩(鮖)まで】", "explanation": "自然に歩を取る手が正解。これに対して△同桂なら▲4六歩で右四間飛車側が良いので△同銀ですが、それは次問で。"}, "situation": "前問解答図から△3三同桂と進みました。これにはどう指すのが良いでしょうか。", "caption": "【第17図は△3三同桂(21)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 123, "chapter": "第六章 3五歩型", "sfen": "ln1g1g2l/1ks2r3/1pppp1npp/p8/5sp2/P1P1S2P1/1P1PPGP1P/2KS1R3/LNG4NL b BPbp 1", "turn": "b", "answer": {"type": "single", "usi": "5f4e", "candidates": ["5f4e"], "line": ["5f4e", "4b4e", "S*3d"], "heading": "▲4五同銀△同飛▲3四銀", "caption": "【第18解答図は▲3四銀打まで】", "explanation": "まずは銀を取ります。これに対して△同桂なら▲4六歩で右四間飛車側が良いので△同飛ですが▲3四銀と打って両取りをかけていきます。\nこれに対して△4四飛と飛車を逃げてくれれば▲3三銀不成と桂馬を取って右四間飛車側が十分です。"}, "situation": "前問解答図から△4五同銀と進みました。これにはどう指すのが良いでしょうか。3手示してください。", "caption": "【第18図は△4五同銀(34)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 124, "chapter": "第六章 3五歩型", "sfen": "ln1g1g2l/1ks6/1pppp1npp/p5S2/5rp2/P1P4P1/1P1PPGP1P/2KS1R3/LNG3sNL b BPbp 1", "turn": "b", "answer": {"type": "single", "usi": "3d4e", "candidates": ["3d4e"], "line": ["3d4e"], "heading": "▲4五銀", "caption": "【第19解答図は▲4五銀まで】", "explanation": "飛車を取る手が正解。これに対して△同桂ならそこで▲3八飛と逃げて右四間飛車側が優勢です。\n▲4五銀に代えて▲4九飛と逃げると△4八歩が厳しく、どのように対応しても右四間飛車側が不利になってしまいます。"}, "situation": "前問解答図から△3九銀と進みました。飛車を逃げると不利になる振り飛車側としては自然な手です。これには飛車を逃げるべきでしょうか。それとも相手の飛車を取るべきでしょうか。", "caption": "【第19図は△3九銀打まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 125, "chapter": "第六章 3五歩型", "sfen": "ln1g1g2l/1ks6/1pppp2pp/p8/5np2/P1P4P1/1P1PP1P1P/2KS1G3/LNG4NL b RBSPrbsp 1", "turn": "b", "answer": {"type": "single", "usi": "R*4c", "candidates": ["R*4c"], "line": ["R*4c"], "heading": "▲4三飛", "caption": "【第20解答図は▲4三飛打まで】", "explanation": "飛車を打つ手が正解。この手が金桂両取りになっています。以下△4二飛には▲2三飛成で右四間飛車側が十分ですし、△5二金も▲4五飛車成で右四間飛車側が十分です。"}, "situation": "前問解答図から△4八銀成▲同金△4五桂と進みました。自然な進行ですが、ここで右四間飛車側に気持ちの良い手があります。", "caption": "【第20図は△4五桂(33)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 126, "chapter": "第七章 4一金型", "sfen": "ln1g1g1n1/1ks2r2l/1pppp1bp1/p3spp1p/9/P1P1SP1PP/1P1PP1P2/1BKS1R3/LNG1G2NL b - 1", "turn": "b", "answer": {"type": "single", "usi": "3g3f", "candidates": ["3g3f"], "line": ["3g3f"], "heading": "▲3六歩", "caption": "【解答図は▲3六歩(37)まで】", "explanation": "歩を突く手が正解。ここで△5二金と上がってくれば▲3七桂～▲2五桂と第一章と同じように攻めていって右四間飛車側が十分です。"}, "situation": "というわけで基本図から▲1七桂と跳ねて攻めていってもあまりうまくいきませんでした。そこでここから右四間飛車側は相手陣に隙ができるまで手待ち(陣形整備)をすることになります。どう指していくのがいいでしょうか。", "caption": "【基本図は△1二香(11)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 127, "chapter": "第七章 4一金型", "sfen": "ln1g1g1n1/1ks2r2l/1pp1p1bp1/p2pspp1p/9/P1P1SPPPP/1P1PP4/1BKS1R3/LNG1G2NL b - 1", "turn": "b", "answer": {"type": "single", "usi": "2i3g", "candidates": ["2i3g"], "line": ["2i3g"], "heading": "▲3七桂", "caption": "【第1解答図は▲3七桂(29)まで】", "explanation": "桂馬を活用する手が正解。これに対して△5二金なら▲2五桂と攻めていきましょう。"}, "situation": "前問解答図から△6四歩と突いてきました。これには自陣で眠っている駒を活用していきましょう。", "caption": "【第1図は△6四歩(63)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 128, "chapter": "第七章 4一金型", "sfen": "ln1g1g1n1/1ks2r2l/1p2p1bp1/p1ppspp1p/9/P1P1SPPPP/1P1PP1N2/1BKS1R3/LNG1G3L b - 1", "turn": "b", "answer": {"type": "single", "usi": "3g2e", "candidates": ["3g2e"], "line": ["3g2e"], "heading": "▲2五桂", "caption": "【第2解答図は▲2五桂(37)まで】", "explanation": "振り飛車側の△7四歩を待ってから▲2五桂と跳ねる手が正解。この効果は後程現れます。"}, "situation": "前問解答図から△7四歩と進みました。△7四歩は自然な待機ですが、右四間飛車側はこれを待っていました。ここで満を持して仕掛けていきます。", "caption": "【第2図は△7四歩(73)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 129, "chapter": "第七章 4一金型", "sfen": "ln1g2gn+B/1ks2r2l/1p2p2p1/p1pps1pbp/5p1N1/P1P1S1PPP/1P1PP4/2KS1R3/LNG1G3L b p 1", "turn": "b", "answer": {"type": "single", "usi": "5f5e", "candidates": ["5f5e"], "line": ["5f5e"], "heading": "▲5五銀", "caption": "【第3解答図は▲5五銀(56)まで】", "explanation": "銀をぶつける手が正解。△7四歩が突いていない冒頭の形だと△同銀▲同馬△4六歩で苦戦と紹介しましたが、この局面は△7四歩が突いてあるため▲6四丐が王手になり厳しいです。以下△7三銀には▲6五馬と引いておけば、馬の存在が大きく右四間飛車側が十分です。"}, "situation": "前問解答図から△2四角▲4五歩△同歩▲1一角成△3一金と進みました。この章の冒頭で示した展開に似ていますが、ここから少し様子が変わってきます。", "caption": "【第3図は△3一金(41)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 130, "chapter": "第七章 4一金型", "sfen": "ln1g2gn+B/1ks2r2l/1p2p2p1/p1pps1pbp/4S2N1/P1P2pPPP/1P1PP4/2KS1R3/LNG1G3L b p 1", "turn": "b", "answer": {"type": "single", "usi": "5e4d", "candidates": ["5e4d"], "line": ["5e4d"], "heading": "▲4四銀", "caption": "【第4解答図は▲4四銀(55)まで】", "explanation": "銀を出る手が正解。相手の飛車道を止めつつ、良いタイミングで▲5三銀成を狙います。"}, "situation": "前問解答図で△5五同銀と取ると▲同馬で右四間飛車側が十分なので△4六歩と突いてくる手も考えられます。これにはどう指すのが良いでしょうか。", "caption": "【第4図は△4六歩(45)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 131, "chapter": "第七章 4一金型", "sfen": "ln4gn+B/1ks1gr2l/1p2p2p1/p1ppsSpbp/7N1/P1P2pPPP/1P1PP4/2KS1R3/LNG1G3L b p 1", "turn": "b", "answer": {"type": "single", "usi": "4h4i", "candidates": ["4h4i"], "line": ["4h4i"], "heading": "▲4九飛", "caption": "【第5解答図は▲4九飛(48)まで】", "explanation": "じっと飛車を引く手が正解、の手は△4七歩成が飛車取りにならないようにして、次に▲3五歩と突く手を狙っています。"}, "situation": "前問解答図から△5二金と進みました。ここで▲3五歩と突きたいのですが、△同角が好手で▲同銀に△4七歩成が飛車取りになるため難解です。\nそのためここでは冷静な手がおすすめです。", "caption": "【第5図は△5二金(61)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 132, "chapter": "第七章 4一金型", "sfen": "ln3rgn+B/1ks1g3l/1p2p2p1/p1ppsSpbp/7N1/P1P2pPPP/1P1PP4/2KS5/LNG1GR2L b p 1", "turn": "b", "answer": {"type": "single", "usi": "3f3e", "candidates": ["3f3e"], "line": ["3f3e"], "heading": "▲3五歩", "caption": "【第6解答図は▲3五歩(36)まで】", "explanation": "狙い通り歩を突く手が正解。これに対して△同歩なら▲4六飛と飛車を活用して右四間飛車側が優勢です。"}, "situation": "前問解答図から△4一飛と進みました。あたりを避ける手ですが、これには狙い通り攻めていきましょう。", "caption": "【第6図は△4一飛(42)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 133, "chapter": "第七章 4一金型", "sfen": "ln3rgn+B/1ks1g3l/1p2p2p1/p1pp1Spbp/5sPN1/P1P2p1PP/1P1PP4/2KS5/LNG1GR2L b p 1", "turn": "b", "answer": {"type": "single", "usi": "2e3c+", "candidates": ["2e3c+"], "line": ["2e3c+"], "heading": "▲3三桂成", "caption": "【第7解答図は魯3三桂成(25)まで】", "explanation": "桂馬を成る手が正解。一見△4四飛と銀を取られてまずそうですが、そこで▲2三成桂と寄れば飛車角両取りのため右四間飛車側が指せます。△同桂も▲同銀不成△3五角▲1二馬で右四間飛車側が十分です。\nというわけでこの局面は右四間飛車側が指せます。"}, "situation": "前問解答図から△4五銀と出て▲4六飛を防いできました。これには少し派手な手があります。", "caption": "【第7図は△4五銀(54)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 134, "chapter": "第七章 4一金型", "sfen": "ln1g2gn+B/1ks2r2l/1p1sp2p1/p1pp2pbp/4Sp1N1/P1P3PPP/1P1PP4/2KS1R3/LNG1G3L b p 1", "turn": "b", "answer": {"type": "single", "usi": "5e4d", "candidates": ["5e4d"], "line": ["5e4d"], "heading": "▲4四銀", "caption": "【第8解答図は▲4四銀(55)まで】", "explanation": "銀を出る手が正解。次に▲5三銀成と▲4六飛を狙っています。"}, "situation": "今まで第3解答図で△4六歩と突いてくる手を見てきましたが右四間飛車側が十分なことがわかりました。\nそこで△6三銀と引いてくる手も考えられます。これにはどう指すのが良いでしょうか。", "caption": "【第8図は△6三銀(54)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 135, "chapter": "第七章 4一金型", "sfen": "ln1g2gn+B/1ks2r2l/1p1sp2p1/p1pp1Spbp/7N1/P1P2pPPP/1P1PP4/2KS1R3/LNG1G3L b p 1", "turn": "b", "answer": {"type": "single", "usi": "5i5h", "candidates": ["5i5h"], "line": ["5i5h"], "heading": "▲5八金", "caption": "【第9解答図は▲5八金(59)まで】", "explanation": "金を上がって4七の地点を強化する手が正解。こうしておいて次に▲5三銀成を狙います。"}, "situation": "前問解答図から△4六歩と進みました。これに対して▲5三銀成とすると△4七歩成で右四間飛車側が不利になります。ここは一度△4七歩成の筋を受けておきましょう。", "caption": "【第9図は△4六歩(45)まで】"}, {"book": "最新右四間飛車で攻め倒す本【対四間飛車編】", "problem_no": 136, "chapter": "第七章 4一金型", "sfen": "ln1g2gn+B/1ks1sr2l/1p2p2p1/p1pp1Spbp/7N1/P1P2pPPP/1P1PP4/2KSGR3/LNG5L b p 1", "turn": "b", "answer": {"type": "single", "usi": "3f3e", "candidates": ["3f3e"], "line": ["3f3e"], "heading": "▲3五歩", "caption": "【第10解答図は▲3五歩(36)まで】", "explanation": "歩を突く手が正解。これに対して△同歩なら▲4六飛で右四間飛車側が優勢です。△同角は考えられますが、▲同銀△同歩に▲5六角（▲3三桂成も有力）と打って△4七銀の筋を緩和しておけば、駒得かつ▲5五馬と活用する気持ちの良い手があるので右四間飛車側が指せます。"}, "situation": "前問解答図から△5二銀と引いて▲5三銀成を受けてきました。これにはどう指すのが良いでしょうか。", "caption": "【第10図は△5二銀(63)まで】"}];
+
+const KAN_NUM=["","一","二","三","四","五","六","七","八","九"];
+const ZEN_NUM=["","１","２","３","４","５","６","７","８","９"];
+const RANK_L="abcdefghi";
+const PIECE_JP={P:"歩",L:"香",N:"桂",S:"銀",G:"金",B:"角",R:"飛",K:"玉",
+ "+P":"と","+L":"成香","+N":"成桂","+S":"成銀","+B":"馬","+R":"龍"};
+const HAND_ORDER=["R","B","G","S","N","L","P"];
+const PROMOTABLE={P:true,L:true,N:true,S:true,B:true,R:true};
+// 盤上だけ 1 文字表記（全/圭/杏）。解答文の棋譜表記は PIECE_JP（成銀/成桂/成香）のまま
+const PIECE_JP_BOARD=Object.assign({},PIECE_JP,{"+L":"杏","+N":"圭","+S":"全"});
+
+function parseSfen(sfen){
+  const [board,turn,hand]=sfen.split(" ");
+  const grid=[];
+  for(const row of board.split("/")){
+    const cells=[];let promoted=false;
+    for(const ch of row){
+      if(ch==="+"){promoted=true;continue;}
+      if(/[0-9]/.test(ch)){for(let i=0;i<+ch;i++)cells.push(null);}
+      else{cells.push((promoted?"+":"")+ch);promoted=false;}
+    }
+    grid.push(cells);
+  }
+  const hands={s:{},g:{}};
+  if(hand&&hand!=="-"){
+    let n="";
+    for(const ch of hand){
+      if(/[0-9]/.test(ch)){n+=ch;continue;}
+      const cnt=n?+n:1;n="";
+      const up=ch.toUpperCase();
+      const side=ch===up?"s":"g";
+      hands[side][up]=(hands[side][up]||0)+cnt;
+    }
+  }
+  return {grid,turn,hands};
+}
+function cloneBoardState(s){return {grid:s.grid.map(r=>r.slice()),hands:{s:{...s.hands.s},g:{...s.hands.g}},turn:s.turn};}
+function cloneState(sfen){const s=parseSfen(sfen);return cloneBoardState(s);}
+function boardToSfen(grid){
+  return grid.map(row=>{
+    let out="",empty=0;
+    for(const cell of row){
+      if(!cell){empty++;continue;}
+      if(empty){out+=String(empty);empty=0;}
+      out+=cell;
+    }
+    if(empty)out+=String(empty);
+    return out;
+  }).join("/");
+}
+function handsToSfen(hands){
+  let out="";
+  for(const p of HAND_ORDER){
+    const s=hands.s[p]||0,g=hands.g[p]||0;
+    if(s)out+=(s>1?String(s):"")+p;
+    if(g)out+=(g>1?String(g):"")+p.toLowerCase();
+  }
+  return out||"-";
+}
+function stateToSfen(state){return boardToSfen(state.grid)+" "+state.turn+" "+handsToSfen(state.hands)+" 1";}
+function sqToRC(sq){const file=+sq[0],rank=RANK_L.indexOf(sq[1]);return {r:rank,c:9-file,file};}
+function rcToSq(r,c){return String(9-c)+RANK_L[r];}
+function rcToLabel(r,c){return ZEN_NUM[9-c]+KAN_NUM[r+1];}
+function sideOf(cell){return cell===cell.toLowerCase()?"g":"s";}
+function sideToMove(state){return state.turn==="b"?"s":"g";}
+function basePieceOf(cell){return cell.replace("+","").toUpperCase();}
+function isPromoted(cell){return cell&&cell[0]==="+";}
+
+/* ---- 合法手判定（駒本来の動き / 二歩・行き所のない駒 / 王手放置）----
+   先手(s)は grid の行番号が減る向きが前進。後手(g)は dr を反転するだけでよい
+   （すべての駒の利きは左右対称なので dc の反転は不要）。
+   打ち歩詰めだけは判定しない。 */
+const STEP_DIRS={
+  P:[[-1,0]],
+  N:[[-2,-1],[-2,1]],
+  S:[[-1,-1],[-1,0],[-1,1],[1,-1],[1,1]],
+  G:[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,0]],
+  K:[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]],
+  "+B":[[-1,0],[1,0],[0,-1],[0,1]],
+  "+R":[[-1,-1],[-1,1],[1,-1],[1,1]]
+};
+const SLIDE_DIRS={
+  L:[[-1,0]],
+  B:[[-1,-1],[-1,1],[1,-1],[1,1]],
+  R:[[-1,0],[1,0],[0,-1],[0,1]],
+  "+B":[[-1,-1],[-1,1],[1,-1],[1,1]],
+  "+R":[[-1,0],[1,0],[0,-1],[0,1]]
+};
+const GOLD_LIKE={"+P":1,"+L":1,"+N":1,"+S":1};
+function moveKindOf(cell){
+  const key=(isPromoted(cell)?"+":"")+basePieceOf(cell);
+  return GOLD_LIKE[key]?"G":key;
+}
+function onBoard(r,c){return r>=0&&r<9&&c>=0&&c<9;}
+function pseudoMovesFrom(state,r,c){
+  const out=[];
+  const cell=state.grid[r][c];
+  if(!cell)return out;
+  const side=sideOf(cell),kind=moveKindOf(cell),sgn=side==="s"?1:-1;
+  const push=(rr,cc)=>{
+    if(!onBoard(rr,cc))return false;
+    const t=state.grid[rr][cc];
+    if(t&&sideOf(t)===side)return false;
+    out.push({r:rr,c:cc});
+    return !t;                       // 駒を取ったらそこで止まる
+  };
+  for(const d of (STEP_DIRS[kind]||[]))push(r+d[0]*sgn,c+d[1]);
+  for(const d of (SLIDE_DIRS[kind]||[])){
+    let rr=r+d[0]*sgn,cc=c+d[1];
+    while(push(rr,cc)){rr+=d[0]*sgn;cc+=d[1];}
+  }
+  return out;
+}
+function kingSquare(state,side){
+  const k=side==="s"?"K":"k";
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++)if(state.grid[r][c]===k)return {r,c};
+  return null;
+}
+function attacksSquare(state,bySide,tr,tc){
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    const cell=state.grid[r][c];
+    if(!cell||sideOf(cell)!==bySide)continue;
+    const mv=pseudoMovesFrom(state,r,c);
+    for(let i=0;i<mv.length;i++)if(mv[i].r===tr&&mv[i].c===tc)return true;
+  }
+  return false;
+}
+// 自玉が盤上に無い局面（部分図）では常に false ＝ 王手放置の判定をしない
+function kingInCheck(state,side){
+  const k=kingSquare(state,side);
+  if(!k)return false;
+  return attacksSquare(state,side==="s"?"g":"s",k.r,k.c);
+}
+function legalMovesFrom(state,r,c){
+  const cell=state.grid[r][c];
+  if(!cell)return [];
+  const side=sideOf(cell);
+  return pseudoMovesFrom(state,r,c).filter(m=>{
+    const nx=cloneBoardState(state);
+    const promote=mustPromoteMove(cell,m)&&!isPromoted(cell);
+    nx.grid[m.r][m.c]=promote?("+"+cell):cell;
+    nx.grid[r][c]=null;
+    return !kingInCheck(nx,side);
+  });
+}
+function isLegalMove(state,from,to){
+  return legalMovesFrom(state,from.r,from.c).some(m=>m.r===to.r&&m.c===to.c);
+}
+// 本に載っている正解手だけは判定を通す（SFEN の読み取り誤りで正解手が指せなくなるのを防ぐ）。
+// 成/不成の違いは無視して 4 文字で比較する。
+function isAnswerAttempt(usi){
+  if(chAnswering())return !!usi&&[...chExpected()].some(a=>a.slice(0,4)===usi.slice(0,4));
+  const a=currentAnswerUsi();
+  return !!a&&!!usi&&a.slice(0,4)===usi.slice(0,4);
+}
+function answerOverridesDrop(sel,to){
+  return isAnswerAttempt(buildDropUsi(sel,to))
+    &&!currentState.grid[to.r][to.c]
+    &&(currentState.hands[sel.side][sel.piece]||0)>0;
+}
+// 打てない理由（打てるなら null）。ctx.inCheck を渡すと自玉の王手判定を使い回す
+function dropIllegalReason(state,side,piece,r,c,ctx){
+  if((state.hands[side][piece]||0)<=0)return "その持ち駒はもうありません。";
+  if(state.grid[r][c])return "そのマスには駒があります。<br>空きマスを選んでください。";
+  const last=side==="s"?0:8,last2=side==="s"?1:7;
+  if((piece==="P"||piece==="L")&&r===last)return "そこに打つと動けなくなります。";
+  if(piece==="N"&&(r===last||r===last2))return "そこに打つと動けなくなります。";
+  if(piece==="P"){
+    const own=side==="s"?"P":"p";
+    for(let rr=0;rr<9;rr++)if(state.grid[rr][c]===own)return "二歩です。<br>別の筋に打ってください。";
+  }
+  // 駒を足すだけの手は自玉の利きを開けないので、既に王手のときだけ調べればよい
+  const inCheck=(ctx&&"inCheck" in ctx)?ctx.inCheck:kingInCheck(state,side);
+  if(inCheck){
+    const nx=cloneBoardState(state);
+    nx.grid[r][c]=side==="s"?piece:piece.toLowerCase();
+    if(kingInCheck(nx,side))return "王手を防げていません。";
+  }
+  return null;
+}
+function dropTargets(state,side,piece){
+  const ctx={inCheck:kingInCheck(state,side)};
+  const out=[];
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    if(!dropIllegalReason(state,side,piece,r,c,ctx))out.push({r,c});
+  }
+  return out;
+}
+// 選択中の駒／持ち駒から行けるマス（盤上に候補マーカーを出す用）
+function candidateSquares(state){
+  if(!selected)return [];
+  if(selected.kind==="hand")return dropTargets(state,selected.side,selected.piece);
+  return legalMovesFrom(state,selected.r,selected.c);
+}
+function boardPieceName(cell){
+  if(!cell)return "駒";
+  return PIECE_JP_BOARD[(isPromoted(cell)?"+":"")+basePieceOf(cell)]||"駒";
+}
+function playIllegalSound(){playErrorSound();}
+
+function renderHand(side,h){
+  let html="";
+  for(const p of HAND_ORDER){
+    const n=h[p]||0;
+    if(!n)continue;
+    const sel=selected&&selected.kind==="hand"&&selected.side===side&&selected.piece===p?" sel":"";
+    html+=`<button class="handbtn ${side==='g'?'g':'s'}${sel}" data-hand-side="${side}" data-hand-piece="${p}"><span>${PIECE_JP[p]}</span><small>${n}</small></button>`;
+  }
+  return html||'<div class="handempty">なし</div>';
+}
+
+function renderBoard(host,state){
+  const {grid,turn,hands}=state;
+  let files='<div class="files">';
+  for(let f=9;f>=1;f--)files+=`<i>${f}</i>`;
+  files+='</div>';
+  const cands=candidateSquares(state);
+  const isCand=(r,c)=>cands.some(m=>m.r===r&&m.c===c);
+  let tbl='<table class="board editable">';
+  for(let r=0;r<9;r++){
+    tbl+='<tr>';
+    for(let f=0;f<9;f++){
+      const p=grid[r][f];
+      const sel=selected&&selected.kind==="board"&&selected.r===r&&selected.c===f?' sel':'';
+      const dst=selected&&moveTarget&&moveTarget.r===r&&moveTarget.c===f?' dst':'';
+      const can=isCand(r,f)?' can':'';
+      if(!p){tbl+=`<td data-r="${r}" data-c="${f}" class="${sel}${dst}${can}"></td>`;continue;}
+      const up=p.replace("+","").toUpperCase();
+      const base=(p[0]==="+"?"+":"")+up;
+      const isGote=p.replace("+","")===p.replace("+","").toLowerCase();
+      const label=PIECE_JP_BOARD[base]||"?";
+      const wide=label.length>1?" wide":"";
+      tbl+=`<td data-r="${r}" data-c="${f}" class="${isGote?'g':'s'}${sel}${dst}${can}"><span class="${wide.trim()}">${label}</span></td>`;
+    }
+    tbl+='</tr>';
+  }
+  tbl+='</table>';
+  let ranks='<div class="ranks">';
+  for(let r=0;r<9;r++)ranks+=`<i>${KAN_NUM[r+1]}</i>`;
+  ranks+='</div>';
+  host.innerHTML='<div class="brd">'+files+'<div class="bmid">'+tbl+ranks+'</div></div>';
+  document.getElementById("senteHandPc").innerHTML=renderHand("s",hands.s);
+  document.getElementById("goteHandPc").innerHTML=renderHand("g",hands.g);
+  const th=(DATA[curIdx]&&DATA[curIdx].theme)||"";
+  document.getElementById("turnLbl").innerHTML="手番 <b>"+(turn==="b"?"先手":"後手")+"</b>"+(th?`<span class="theme">${th}</span>`:"");
+  host.querySelectorAll("td[data-r]").forEach(td=>td.addEventListener("click",onBoardCellClick));
+  document.querySelectorAll("[data-hand-side]").forEach(btn=>btn.addEventListener("click",onHandClick));
+}
+
+function usiToJp(state,usi,prevDest){
+  const black=state.turn==="b",mark=black?"▲":"△";
+  let dest,jp,isDrop=usi.includes("*"),promote=usi.endsWith("+");
+  if(isDrop){
+    const piece=usi[0];
+    dest=usi.slice(2,4).replace("+","");
+    const d=sqToRC(dest);
+    jp=mark+ZEN_NUM[d.file]+KAN_NUM[d.r+1]+PIECE_JP[piece]+"打";
+    state.grid[d.r][d.c]=black?piece:piece.toLowerCase();
+    state.hands[black?"s":"g"][piece]--;
+  }else{
+    const from=usi.slice(0,2),to=usi.slice(2,4);
+    const f=sqToRC(from),t=sqToRC(to);
+    let mover=state.grid[f.r][f.c]||"P";
+    const baseUp=mover.replace("+","").toUpperCase();
+    const isSame=prevDest&&prevDest===to;
+    const pieceName=(mover[0]==="+")?PIECE_JP["+"+baseUp]:PIECE_JP[baseUp];
+    const sq=isSame?"同":ZEN_NUM[t.file]+KAN_NUM[t.r+1];
+    jp=mark+sq+pieceName+(promote?"成":"");
+    const cap=state.grid[t.r][t.c];
+    if(cap){
+      const cu=cap.replace("+","").toUpperCase();
+      state.hands[black?"s":"g"][cu]=(state.hands[black?"s":"g"][cu]||0)+1;
+    }
+    let np=mover;
+    if(promote)np=(mover[0]==="+"?mover:"+"+mover);
+    state.grid[t.r][t.c]=np;
+    state.grid[f.r][f.c]=null;
+  }
+  state.turn=black?"w":"b";
+  return {jp,dest:usi.slice(2,4).replace("+","")};
+}
+function renderSeq(sfen,moves){
+  const st=cloneState(sfen);let prev=null;const out=[];
+  for(const m of moves){const r=usiToJp(st,m,prev);out.push(r.jp);prev=r.dest;}
+  return out;
+}
+
+let curIdx=0;
+let initialState=null,currentState=null,selected=null,moveTarget=null,pendingPromotion=null;
+let playMode="answer",answerSolved=false;
+const POSKEY="shogibook_pos_"+BOOK_SLUG;
+
+function currentProblem(){return DATA[curIdx];}
+function currentAnswer(){return currentProblem().answer||null;}
+function currentAnswerUsi(){return (currentAnswer()&&currentAnswer().usi)||"";}
+function hasModeToggle(){return !!document.getElementById("modeGroup");}
+function supportsAutoJudge(p=currentProblem()){
+  return !!(hasModeToggle()&&p&&p.answer&&(p.answer.type==="next_move"||p.answer.type==="single")&&p.answer.usi);
+}
+function effectiveMode(p=currentProblem()){
+  if(chAnswering())return "answer";
+  if(!hasModeToggle())return "review";
+  if(playMode==="review")return "review";
+  return supportsAutoJudge(p)?"answer":"review";
+}
+function savePos(){if(ch)return;try{localStorage.setItem(POSKEY,curIdx);}catch(e){}}
+function loadPos(){try{const v=+localStorage.getItem(POSKEY);if(v>=0&&v<DATA.length)curIdx=v;}catch(e){}}
+function clearSelection(){selected=null;moveTarget=null;pendingPromotion=null;}
+function setPromotionBox(show){
+  const box=document.getElementById("promoBox");
+  if(box)box.classList.toggle("show",show);
+}
+function showAnswer(force){
+  const ans=document.getElementById("answer");
+  ans.classList.toggle("show",!!force);
+  document.getElementById("showBtn").textContent=ans.classList.contains("show")?"解答を隠す":"解答を見る";
+}
+function syncModeButtons(){
+  const ansBtn=document.getElementById("answerModeBtn");
+  const reviewBtn=document.getElementById("reviewModeBtn");
+  if(!ansBtn||!reviewBtn)return;
+  const judgeable=supportsAutoJudge();
+  ansBtn.disabled=!judgeable;
+  ansBtn.classList.toggle("active",judgeable&&playMode==="answer");
+  reviewBtn.classList.toggle("active",effectiveMode()==="review");
+}
+function resetBoardState(msg){
+  if(chAnswering()){chResetProblem();chSync();}
+  currentState=cloneBoardState(initialState);
+  answerSolved=false;
+  clearSelection();
+  renderBoard(document.getElementById("boardHost"),currentState);
+  syncBoardTools(msg);
+  clearEval();   // 盤が変わったら前の評価値は無効
+}
+function inPromotionZone(side,row){return side==="s"?row<=2:row>=6;}
+function canPromoteMove(mover,from,to){
+  if(!mover||isPromoted(mover))return false;
+  const base=basePieceOf(mover);
+  if(!PROMOTABLE[base])return false;
+  const side=sideOf(mover);
+  return inPromotionZone(side,from.r)||inPromotionZone(side,to.r);
+}
+function mustPromoteMove(mover,to){
+  const base=basePieceOf(mover),side=sideOf(mover);
+  if(side==="s"){
+    if((base==="P"||base==="L")&&to.r===0)return true;
+    if(base==="N"&&to.r<=1)return true;
+  }else{
+    if((base==="P"||base==="L")&&to.r===8)return true;
+    if(base==="N"&&to.r>=7)return true;
+  }
+  return false;
+}
+function buildMoveUsi(from,to,promote){return rcToSq(from.r,from.c)+rcToSq(to.r,to.c)+(promote?"+":"");}
+function buildDropUsi(sel,to){return sel.piece+"*"+rcToSq(to.r,to.c);}
+function playCorrectChime(){
+  try{
+    const Ctx=window.AudioContext||window.webkitAudioContext;
+    if(!Ctx)return;
+    const ctx=new Ctx();
+    const now=ctx.currentTime;
+    [784,1046].forEach((freq,i)=>{
+      const osc=ctx.createOscillator();
+      const gain=ctx.createGain();
+      osc.type="triangle";
+      osc.frequency.value=freq;
+      gain.gain.setValueAtTime(0.0001,now+i*0.16);
+      gain.gain.exponentialRampToValueAtTime(0.12,now+i*0.16+0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001,now+i*0.16+0.15);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now+i*0.16);
+      osc.stop(now+i*0.16+0.16);
+    });
+  }catch(e){}
+}
+function playErrorSound(){
+  try{
+    const Ctx=window.AudioContext||window.webkitAudioContext;
+    if(!Ctx)return;
+    const ctx=new Ctx();
+    const now=ctx.currentTime;
+    const osc=ctx.createOscillator();
+    const gain=ctx.createGain();
+    osc.type="sawtooth";
+    osc.frequency.value=130;
+    gain.gain.setValueAtTime(0.0001,now);
+    gain.gain.exponentialRampToValueAtTime(0.18,now+0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001,now+0.24);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now+0.25);
+  }catch(e){}
+}
+function syncBoardTools(msg){
+  const stat=document.getElementById("toolStatus");
+  const mode=effectiveMode();
+  syncModeButtons();
+  setPromotionBox(!!pendingPromotion);
+  if(msg){stat.innerHTML=msg;return;}
+  if(hasModeToggle()&&playMode==="answer"&&!supportsAutoJudge()){
+    stat.innerHTML="この問題は正解判定が未整備です。<br>検討モードで盤面を動かせます。";
+    return;
+  }
+  if(mode==="answer"&&answerSolved){
+    stat.innerHTML="正解です。<br>解答を表示しました。";
+    return;
+  }
+  if(pendingPromotion){
+    stat.innerHTML=mode==="answer"?"成る/成らないを選ぶと判定します。":"成る/成らないを選んでください。";
+    return;
+  }
+  if(selected){
+    if(selected.kind==="hand"){
+      stat.innerHTML=mode==="answer"
+        ?"打つマスを選んでください。<br>正解なら自動で解答を開きます。"
+        :`${selected.side==="s"?"先手":"後手"}の持ち駒 ${PIECE_JP[selected.piece]} を選択中<br>置きたいマスをタップしてください。`;
+      return;
+    }
+    const p=currentState.grid[selected.r][selected.c]||"";
+    const piece=boardPieceName(p);
+    stat.innerHTML=mode==="answer"
+      ?`${piece} を選択中<br>行き先をタップすると正解判定します。`
+      :`${piece} を選択中<br>${rcToLabel(selected.r,selected.c)} から動かす先をタップしてください。`;
+    return;
+  }
+  if(ch){
+    stat.innerHTML=chAnswering()?"挑戦中です。<br>本の正解手順を指してください。":"盤を自由に動かせます。<br>「次の問題」で進みます。";
+    return;
+  }
+  stat.innerHTML=mode==="answer"
+    ?"解答モードです。<br>正解手を指すと音を鳴らして解答を表示します。"
+    :"検討モードです。<br>駒を自由に動かして盤面を検討できます。";
+}
+async function copyCurrentSfen(){
+  const sfen=stateToSfen(currentState);
+  try{
+    await navigator.clipboard.writeText(sfen);
+    syncBoardTools("SFEN をコピーしました。<br>そのまま貼り付けできます。");
+  }catch(e){
+    const ta=document.createElement("textarea");
+    ta.value=sfen;document.body.appendChild(ta);ta.select();
+    try{
+      document.execCommand("copy");
+      syncBoardTools("SFEN をコピーしました。<br>そのまま貼り付けできます。");
+    }catch(_e){
+      syncBoardTools("コピーに失敗しました。<br>ブラウザの権限を確認してください。");
+    }
+    ta.remove();
+  }
+}
+// 評価値。EVAL_API が null (=公開版) のときはボタン自体が無いので呼ばれない。
+// 送るのは stateToSfen(currentState) ＝ 今の盤面 (駒を動かした後の局面)。
+// サーバは cp (先手基準) と winner だけを返し、推奨手・PV・詰み手数は返さない。
+async function runEval(){
+  if(!EVAL_API)return;
+  const btn=document.getElementById("evalBtn"),box=document.getElementById("evalBox");
+  btn.disabled=true;
+  box.innerHTML='<div class="lab">評価値</div><div class="val small">計算中… 6秒</div>';
+  try{
+    const res=await fetch(EVAL_API,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({sfen:stateToSfen(currentState)})});
+    const j=await res.json();
+    if(!j.available){
+      box.innerHTML='<div class="lab">評価値</div><div class="val small">—</div>'
+        +'<div class="note">'+esc(j.reason||"エンジンが使えません")+'</div>';
+      return;
+    }
+    if(j.winner){
+      box.innerHTML='<div class="lab">評価値</div>'
+        +'<div class="val small">'+(j.winner==="b"?"先手勝ち":"後手勝ち")+'（詰み）</div>';
+    }else if(j.cp!==null&&j.cp!==undefined){
+      box.innerHTML='<div class="lab">評価値</div>'
+        +'<div class="val">'+(j.cp>0?"+":"")+j.cp+'</div>'
+        +'<div class="note">先手基準</div>';
+    }else{
+      box.innerHTML='<div class="lab">評価値</div><div class="val small">—</div>'
+        +'<div class="note">評価できませんでした</div>';
+    }
+  }catch(e){
+    box.innerHTML='<div class="lab">評価値</div><div class="val small">—</div>'
+      +'<div class="note">'+esc(String(e.message||e))+'</div>';
+  }finally{btn.disabled=false;}
+}
+function clearEval(){
+  const box=document.getElementById("evalBox");
+  if(box)box.innerHTML='<div class="lab">評価値</div><div class="val small">—</div>';
+}
+
+let advanceTimer=null;
+function commitCorrect(commit){
+  answerSolved=true;
+  commit();
+  playCorrectChime();
+  showAnswer(true);
+  clearTimeout(advanceTimer);
+  if(curIdx<DATA.length-1){
+    syncBoardTools("正解です！<br>まもなく次の問題へ進みます。");
+    const at=curIdx;
+    advanceTimer=setTimeout(()=>{if(curIdx===at&&answerSolved)go(curIdx+1);},2200);
+  }else{
+    syncBoardTools("正解です！<br>最後の問題です。");
+  }
+}
+function judgeAttempt(usi,commit){
+  if(chAnswering())return chJudge(usi,commit);
+  if(effectiveMode()!=="answer")return false;
+  const cand=(currentAnswer()&&currentAnswer().candidates)||[];
+  if(usi===currentAnswerUsi()||cand.includes(usi)){
+    commitCorrect(commit);
+  }else{
+    clearSelection();
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools("違います。<br>もう一度どうぞ。");
+  }
+  return true;
+}
+function applyBoardMove(from,to,promote,msg){
+  const mover=currentState.grid[from.r][from.c];
+  if(!mover)return;
+  const target=currentState.grid[to.r][to.c];
+  if(target&&((target===target.toLowerCase())===(mover===mover.toLowerCase()))){
+    selected={kind:"board",r:to.r,c:to.c};
+    moveTarget=null;
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools();
+    return;
+  }
+  if(target){
+    const up=target.replace("+","").toUpperCase();
+    const side=mover===mover.toLowerCase()?"g":"s";
+    currentState.hands[side][up]=(currentState.hands[side][up]||0)+1;
+  }
+  const placed=(promote&&!isPromoted(mover))?("+"+mover):mover;
+  currentState.grid[to.r][to.c]=placed;
+  currentState.grid[from.r][from.c]=null;
+  currentState.turn=(mover===mover.toLowerCase())?"b":"w";
+  clearSelection();
+  renderBoard(document.getElementById("boardHost"),currentState);
+  syncBoardTools(msg||(promote?"成りました。<br>続けて盤面を動かせます。":"動かしました。<br>続けて盤面を動かせます。"));
+}
+function dropHandPiece(sel,to,msg){
+  const count=currentState.hands[sel.side][sel.piece]||0;
+  const reason=dropIllegalReason(currentState,sel.side,sel.piece,to.r,to.c);
+  if(reason&&!answerOverridesDrop(sel,to)){
+    if(count<=0)clearSelection();
+    moveTarget=null;
+    playIllegalSound();
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools(reason);
+    return;
+  }
+  currentState.hands[sel.side][sel.piece]=count-1;
+  if(!currentState.hands[sel.side][sel.piece])delete currentState.hands[sel.side][sel.piece];
+  currentState.grid[to.r][to.c]=sel.side==="s"?sel.piece:sel.piece.toLowerCase();
+  currentState.turn=sel.side==="s"?"w":"b";
+  clearSelection();
+  renderBoard(document.getElementById("boardHost"),currentState);
+  syncBoardTools(msg||"持ち駒を置きました。<br>続けて盤面を動かせます。");
+}
+function movePiece(from,to){
+  const mover=currentState.grid[from.r][from.c];
+  if(!mover)return;
+  if(!isLegalMove(currentState,from,to)&&!isAnswerAttempt(buildMoveUsi(from,to,false))){
+    moveTarget=null;
+    playIllegalSound();
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools(`${boardPieceName(mover)} はそこへは動けません。<br>緑の印のマスへ動かせます。`);
+    return;
+  }
+  if(canPromoteMove(mover,from,to)){
+    if(mustPromoteMove(mover,to)){
+      if(judgeAttempt(buildMoveUsi(from,to,true),()=>applyBoardMove(from,to,true,"正解です。<br>解答を表示しました。")))return;
+      applyBoardMove(from,to,true);
+      return;
+    }
+    pendingPromotion={from:{...from},to:{...to}};
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools();
+    return;
+  }
+  if(judgeAttempt(buildMoveUsi(from,to,false),()=>applyBoardMove(from,to,false,"正解です。<br>解答を表示しました。")))return;
+  applyBoardMove(from,to,false);
+}
+function resolvePromotion(promote){
+  if(!pendingPromotion)return;
+  const mv=pendingPromotion;
+  const usi=buildMoveUsi(mv.from,mv.to,promote);
+  if(judgeAttempt(usi,()=>applyBoardMove(mv.from,mv.to,promote,"正解です。<br>解答を表示しました。")))return;
+  applyBoardMove(mv.from,mv.to,promote);
+}
+function onHandClick(e){
+  if(chBusy)return;
+  if(pendingPromotion){playErrorSound();syncBoardTools("先に 成る / 成らない を選んでください。");return;}
+  if(effectiveMode()==="answer"&&answerSolved){playErrorSound();syncBoardTools("正解済みです。<br>次の問題へ進むか初期配置に戻してください。");return;}
+  const btn=e.currentTarget;
+  const side=btn.dataset.handSide,piece=btn.dataset.handPiece;
+  if(effectiveMode()==="answer"&&side!==sideToMove(currentState)){
+    playErrorSound();
+    syncBoardTools("手番側の持ち駒を選んでください。");
+    return;
+  }
+  if(selected&&selected.kind==="hand"&&selected.side===side&&selected.piece===piece){
+    clearSelection();
+  }else{
+    selected={kind:"hand",side,piece};
+    moveTarget=null;
+  }
+  renderBoard(document.getElementById("boardHost"),currentState);
+  syncBoardTools();
+}
+function onBoardCellClick(e){
+  if(chBusy)return;
+  if(pendingPromotion){playErrorSound();syncBoardTools("先に 成る / 成らない を選んでください。");return;}
+  if(effectiveMode()==="answer"&&answerSolved){playErrorSound();syncBoardTools("正解済みです。<br>次の問題へ進むか初期配置に戻してください。");return;}
+  const td=e.currentTarget;
+  const r=+td.dataset.r,c=+td.dataset.c;
+  const p=currentState.grid[r][c];
+  if(selected&&selected.kind==="hand"){
+    if(p){
+      if(effectiveMode()==="answer"&&sideOf(p)!==sideToMove(currentState)){
+        playErrorSound();
+        syncBoardTools("手番側の駒を選んでください。");
+        return;
+      }
+      selected={kind:"board",r,c};
+      moveTarget=null;
+      renderBoard(document.getElementById("boardHost"),currentState);
+      syncBoardTools();
+      return;
+    }
+    const dropNg=dropIllegalReason(currentState,selected.side,selected.piece,r,c);
+    if(dropNg&&!answerOverridesDrop(selected,{r,c})){
+      moveTarget=null;
+      playIllegalSound();
+      renderBoard(document.getElementById("boardHost"),currentState);
+      syncBoardTools(dropNg);
+      return;
+    }
+    moveTarget={r,c};
+    if(judgeAttempt(buildDropUsi(selected,{r,c}),()=>dropHandPiece(selected,{r,c},"正解です。<br>解答を表示しました。")))return;
+    dropHandPiece(selected,{r,c});
+    return;
+  }
+  if(!selected){
+    if(!p){playErrorSound();syncBoardTools("空きマスです。<br>動かしたい駒を選んでください。");return;}
+    if(effectiveMode()==="answer"&&sideOf(p)!==sideToMove(currentState)){
+      playErrorSound();
+      syncBoardTools("手番側の駒を選んでください。");
+      return;
+    }
+    selected={kind:"board",r,c};
+    moveTarget=null;
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools();
+    return;
+  }
+  if(selected.kind==="board"&&selected.r===r&&selected.c===c){
+    clearSelection();
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools();
+    return;
+  }
+  moveTarget={r,c};
+  if(selected.kind==="board"&&p&&((p===p.toLowerCase())===(currentState.grid[selected.r][selected.c]===currentState.grid[selected.r][selected.c].toLowerCase()))){
+    selected={kind:"board",r,c};
+    moveTarget=null;
+    renderBoard(document.getElementById("boardHost"),currentState);
+    syncBoardTools();
+    return;
+  }
+  if(selected.kind==="board")movePiece(selected,{r,c});
+}
+function buildAnswer(p,a){
+  if(a&&a.image_ans){
+    let s="<img class='ansimg' src='"+a.image_ans+"' alt='解答画像'>";
+    if(a.incomplete)s+="<div class='pending'>一部の解答情報は補完中です。</div>";
+    return s;
+  }
+  return _answerBody(p,a);
+}
+function esc(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function _answerBody(p,a){
+  if(!a)return "<div class='ans-h'>解答データなし</div>";
+  if(a.type==="final_move"){
+    if(a.explanation){
+      let s="<div class='ans-h'>解答</div>";
+      if(a.title)s+="<div class='movebig'>"+esc(a.title)+"</div>";
+      s+="<div class='expl'>"+esc(a.explanation)+"</div>";
+      if(a.captured)s+="<div class='captured'>持ち駒　"+esc(a.captured)+"</div>";
+      return s;
+    }
+    let s="<div class='ans-h'>解答</div>";
+    s+="<div class='movebig'>"+esc(a.move_jp)+" まで</div>";
+    if(a.incomplete)s+="<div class='note'>表記は一部省略しています。</div>";
+    return s;
+  }
+  if(a.type==="single"){
+    const jp=renderSeq(p.sfen,[a.usi])[0];
+    return "<div class='ans-h'>正解</div><div class='movebig'>"+jp+"</div>";
+  }
+  if(a.type==="next_move"){
+    const jp=a.usi ? renderSeq(p.sfen,[a.usi])[0] : (a.move_jp||"");
+    let s="<div class='ans-h'>正解</div>";
+    s+="<div class='movebig'>"+esc(jp||a.move_jp||"")+"</div>";
+    if(a.percent!=null)s+="<div class='note'>正解率 "+esc(String(a.percent))+"%</div>";
+    if(a.title)s+="<div class='captured'>"+esc(a.title)+"</div>";
+    if(a.explanation)s+="<div class='expl'>"+esc(a.explanation)+"</div>";
+    if(a.incomplete)s+="<div class='note'>一部の解答情報は補完中です。</div>";
+    return s;
+  }
+  if(a.type==="choice"){
+    let s="<div class='ans-h'>選択肢</div>";
+    for(const c of a.choices){
+      const ok=c.label===a.correct;
+      s+="<div class='choice"+(ok?" correct":"")+"'><span class='tag'>"+c.label+(ok?" 正解":"")+"</span>";
+      s+="<div class='mv'>"+c.move_jp+"</div>";
+      if(c.explanation)s+="<div class='ex'>"+c.explanation+"</div>";
+      s+="</div>";
+    }
+    return s;
+  }
+  if(a.type==="sequence"){
+    let s="";
+    if(a.kind)s+="<span class='kind'>"+a.kind+"</span>";
+    s+="<div class='ans-h'>正解手順</div>";
+    (a.sequences||[]).forEach((seq,si)=>{
+      const jps=renderSeq(p.sfen,seq);
+      const hi=(a.hisshi_index||[])[si];
+      s+="<div class='seq'>";
+      jps.forEach((mv,k)=>{
+        const isH=(hi!==undefined&&k===hi);
+        s+="<span class='ply"+(isH?" hisshi":"")+"'>"+(k+1)+". "+mv+"</span>";
+      });
+      s+="</div>";
+    });
+    if(a.wrong_sequences&&a.wrong_sequences.length){
+      s+="<div class='wrongseq'><div class='ans-h'>誤答例</div>";
+      a.wrong_sequences.forEach(seq=>{
+        const jps=renderSeq(p.sfen,seq);
+        s+="<div class='seq' style='opacity:.75'>"+jps.map((m,i)=>"<span class='ply'>"+(i+1)+". "+m+"</span>").join("")+"</div>";
+      });
+      s+="</div>";
+    }
+    return s;
+  }
+  return "<div class='ans-h'>未対応の解答形式です</div>";
+}
+function render(){
+  const p=currentProblem();
+  document.getElementById("curNo").textContent=p.problem_no;
+  document.getElementById("qmeta").textContent=p.label||p.chapter||"";
+  const sit=document.getElementById("situation");
+  if(p.situation){sit.style.display="block";sit.textContent=p.situation;}else sit.style.display="none";
+  initialState=parseSfen(p.sfen);
+  currentState=cloneBoardState(initialState);
+  answerSolved=false;
+  clearSelection();
+  renderBoard(document.getElementById("boardHost"),currentState);
+  document.getElementById("answer").innerHTML=buildAnswer(p,p.answer);
+  showAnswer(false);
+  syncBoardTools();
+  clearEval();
+  document.getElementById("jumpInp").value=p.problem_no;
+  savePos();
+  chToken++;
+  if(ch)chResetProblem();
+  chSync();
+}
+function go(n){clearTimeout(advanceTimer);curIdx=Math.max(0,Math.min(n,DATA.length-1));render();}
+
+document.getElementById("prevBtn").onclick=()=>{if(ch)return;go(curIdx-1);};
+document.getElementById("nextBtn").onclick=()=>{if(ch){chNext();return;}go(curIdx+1);};
+document.getElementById("showBtn").onclick=()=>{
+  if(chAnswering())return;
+  const ans=document.getElementById("answer");
+  showAnswer(!ans.classList.contains("show"));
+};
+if(document.getElementById("answerModeBtn"))document.getElementById("answerModeBtn").onclick=()=>{
+  if(!supportsAutoJudge())return;
+  playMode="answer";
+  resetBoardState();
+  showAnswer(false);
+};
+if(document.getElementById("reviewModeBtn"))document.getElementById("reviewModeBtn").onclick=()=>{
+  playMode="review";
+  resetBoardState();
+  showAnswer(false);
+};
+document.getElementById("resetBtn").onclick=()=>resetBoardState();
+document.getElementById("copySfenBtn").onclick=()=>copyCurrentSfen();
+if(document.getElementById("evalBtn"))document.getElementById("evalBtn").onclick=()=>runEval();
+document.getElementById("promoteBtn").onclick=()=>resolvePromotion(true);
+document.getElementById("stayBtn").onclick=()=>resolvePromotion(false);
+document.getElementById("jumpBtn").onclick=()=>{
+  const v=+document.getElementById("jumpInp").value;
+  const i=DATA.findIndex(p=>p.problem_no===v);
+  if(i>=0)go(i);
+};
+document.getElementById("jumpInp").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("jumpBtn").click();});
+let tx=0,ty=0;
+document.addEventListener("touchstart",e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
+document.addEventListener("touchend",e=>{
+  if(ch)return;
+  const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;
+  if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.6){if(dx<0)go(curIdx+1);else go(curIdx-1);}
+},{passive:true});
+function sizeBoard(){
+  const vv=window.visualViewport;
+  const w=(vv&&vv.width)||window.innerWidth;
+  const h=(vv&&vv.height)||window.innerHeight;
+  const twoCol=w>820;
+  const availH=(twoCol?h:h*0.60)-120;
+  const byH=availH/9.23;
+  const availW=(twoCol?w*0.50:w*0.96)-120;
+  const byW=availW/9.7;
+  const cell=Math.max(22,Math.min(80,Math.floor(Math.min(byH,byW))));
+  document.documentElement.style.setProperty("--cell",cell+"px");
+  document.documentElement.style.setProperty("--bw",(cell*10)+"px");
+}
+window.addEventListener("resize",sizeBoard);
+window.addEventListener("orientationchange",()=>setTimeout(sizeBoard,80));
+if(window.visualViewport)window.visualViewport.addEventListener("resize",sizeBoard);
+
+/* ===== 挑戦モード（CHALLENGE が null でない本だけ。ランダム出題） =====
+   groups の順に各組の Lv から出す（寄せの手筋200 は 1・2問目 Lv1、3・4問目 Lv2、5・6問目 Lv3）。
+   出した問題はブラウザに覚えておき、同じ組を一巡するまで同じ問題は出さない。
+   盤上で本の正解手順どおりに指し、必至点（hisshi_index）と5手目の遅いほうに着くか、
+   手順を指し切れば正解（手順が5手より短い問題は最後まで）。
+   <書籍>/challenge_end.json に手数（0 始まり）がある問題は、その手数で正解にする（ユーザー指定）。
+   本の手順と違う手を1回指したら不正解。ただし、指した後の局面が本のどれかの手順の
+   同じ手数目の局面と同じなら（例: 106 の ▲5二金左）正解として、その手順に乗り換える。
+   後手の応手は自動で指す。 */
+const CH_REPLY_DELAY_MS=450;
+const CH_BEST_KEY="shogibook_challenge_best_"+BOOK_SLUG;
+let ch=null;          // {list:[DATA index], res:[null|"ok"|"ng"|"pass"], pos, t0, back}
+let chSeqs=[],chAll=[],chPly=0,chBusy=false,chToken=0,chPassArmed=false;
+
+function levelOf(i){return (CHALLENGE&&CHALLENGE.levels[DATA[i].problem_no])||0;}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function chAnswering(){return !!ch&&ch.res[ch.pos]===null;}
+// 出した問題の problem_no を古い順に覚えておく。出題はまだ出していない問題から選び、
+// 出し尽くしたら出したのが古い問題から選ぶ（同じ組の問題を一巡するまで同じ問題は出ない）
+const CH_SEEN_KEY="shogibook_challenge_seen_"+BOOK_SLUG;
+function chLoadSeen(){try{const a=JSON.parse(localStorage.getItem(CH_SEEN_KEY)||"[]");return Array.isArray(a)?a:[];}catch(e){return [];}}
+function chMarkSeen(i){
+  const no=DATA[i].problem_no,a=chLoadSeen().filter(x=>x!==no);
+  a.push(no);
+  try{localStorage.setItem(CH_SEEN_KEY,JSON.stringify(a.slice(-DATA.length)));}catch(e){}
+}
+function chPick(){
+  const C=CHALLENGE,seen=chLoadSeen(),age=new Map(seen.map((no,k)=>[no,k]));
+  const rank=i=>age.has(DATA[i].problem_no)?age.get(DATA[i].problem_no):-1;
+  // シャッフルしてから、まだ出していない問題 → 出したのが古い問題 の順に並べ直す（同順位はシャッフル順のまま）
+  const ok=DATA.map((p,i)=>i).filter(i=>((DATA[i].answer&&DATA[i].answer.sequences)||[]).some(s=>s.length));
+  // g.ch があればその章の問題だけ、g.not_ch があればその章を除く。order==="no" は組ごとに問題番号の順へ並べる
+  const inGroup=(i,g)=>g.lv.includes(levelOf(i))&&(!g.ch||g.ch.includes(DATA[i].ch))&&(!g.not_ch||!g.not_ch.includes(DATA[i].ch));
+  const take=g=>{
+    const a=shuffle(ok.filter(i=>inGroup(i,g))).sort((x,y)=>rank(x)-rank(y)).slice(0,g.n);
+    return C.order==="no"?a.sort((x,y)=>DATA[x].problem_no-DATA[y].problem_no):a;
+  };
+  return C.groups.flatMap(take);
+}
+function chResetProblem(){
+  const a=currentAnswer()||{},hi=a.hisshi_index||[];
+  const end=CHALLENGE.ends?CHALLENGE.ends[currentProblem().problem_no]:null;
+  // 終わりの手数の指定があればそこまで。無ければ、解答図が5手目より前の問題は5手目（または詰み）まで指させる
+  chAll=(a.sequences||[]).map((s,i)=>{const c=s.slice();
+    c.hisshi=end!=null?Math.min(end,s.length-1):hi[i]!=null?Math.max(hi[i],Math.min(4,s.length-1)):null;return c;}).filter(s=>s.length);
+  chSeqs=chAll.slice();
+  chPly=0;chBusy=false;chPassArmed=false;chToken++;
+}
+function chExpected(){const set=new Set();for(const s of chSeqs)if(s.length>chPly)set.add(s[chPly]);return set;}
+function chStateKey(st){
+  const h=side=>Object.keys(st.hands[side]).filter(k=>st.hands[side][k]>0).sort().map(k=>k+st.hands[side][k]).join("");
+  return boardToSfen(st.grid)+" "+st.turn+" "+h("s")+"/"+h("g");
+}
+// usi を指した後の局面が、本の手順の chPly+1 手目の局面と同じになる手順を返す
+function chTransposed(usi){
+  const after=cloneBoardState(currentState);
+  usiToJp(after,usi,null);
+  const key=chStateKey(after);
+  return chAll.filter(s=>{
+    if(s.length<=chPly)return false;
+    const st=cloneBoardState(initialState);
+    for(let k=0;k<=chPly;k++)usiToJp(st,s[k],null);
+    return chStateKey(st)===key;
+  });
+}
+function chReached(){
+  return chSeqs.some(s=>s.length===chPly)||chSeqs.some(s=>s.hisshi!=null&&s.hisshi===chPly-1);
+}
+function chSetStatus(msg,cls){
+  document.getElementById("chMsg").innerHTML=msg;
+  document.getElementById("chStatus").className="chstatus"+(cls?" "+cls:"");
+}
+function chToast(text,cls){
+  const t=document.getElementById("chToast");
+  t.textContent=text;t.className="chtoast "+cls;void t.offsetWidth;t.classList.add("show");
+  clearTimeout(chToast._t);chToast._t=setTimeout(()=>t.classList.remove("show"),1100);
+}
+function chSync(){
+  document.body.classList.toggle("ch-on",!!ch);
+  const btn=document.getElementById("chBtn");
+  if(btn){
+    btn.textContent=ch?"挑戦をやめる":"🏆 挑戦 "+CHALLENGE.n+"問";
+    btn.classList.toggle("active",!!ch);
+  }
+  const prev=document.getElementById("prevBtn"),next=document.getElementById("nextBtn"),show=document.getElementById("showBtn");
+  if(!ch){
+    document.getElementById("chHud").innerHTML="";
+    prev.disabled=false;show.disabled=false;next.textContent="次の問題 ▶";
+    return;
+  }
+  const C=CHALLENGE;
+  document.getElementById("chHud").innerHTML=ch.list.map((i,k)=>{
+    const r=ch.res[k];
+    const cls=(k>=C.hard_from?" hard":"")+(k===ch.pos?" cur":"")+(r==="ok"?" ok":r?" ng":"");
+    return `<span class="chdot${cls}">${r==="ok"?"○":r?"✕":k+1}</span>`;
+  }).join("");
+  const lv=levelOf(curIdx),hardQ=ch.pos>=C.hard_from;
+  document.getElementById("chHead").innerHTML=`挑戦 <b>${ch.pos+1}</b> / ${C.n} 問目`
+    +(lv?`<span class="chlv${hardQ?" hard":""}">Lv${lv}${hardQ?" 難問":""}</span>`:"");
+  prev.disabled=true;
+  show.disabled=chAnswering();
+  next.textContent=ch.pos>=C.n-1?"結果を見る ▶":"次の問題 ▶";
+  if(chAnswering()&&chPly===0)chSetStatus("先手の番です。<br>本の正解手順どおりに指してください。");
+}
+function chStart(){
+  const list=chPick();
+  if(list.length<CHALLENGE.n){alert("出題できる問題が足りません。");return;}
+  document.getElementById("chResult").classList.remove("show");
+  ch={list,res:Array(CHALLENGE.n).fill(null),pos:0,t0:Date.now(),back:ch?ch.back:curIdx};
+  chMarkSeen(list[0]);
+  go(list[0]);
+}
+function chStop(backIdx){
+  const back=backIdx!=null?backIdx:(ch?ch.back:curIdx);
+  ch=null;chBusy=false;
+  document.getElementById("chResult").classList.remove("show");
+  go(back);
+}
+function chFinish(r){
+  ch.res[ch.pos]=r;chBusy=false;chPassArmed=false;
+  if(r==="ok"){playCorrectChime();chToast("正解！","ok");chSetStatus("〇 正解です！<br>「次の問題」で進みます。","ok");}
+  else{
+    playIllegalSound();chToast(r==="pass"?"パス":"不正解","ng");
+    chSetStatus(r==="pass"?"パスしました。":"✕ 本の手順と違います。<br>解答を確認してください。","ng");
+  }
+  clearSelection();
+  renderBoard(document.getElementById("boardHost"),currentState);
+  showAnswer(true);
+  chSync();
+  syncBoardTools();
+}
+function chJudge(usi,commit){
+  if(chBusy)return true;
+  const alt=chExpected().has(usi)?null:chTransposed(usi);
+  if(alt&&!alt.length){chFinish("ng");return true;}
+  commit();
+  syncBoardTools();
+  chSeqs=alt||chSeqs.filter(s=>s[chPly]===usi);chPly++;
+  if(chReached()){chFinish("ok");return true;}
+  chBusy=true;
+  chSetStatus(alt?"本の別の手順と同じ局面になりました。<br>相手の応手を待ってください…":"その調子です。相手の応手を待ってください…");
+  const token=chToken,reply=chSeqs[0][chPly];
+  setTimeout(()=>{
+    if(token!==chToken||!chAnswering())return;
+    usiToJp(currentState,reply,null);
+    chSeqs=chSeqs.filter(s=>s[chPly]===reply);chPly++;
+    chBusy=false;
+    renderBoard(document.getElementById("boardHost"),currentState);
+    if(chSeqs.some(s=>s.length===chPly)){chFinish("ok");return;}
+    chSetStatus("正しい手順です。続けて指してください。");
+  },CH_REPLY_DELAY_MS);
+  return true;
+}
+function chNext(){
+  if(chAnswering()){
+    if(!chPassArmed){
+      chPassArmed=true;
+      chSetStatus("まだ解いていません。<br>もう一度押すとパス（不正解）で次へ進みます。","ng");
+      return;
+    }
+    chFinish("pass");
+  }
+  if(ch.pos>=CHALLENGE.n-1){chShowResult();return;}
+  ch.pos++;
+  chMarkSeen(ch.list[ch.pos]);
+  go(ch.list[ch.pos]);
+}
+function chFmtTime(ms){const s=Math.round(ms/1000);return Math.floor(s/60)+"分"+String(s%60).padStart(2,"0")+"秒";}
+function chShowResult(){
+  const n=CHALLENGE.n,score=ch.res.filter(r=>r==="ok").length,ms=Date.now()-ch.t0;
+  let best=null;
+  try{best=JSON.parse(localStorage.getItem(CH_BEST_KEY)||"null");}catch(e){}
+  const isBest=!best||score>best.score||(score===best.score&&ms<best.ms);
+  if(isBest){best={score,ms};try{localStorage.setItem(CH_BEST_KEY,JSON.stringify(best));}catch(e){}}
+  const cmt=score===n?"全問正解！ お見事です":score>=n-1?"あと一歩！":score>=Math.ceil(n/2)?"よくできました":"もう一度挑戦してみましょう";
+  const rows=ch.list.map((i,k)=>{
+    const r=ch.res[k],lv=levelOf(i);
+    return `<div class="chrow"><span class="mk ${r==="ok"?"ok":"ng"}">${r==="ok"?"○":"✕"}</span>`
+      +`<span class="tx">${k+1}問目　第${DATA[i].problem_no}問 <small>Lv${lv}${r==="pass"?"・パス":""}</small></span>`
+      +`<button data-ch-review="${i}">見直す</button></div>`;
+  }).join("");
+  document.getElementById("chCard").innerHTML=
+    `<h2>🏆 挑戦結果</h2><div class="score">${score}<small> / ${n}</small></div>`
+    +`<div class="cmt">${cmt}</div>`
+    +`<div class="sub">タイム ${chFmtTime(ms)}${isBest?"　★自己ベスト":best?"　自己ベスト "+best.score+"問・"+chFmtTime(best.ms):""}</div>`
+    +rows
+    +`<div class="chacts"><button id="chAgain" class="primary">もう一度挑戦</button><button id="chEnd">終了</button></div>`;
+  document.getElementById("chResult").classList.add("show");
+  document.getElementById("chAgain").onclick=chStart;
+  document.getElementById("chEnd").onclick=()=>chStop();
+  document.querySelectorAll("[data-ch-review]").forEach(b=>b.onclick=()=>chStop(+b.dataset.chReview));
+}
+if(document.getElementById("chBtn"))document.getElementById("chBtn").onclick=()=>{
+  if(!ch){chStart();return;}
+  if(confirm("挑戦をやめますか？"))chStop();
+};
+
+/* ===== 解答手順の自動再生（ラクラク次の一手のみ。この塊は laku.html にだけ入る） =====
+   「解答を見る」で問題局面から answer.line（無ければ [answer.usi]）を REPLAY_MS ごとに1手ずつ盤へ出す。
+   各局面を先に作って配列に持ち、tick は「今の世代か」を確かめてから ply を進める
+   （世代 rp.gen を問題切替・隠す・初期配置・モード切替で必ず進める＝残ったタイマーは何もしない）。 */
+const REPLAY_MS=2000;
+const rp={gen:0,timer:null,opened:false,active:false,paused:false,
+  states:[],jps:[],dests:[],ply:0,hl:null,onEnd:null};
+function rpLine(p){
+  const a=p&&p.answer;
+  if(!a||a.type!=="single"||!a.usi)return null;
+  return (Array.isArray(a.line)&&a.line.length)?a.line:[a.usi];
+}
+function rpStopTimers(){
+  rp.gen++;
+  if(rp.timer){clearTimeout(rp.timer);rp.timer=null;}
+  rp.active=false;rp.paused=false;rp.hl=null;rp.onEnd=null;
+}
+function rpErr(){
+  if(typeof playIllegalSound==="function")playIllegalSound();
+  else if(typeof playErrorSound==="function")playErrorSound();
+}
+// 着手音（公開版の playMoveClick。無い版では鳴らさない）。iPad は押下の操作中に AudioContext を起こしておく
+function rpClick(){try{if(typeof playMoveClick==="function")playMoveClick();}catch(e){}}
+function rpUnlockAudio(){try{if(typeof getMoveAudioContext==="function")getMoveAudioContext(true);}catch(e){}}
+function rpKey(st){return JSON.stringify([st.grid,st.turn,st.hands]);}
+function rpClearEval(){if(typeof clearEval==="function")clearEval();}
+function rpBuild(p){
+  const line=rpLine(p);
+  const st=cloneState(p.sfen);
+  rp.states=[cloneBoardState(st)];rp.jps=[];rp.dests=[];
+  let prev=null;
+  for(const m of line){
+    const r=usiToJp(st,m,prev);prev=r.dest;
+    rp.jps.push(r.jp);rp.dests.push(r.dest);
+    rp.states.push(cloneBoardState(st));
+  }
+}
+function rpCtl(){
+  const b=document.getElementById("rpPause");
+  if(!b)return;
+  const fin=rp.opened&&!rp.active;
+  b.textContent=rp.paused?"再開":"停止";
+  b.disabled=fin;
+}
+function rpMarkSeq(){
+  const host=document.getElementById("rpSeq");
+  if(!host)return;
+  host.querySelectorAll(".ply").forEach((el,k)=>{
+    el.classList.toggle("cur",k===rp.ply-1);
+    el.classList.toggle("done",k<rp.ply-1);
+  });
+}
+function rpShow(k){
+  rp.ply=k;
+  currentState=cloneBoardState(rp.states[k]);
+  rp.hl=k>0?sqToRC(rp.dests[k-1]):null;
+  clearSelection();
+  renderBoard(document.getElementById("boardHost"),currentState);
+  rpMarkSeq();rpCtl();
+  rpClearEval();
+}
+function rpFinish(){
+  rp.timer=null;rp.active=false;rp.paused=false;
+  answerSolved=true;
+  rpCtl();
+  syncBoardTools("解答の再生が終わりました。<br>「最初から」で見直せます。");
+  const f=rp.onEnd;rp.onEnd=null;
+  if(f)f();
+}
+function rpSchedule(){
+  const g=rp.gen;
+  if(rp.ply>=rp.jps.length){rpFinish();return;}
+  rp.timer=setTimeout(()=>{
+    if(g!==rp.gen||!rp.active||rp.paused)return;     // 古い世代・停止中は何もしない
+    rpShow(rp.ply+1);
+    rpClick();
+    syncBoardTools("解答を再生中… "+rp.ply+" / "+rp.jps.length+" 手");
+    rpSchedule();
+  },REPLAY_MS);
+}
+function rpStart(fromSolved){
+  rpUnlockAudio();
+  const p=currentProblem();
+  if(!rpLine(p))return;
+  const onEnd=rp.onEnd;
+  rpStopTimers();rp.onEnd=onEnd;
+  try{rpBuild(p);}catch(e){rp.onEnd=null;return;}
+  rp.opened=true;rp.active=true;rp.paused=false;
+  answerSolved=false;
+  // 正解手を指した直後なら、その局面（1手目後）から続ける。違う局面（別解）なら初期局面から
+  let k=0;
+  if(fromSolved&&rpKey(currentState)===rpKey(rp.states[1]))k=1;
+  rpShow(k);
+  syncBoardTools("解答を再生中… "+k+" / "+rp.jps.length+" 手");
+  rpSchedule();
+}
+function rpRestart(){
+  if(!rp.opened)return;
+  rpUnlockAudio();
+  const onEnd=rp.onEnd;
+  rpStopTimers();rp.onEnd=onEnd;
+  rp.active=true;answerSolved=false;
+  rpShow(0);
+  syncBoardTools("解答を再生中… 0 / "+rp.jps.length+" 手");
+  rpSchedule();
+}
+function rpTogglePause(){
+  if(!rp.opened||!rp.active)return;
+  rpUnlockAudio();
+  if(rp.paused){
+    rp.paused=false;rpCtl();
+    syncBoardTools("解答を再生中… "+rp.ply+" / "+rp.jps.length+" 手");
+    rpSchedule();
+  }else{
+    rp.paused=true;rp.gen++;
+    if(rp.timer){clearTimeout(rp.timer);rp.timer=null;}
+    rpCtl();
+    syncBoardTools("一時停止中です。<br>「再開」で続きを再生します。");
+  }
+}
+// 再生を止めて盤を問題局面へ戻す（解答を開いていたときだけ）
+function rpStop(){
+  const was=rp.opened;
+  rpStopTimers();rp.opened=false;
+  if(was)resetBoardState();
+}
+
+// ---- 表示から90秒たったら「解答を表示しますか?」と聞く（1問につき1回。はい=解答、いいえ=そのまま） ----
+const ASK_MS=90000;
+const rpAsk={gen:0,timer:null,box:null};
+function rpAskClose(){if(rpAsk.box)rpAsk.box.style.display="none";}
+function rpAskCancel(){
+  rpAsk.gen++;
+  if(rpAsk.timer){clearTimeout(rpAsk.timer);rpAsk.timer=null;}
+  rpAskClose();
+}
+function rpAskOpen(){
+  if(!rpAsk.box){
+    const d=document.createElement("div");
+    d.style.cssText="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55)";
+    d.innerHTML="<div style='background:#2a3140;border:2px solid var(--accent);border-radius:16px;padding:22px 26px;max-width:min(420px,88vw);text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.6)'>"
+      +"<div style='font-size:19px;font-weight:700;line-height:1.7;margin-bottom:18px'>90秒経ちました。<br>解答を表示しますか？</div>"
+      +"<div style='display:flex;gap:12px'><button class='toolbtn' data-ask='yes' style='background:var(--accent);color:#1b1b1b'>はい</button>"
+      +"<button class='toolbtn' data-ask='no'>いいえ</button></div></div>";
+    d.addEventListener("click",e=>{
+      const b=e.target.closest&&e.target.closest("[data-ask]");
+      if(!b)return;
+      rpAskClose();
+      if(b.dataset.ask==="yes")showAnswer(true);
+    });
+    document.body.appendChild(d);
+    rpAsk.box=d;
+  }
+  rpAsk.box.style.display="flex";
+}
+function rpAskArm(){
+  rpAskCancel();
+  const g=rpAsk.gen,at=curIdx;
+  rpAsk.timer=setTimeout(()=>{
+    rpAsk.timer=null;
+    if(g!==rpAsk.gen||curIdx!==at)return;                    // 問題が変わっていたら出さない
+    if(rp.opened||document.getElementById("answer").classList.contains("show"))return;   // もう解答を見ている
+    rpAskOpen();
+  },ASK_MS);
+}
+
+// ---- 既存関数への差し込み（宣言を差し替える。呼び出し側は名前で参照するので有効） ----
+const _rpShowAnswer=showAnswer;
+showAnswer=function(force){
+  _rpShowAnswer(force);
+  if(force)rpAskCancel();            // 解答を開いたら90秒の確認は不要（隠しても再度は聞かない）
+  if(!force){rpStop();return;}
+  if(!rp.opened)rpStart(answerSolved);
+};
+const _rpResetBoardState=resetBoardState;
+resetBoardState=function(msg){
+  rpStopTimers();rp.opened=false;
+  _rpResetBoardState(msg);
+  rpCtl();
+};
+const _rpGo=go;
+go=function(n){rpStopTimers();rp.opened=false;_rpGo(n);rpAskArm();};
+const _rpRenderBoard=renderBoard;
+renderBoard=function(host,state){
+  _rpRenderBoard(host,state);
+  if(rp.hl){
+    const td=host.querySelector('td[data-r="'+rp.hl.r+'"][data-c="'+rp.hl.c+'"]');
+    if(td)td.classList.add("last");
+  }
+};
+const _rpCellClick=onBoardCellClick,_rpHandClick=onHandClick;
+onBoardCellClick=function(e){
+  if(rp.opened&&rp.active){rpErr();return;}   // 再生中・停止中は盤を触らせない
+  rp.hl=null;_rpCellClick(e);
+};
+onHandClick=function(e){
+  if(rp.opened&&rp.active){rpErr();return;}
+  rp.hl=null;_rpHandClick(e);
+};
+// 正解手を指したとき: 解答を開いて2手目以降を再生する（自動で次の問題へは進まない）
+commitCorrect=function(commit){
+  answerSolved=true;
+  commit();
+  playCorrectChime();
+  clearTimeout(advanceTimer);
+  showAnswer(true);
+  if(!rp.opened)syncBoardTools("正解です！<br>「次の問題」で進みます。");
+};
+const _rpBuildAnswer=buildAnswer;
+buildAnswer=function(p,a){
+  const line=rpLine(p);
+  if(!line)return _rpBuildAnswer(p,a);
+  let s;
+  if(a.heading||a.explanation){
+    s="<div class='ans-h'>正解</div>";
+    if(a.heading)s+="<div class='movebig'>"+esc(a.heading)+"</div>";
+    if(a.caption)s+="<div class='note'>"+esc(a.caption)+"</div>";
+    if(a.explanation)s+="<div class='expl'>"+esc(a.explanation)+"</div>";
+  }else s=_rpBuildAnswer(p,a);
+  if(a.engine_alts&&a.engine_alts.length){
+    let alts=[];
+    try{alts=a.engine_alts.map(u=>renderSeq(p.sfen,[u])[0]);}catch(e){}
+    if(alts.length)s+="<div class='note'>別解（水匠5が同等以上と評価）: "+alts.join("、")+"</div>";
+  }
+  let jps=[];
+  try{jps=renderSeq(p.sfen,line);}catch(e){}
+  s+="<div class='rpbox'><div class='ans-h'>解答手順（"+jps.length+"手）</div><div class='seq' id='rpSeq'>"
+    +jps.map((m,k)=>"<span class='ply'>"+(k+1)+". "+m+"</span>").join("")
+    +"</div><div class='rpctl'><button class='toolbtn' id='rpPause' data-rp='pause'>停止</button>"
+    +"<button class='toolbtn' id='rpRestart' data-rp='restart'>最初から</button></div></div>";
+  return s;
+};
+rpAskArm();     // 最初に開いた問題
+document.getElementById("answer").addEventListener("click",e=>{
+  const b=e.target.closest&&e.target.closest("[data-rp]");
+  if(!b)return;
+  if(b.dataset.rp==="pause")rpTogglePause();else rpRestart();
+});
+document.getElementById("total").textContent=DATA.length;
+loadPos();sizeBoard();render();setTimeout(sizeBoard,60);
+
+</script></body></html>
